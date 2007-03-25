@@ -1,0 +1,526 @@
+#!/bin/bash
+
+# $Rev: 241 $ $Date: 2007-04-10 21:44:17 +0200 (dt, 10 abr 2007) $
+
+declare -r VERSION="0.99a"
+
+# Options
+declare -i interval=300 # Interval of captures (= numsecs / numcaps)
+declare -i numcaps=16   # Number of captures (= numsecs / interval)
+
+declare user=$(id -un)
+declare -r USER_SIGNATURE="Preview created by"
+declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION}"
+
+# Options used in imagemagick, these options set the final aspect
+# of the contact sheet so tweak them to your liking
+#
+declare -i OUTPUT_QUALITY=92	  # Output image quality (only affects the final image,
+								  # and only in lossy formats)
+# Colours, see convert -list color
+declare -r BG_META=YellowGreen	  # Background for meta info (size, codec...)
+declare -r BG_SIGN=SandyBrown	  # Background for signature
+declare -r FG_META=black		  # Font colour for meta info box
+declare -r FG_SIGN=black		  # Font colour for signature
+declare -r FG_STAMPS=white		  # Font colour for timestamps
+# Fonts, see convert -list type
+declare -r FONT_STAMPS=courier	  # Used for timestamps behind the thumbnails
+declare -r FONT_META=helvetica	  # Used for meta info box
+declare -r FONT_SIGN=$FONT_META   # Used for the signature box
+# Font sizes, in points
+declare -i PS_STAMPS=18			  # Used for the timestamps
+declare -i PS_META=16			  # Used for the meta info box
+declare -i PS_SIGN=11			  # Used for the signature
+
+# Constants and other internal usage variables, no need to mess with this!
+# Which of the two methods should be used to guess the number of thumbnails
+declare -ri INTERVAL=1 NUMCAPS=3
+declare -i derive_from=$INTERVAL
+declare -ri DEFAULT_INTERVAL=$interval
+
+# Internal variables:
+declare title=""
+declare -i fromtime=0 # Starting second (see -f)
+declare -i totime=-1  # Ending second (see -t)
+declare initial_stamps=( ) # Stamps added to the calculated ones (see -S)
+declare OUTFMT=png
+
+# {{{ # Convenience functions
+
+is_number() {
+	egrep -q '^[0-9]+$' <<<"$1"
+	return $?
+}
+
+get_interval() {
+	if is_number "$1" ; then echo $1 ; return 0 ; fi
+
+	local s=$(tr '[A-Z]' '[a-z]' <<<"$1")
+	local len_n=$(( ${#s} - 1 )) # Length of the theoretical numeric part
+	local u=${s:$len_n}
+	local n=${s:0:$len_n}
+	local i=0
+
+	if ! is_number "$n" ; then return 1 ; fi
+
+	case "$u" in
+		s) i=$n ;;
+		m) i=$((n * 60)) ;;
+		h) i=$((n * 3600)) ;;
+		*) return 2 ; break ;;
+	esac
+
+	echo $i
+}
+
+pad() {
+	local len=$1
+	local str=$2
+
+	while [ ${#str} -lt $len ]; do
+		str=0$str
+	done
+
+	echo $str
+}
+
+pretty_stamp() {
+	if ! is_number "$1" ; then return 1 ; fi
+
+	local t=$1
+	local h=$(( $t / 3600 ))
+	t=$(( $t % 3600 ))
+	local m=$(( $t / 60 ))
+	t=$(( $t % 60 ))
+	local s=$t
+
+	local R=""
+
+	if [ $h -gt 0 ]; then
+		R+="$h:"
+	fi
+	R+=$(pad 2 "$m"):$(pad 2 $s)
+
+	echo $R
+}
+
+get_pretty_size() {
+	local f="$1"
+
+	local bytes=$(du -DL --bytes "$f" | cut -f1)
+	local size=""
+
+	if [ "$bytes" -gt $(( 1024**3 )) ]; then
+		local gibs=$(( $bytes / 1024**3 ))
+		local mibs=$(( ( $bytes % 1024**3 ) / 1024**2 ))
+		size="${gibs}.${mibs:0:2} GiB"
+	elif [ "$bytes" -gt $(( 1024**2)) ]; then
+		local mibs=$(( $bytes / 1024**2 ))
+		local kibs=$(( ( $bytes % 1024**2 ) / 1024 ))
+		size="${mibs}.${kibs:0:2} MiB"
+	elif [ "$bytes" -gt 1024 ]; then
+		local kibs=$(( $bytes / 1024 ))
+		bytes=$(( $bytes % 1024 ))
+		size="${kibs}.${bytes:0:2} KiB"
+	else
+		size="${bytes} B"
+	fi
+
+	echo $size
+}
+
+# Rename a file, if the target exists, try with -1, -2, ...
+safe_rename() {
+	local from="$1"
+	local to="$2"
+
+	local ext=$(sed -r 's/.*\.(.*)/\1/g' <<<"$to")
+
+	local n=1
+	while [ -f "$to" ]; do
+		to="$(basename "$2" .$ext)-$n.$ext"
+		n=$(( $n + 1))
+	done
+
+	mv "$from" "$to"
+}
+
+test_programs() {
+	for prog in mplayer convert montage ffmpeg ; do
+		type -pf "$prog" >/dev/null
+		local retval=$?
+		if [ $retval -ne 0 ] ; then
+			error "Required program $prog not found!"
+			return $retval
+		fi
+	done
+}
+
+# Print some text to stderr
+error() {
+	echo "$1" >&2
+}
+
+# }}} # Convenience functions
+
+# {{{ # Core functionality
+
+process() {
+	local f=$1
+
+	local COLS=2
+
+	if [ ! -f "$f" ]; then
+		error "File \"$f\" doesn't exist"
+		return 100
+	fi
+	echo "Processing $f..." >&2
+
+	# Meta data extraction
+	# Don't change the -vc as it would affect $vdec
+	local mplayer_cache=$(mplayer -benchmark -ao null -vo null -identify -frames 0 -quiet "$f" 2>/dev/null | grep ^ID)
+	local vcodec=$(grep ID_VIDEO_FORMAT <<<"$mplayer_cache" | cut -d'=' -f2) # FourCC
+	local acodec=$(grep ID_AUDIO_FORMAT <<<"$mplayer_cache" | cut -d'=' -f2)
+	local vdec=$(grep ID_VIDEO_CODEC <<<"$mplayer_cache" | cut -d'=' -f2) # Decoder
+	local width=$(grep ID_VIDEO_WIDTH <<<"$mplayer_cache" | cut -d'=' -f2)
+	local height=$(grep ID_VIDEO_HEIGHT <<<"$mplayer_cache" | cut -d'=' -f2)
+	local fps=$(grep ID_VIDEO_FPS <<<"$mplayer_cache" | cut -d'=' -f2)
+	# Vidcap/Thumbnail width TODO: allow user interaction
+	local th_width=$width
+
+	local numsecs=$(grep ID_LENGTH <<<"$mplayer_cache"| cut -d'=' -f2 | cut -d. -f1)
+	
+	if ! is_number $numsecs ; then
+		error "Internal error!"
+		return 15
+	fi
+
+	local nc=$numcaps
+	local in=$interval
+
+	# Start bound:
+	local startsec=0
+	if [ $startsec -lt $fromtime ]; then
+		startsec=$fromtime
+	fi
+
+	# End bound:
+	local endsec=$numsecs
+	if [ $totime -ne -1 ] && [ $endsec -gt $totime ]; then
+		endsec=$totime
+	fi
+
+	local delta=$(( $endsec - $startsec ))
+	# FIXME: the total # of caps is currently broken when using -f and -t
+
+	# Note that when numcaps mandates the interval is obtained from
+	# the actually allowed secods (hence it is not movie_length / numcaps )
+	# Adjust interval/numcaps:
+	if [ "$derive_from" -eq "$INTERVAL" ]; then
+		# Interval rules => it doesn't change
+		nc=$(( $delta / $interval ))
+		# If a multiple, an extra vidcap is generated (at the last second)
+		if [ $(( $delta % $interval )) -eq 0 ]; then
+			nc=$(( $nc + 1 ))
+		fi
+	elif [ "$derive_from" -eq "$NUMCAPS" ]; then
+		# Numcaps rules => it doesn't change
+		in=$(( $numsecs / $numcaps ))
+	else
+		error "Internal error!"
+		return 145
+	fi
+
+	# Let's try to make some sense...
+	# Minimum interval allowance:
+	if [ $in -gt $numsecs ]; then
+		error "The interval is longer than the video length."
+		error "Use a lower interval or numcaps instead."
+		error "Skipping \"$f\"."
+		return 16
+	fi
+	# Contact sheet minimum cols:
+	if [ $nc -lt $COLS ]; then
+		COLS=$nc
+	fi
+
+	# Tempdir
+
+	local dir=$(mktemp -d -p . vcs.XXXXXX)
+	if [ "$?" -ne 0 ]; then
+		error "Error creating temporary directory"
+		return 17
+	fi
+
+	# Get the stamps...
+
+	local n=$(( $startsec + $in ))
+	local stamps=( ${initial_stamps[*]} $n )
+	while [ $n -le $endsec ]; do
+		n=$(( $n + $in ))
+		if [ $n -gt $endsec ]; then break; fi
+
+		stamps=( ${stamps[*]} $n )
+	done
+
+	n=1
+	local p=""
+	local cap=""
+	local montage_command="montage -font $FONT_STAMPS -pointsize $PS_STAMPS \
+	                       -gravity SouthEast -fill white "
+	local output=$(tempfile --prefix "vcs-" --suffix '-preview.png' -d .)
+
+	# Let's reorder the stamps, this away user-added stamps get their correct position
+	local temp=""
+	for stamp in ${stamps[*]} ; do
+		temp+="$stamp\n"
+	done
+	stamps=$(echo -e $temp | sort -n)
+
+	METHOD=2
+
+	local VIDCAPFILE=00000001.png
+
+	# If the temporal vidcap already exists, abort
+	if [ -f $VIDCAPFILE ]; then
+		error "Temporal vidcap file ($VIDCAPFILE) exists, remove it before running!."
+		exit 134
+	fi
+
+	# TODO: Aspect ratio
+	for stamp in $stamps; do
+		# Note that it must be checked against numsecs and not endsec, to allow
+		# the user manually setting stamps beyond the boundaries
+		if [ $stamp -gt $numsecs ]; then continue; fi
+
+		echo "Generating capture #${n}/${#stamps[*]}..." >&2
+
+		if [ $METHOD -eq 1 ]; then
+			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+				-frames 1 -ss $stamp "$f" >/dev/null 2>&1
+		elif [ $METHOD -eq 2 ]; then
+			ffmpeg -y -ss $stamp -i "$f" -an -dframes 1 -vframes 1 -vcodec png \
+				-f rawvideo $VIDCAPFILE >/dev/null 2>&1
+		else
+			error "Internal error!"
+			return 142
+		fi
+
+		p=$(pad 6 $stamp).png
+#		mv 00000001.png $dir/$p
+		n=$(( $n + 1 ))
+
+		cap=$dir/$p
+		# Add the timestamp to each vidcap, doing it hear is much powerful/simple
+		# than with the next montage command
+		convert -box '#000000aa' \
+				-fill $FG_STAMPS -pointsize $PS_STAMPS -gravity SouthEast \
+				-stroke none -strokewidth 3 -annotate +5+5 " $(pretty_stamp $stamp) " \
+				$VIDCAPFILE "$cap"
+
+		montage_command+=" $cap"
+	done
+	rm -f $VIDCAPFILE
+
+	# geometry affects the source images, not the target one!
+	# Note the file name could also be added by using the "-title" option, but I reserved
+	# it for used set titles
+	montage_command+=" -geometry ${th_width}x+10+5 -tile ${COLS}x -shadow"
+	if [ "$title" ]; then
+		montage_command+=" -font $FONT_META -fill $FG_META -title '$title'"
+	fi
+	montage_command+=" $output"
+
+	echo "Composing contact sheet..." >&2
+	eval $montage_command # eval is required to evaluate correctly the text in quotes!
+	mv "$output" . 2>/dev/null || true
+
+	# Codec "prettyfication"
+	case $( tr '[A-Z]' '[a-z]' <<<$vcodec) in
+		xvid) vcodec=Xvid ;;
+		dx50) vcodec="DivX 5" ;;
+		0x10000001) vcodec="MPEG-1" ;;
+		0x10000002) vcodec="MPEG-2" ;;
+		avc1) vcodec="MPEG-4 AVC" ;;
+	esac
+	if [ "$vdec" == "ffodivx" ]; then
+		vcodec+=" (MPEG-4)"
+	elif [ "$vdec" == "ffh264" ]; then
+		vcodec+=" (h.264)"
+	fi
+
+	case $( tr '[A-Z]' '[a-z]' <<<$acodec ) in
+		85) acodec='MPEG-1 Layer III (MP3)' ;;
+		80) acodec='MPEG-1 Layer II (MP2)' ;;
+		mp4a) acodec='MPEG-4 AAC' ;;
+		"") acodec="no audio" ;;
+	esac
+
+
+	local meta="Filename: $f
+File size: $(get_pretty_size "$f")
+Length: $(pretty_stamp "$numsecs")"
+	local meta2="Dimensions: ${width}x${height}
+Format: $vcodec / $acodec
+FPS: $fps"
+	local signature="$USER_SIGNATURE $user
+$PROGRAM_SIGNATURE"
+
+	# Now let's add meta info
+	# This one enlarges the image to add the text, and puts
+	# meta info in two columns
+	convert -font $FONT_META -pointsize $PS_META \
+		-background $BG_META -fill $FG_META -splice 0x$(( $PS_META * 4 )) \
+		-gravity NorthWest -draw "text 10,10 '$meta'" \
+		-gravity NorthEast -draw "text 10,10 '$meta2'" \
+		"$output" "$output"
+	# Finishing touch, signature
+
+	convert -gravity South -font $FONT_SIGN -pointsize $PS_SIGN \
+		-background $BG_SIGN -splice 0x34+0-0 \
+		-fill $FG_SIGN -draw "text 10,3 '$signature'" "$output" "$output"
+	rm -rf $dir/
+
+	if [ $OUTFMT != "png" ]; then
+		local newout="$(basename "$output" .png).$OUTFMT"
+		convert -quality $OUTPUT_QUALITY "$output" "$newout"
+		rm "$output"
+		output="$newout"
+	fi
+	
+	safe_rename "$output" "$(basename "$f").$OUTFMT"
+}
+
+show_help() {
+    local P=$(basename $0)
+	cat <<EOF
+Video Contact Sheet *NIX v${VERSION}, (c) 2007 Toni Corvera
+
+Usage: $P [options] <file>
+
+Options:
+  -i|--interval <arg>   Set the interval to arg. An optional unit can be
+                        used (case-insensitive) , e.g.:
+                            Seconds:      90
+                            Minutes:      3m
+                            Hours:        1h
+                        Use either -i or -n.
+  -n|--numcaps <arg>    Set the number of captured images to arg. Use either
+                        -i or -n.
+  -f|--from <arg>       Set starting time. No caps before this. Same format
+                        as -i.
+  -t|--to <arg>         Set ending time. No caps beyond this. Same format
+                        as -i.
+  -T|--title <arg>      Add a title above the vidcaps.
+  -u|--user <arg>       Set the username found in the signature to this.
+  -S|--stamp <arg>      Add the image found at the timestamp "arg", same format
+                        as -i.
+  -j|--jpeg             Output in jpeg (by default output is in png).
+  -h|--help             Show this text.
+
+Examples:
+    Create a contact sheet with default values (vidcaps at intervals of
+    $DEFAULT_INTERVAL seconds), the resulting file will be called
+    input.avi.png:
+        \$ $P input.avi
+
+    Create a sheet with vidcaps at intervals of 3 minutes:
+        \$ $P -i 3m input.avi
+
+    Create a sheet with vidcaps starting at 3 mins and ending at 18 mins,
+    add an extra vidcap at 2m and another one at 19m:
+        \$ $P -f 3m -t 18m -S2m -S 19m input.avi
+
+Quirks:
+    Currently MPEG handling seems to be broken.
+
+EOF
+}
+
+# }}} # Core functionality
+
+# Test requirements
+test_programs || exit 54
+
+# {{{ # Command line parsing
+
+# Based on getopt-parse.bash example.
+# On debian systems see </usr/share/doc/util-linux/examples/getopt-parse.bash.gz>
+
+# FIXME: use username / no name at all with -u noarg, and not -u
+TEMP=$(getopt -o i:n:u:T:f:t:S:jh \
+       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help" \
+       -n $0 -- "$@")
+
+eval set -- "$TEMP"
+
+while true ; do
+	case "$1" in
+		-i|--interval)
+			if ! interval=$(get_interval "$2") ; then
+				error "Interval must be a number (given $2)"
+				exit 68
+			fi
+			if [ "$interval" -le 0 ]; then
+				error "Interval must be higher than 0, set to the default $DEFAULT_INTERVAL"
+				interval=$DEFAULT_INTERVAL
+			fi
+			derive_from=$INTERVAL
+			shift # Option arg
+			;;
+		-n|--numcaps)
+			if ! is_number "$2" ; then
+				error "Number of caps must be a number! (given $2)"
+				exit 68
+			fi
+			numcaps="$2"
+			derive_from=$NUMCAPS
+			shift # Option arg
+			;;
+		-u|--username) user="$2" ; shift ;;
+		-T|--title) title="$2" ; shift ;;
+		-f|--from)
+			if ! fromtime=$(get_interval "$2") ; then
+				error "Starting timestamp must be a valid interval"
+				exit 68
+			fi
+			shift
+			;;
+		-t|--to)
+			if ! totime=$(get_interval "$2") ; then
+				error "Ending timestamp must be a valid interval"
+				exit 68
+			fi
+			if [ "$totime" -eq 0 ]; then
+				error "Ending timestamp was set to 0, set to movie length"
+				totime=-1
+			fi
+			shift
+			;;
+		-S|--stamp)
+			if ! temp=$(get_interval "$2") ; then
+				error "Timestamps must be a valid interval"
+				exit 68
+			fi
+			initial_stamps=( ${initial_stamps[*]} $temp )
+			shift
+			;;
+		-j|--jpeg) OUTFMT=jpg ;;
+		-h|--help) show_help ; exit 0 ;;
+		--) shift ; break ;;
+		*) error "Internal error!" ; exit 76 ;
+	esac
+	shift
+done
+
+# Remaining arguments
+if [ ! "$1" ]; then
+	show_help
+	exit 67
+fi
+for arg do process "$arg" ; done
+
+# }}} # Command line parsing
+
+
+# vim:set ts=4 ai: #
