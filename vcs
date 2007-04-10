@@ -1,8 +1,30 @@
 #!/bin/bash
 
-# $Rev: 241 $ $Date: 2007-04-10 21:44:17 +0200 (dt, 10 abr 2007) $
+# $Rev: 246 $ $Date: 2007-04-11 00:06:25 +0200 (dc, 11 abr 2007) $
 
-declare -r VERSION="0.99a"
+#
+# History:
+#
+# 1.0a:
+#    * First release keeping track of history
+#    * Put vcs' url in the signature
+#    * Use system username in signature
+#    * Added --shoehorn (you get the idea, right?) to feed extra commands to
+#      the cappers. Lowelevel and not intended to be used anyway :P
+#    * When just a vidcap is requested, take it from the middle of the video
+#    * Added -H|--height
+#
+# 0.99.1a: Interim version, renamed to 1.0a
+#
+# 0.99a:
+#    * Added shadows
+#    * More colourful headers
+#    * Easier change of colours/fonts
+#
+# 0.5a: * First usable version
+# 0.1:  * First proof of concept
+
+declare -r VERSION="0.99.1a"
 
 # Options
 declare -i interval=300 # Interval of captures (= numsecs / numcaps)
@@ -10,7 +32,7 @@ declare -i numcaps=16   # Number of captures (= numsecs / interval)
 
 declare user=$(id -un)
 declare -r USER_SIGNATURE="Preview created by"
-declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION}"
+declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
 
 # Options used in imagemagick, these options set the final aspect
 # of the contact sheet so tweak them to your liking
@@ -37,6 +59,11 @@ declare -i PS_SIGN=11			  # Used for the signature
 declare -ri INTERVAL=1 NUMCAPS=3
 declare -i derive_from=$INTERVAL
 declare -ri DEFAULT_INTERVAL=$interval
+# Which of the two vidcappers should be used (see -F, -M)
+# mplayer seems to fail for mpeg or WMV9 files, at least on my system
+declare -ri METHOD_MPLAYER=1
+declare -ri METHOD_FFMPEG=2
+declare -i METHOD=$METHOD_FFMPEG
 
 # Internal variables:
 declare title=""
@@ -44,6 +71,9 @@ declare -i fromtime=0 # Starting second (see -f)
 declare -i totime=-1  # Ending second (see -t)
 declare initial_stamps=( ) # Stamps added to the calculated ones (see -S)
 declare OUTFMT=png
+declare shoehorned=   # See --shoehorn
+declare -i th_height= # Height of the thumbnails, by default use same as input
+declare -i cols=2     # Number of output columns
 
 # {{{ # Convenience functions
 
@@ -168,7 +198,7 @@ error() {
 process() {
 	local f=$1
 
-	local COLS=2
+	local numcols=$cols
 
 	if [ ! -f "$f" ]; then
 		error "File \"$f\" doesn't exist"
@@ -185,8 +215,11 @@ process() {
 	local width=$(grep ID_VIDEO_WIDTH <<<"$mplayer_cache" | cut -d'=' -f2)
 	local height=$(grep ID_VIDEO_HEIGHT <<<"$mplayer_cache" | cut -d'=' -f2)
 	local fps=$(grep ID_VIDEO_FPS <<<"$mplayer_cache" | cut -d'=' -f2)
-	# Vidcap/Thumbnail width TODO: allow user interaction
-	local th_width=$width
+	# Vidcap/Thumbnail height
+	local vidcap_height=$th_height
+	if ! is_number "$vidcap_height" || [ "$vidcap_height" -eq 0 ]; then
+		vidcap_height=$height
+	fi
 
 	local numsecs=$(grep ID_LENGTH <<<"$mplayer_cache"| cut -d'=' -f2 | cut -d. -f1)
 	
@@ -209,6 +242,10 @@ process() {
 	if [ $totime -ne -1 ] && [ $endsec -gt $totime ]; then
 		endsec=$totime
 	fi
+	
+	if [ $startsec -ne 0 ] || [ $endsec -ne $numsecs ]; then
+		echo "Restricting to range [$startsec..$endsec]" >&2
+	fi
 
 	local delta=$(( $endsec - $startsec ))
 	# FIXME: the total # of caps is currently broken when using -f and -t
@@ -225,7 +262,11 @@ process() {
 		fi
 	elif [ "$derive_from" -eq "$NUMCAPS" ]; then
 		# Numcaps rules => it doesn't change
-		in=$(( $numsecs / $numcaps ))
+		if [ $numcaps -eq 1 ]; then # If just one cap, center it
+			in=$(( $numsecs / 2 ))
+		else
+			in=$(( $numsecs / $numcaps ))
+		fi
 	else
 		error "Internal error!"
 		return 145
@@ -240,8 +281,8 @@ process() {
 		return 16
 	fi
 	# Contact sheet minimum cols:
-	if [ $nc -lt $COLS ]; then
-		COLS=$nc
+	if [ $nc -lt $numcols ]; then
+		numcols=$nc
 	fi
 
 	# Tempdir
@@ -256,6 +297,7 @@ process() {
 
 	local n=$(( $startsec + $in ))
 	local stamps=( ${initial_stamps[*]} $n )
+
 	while [ $n -le $endsec ]; do
 		n=$(( $n + $in ))
 		if [ $n -gt $endsec ]; then break; fi
@@ -277,8 +319,6 @@ process() {
 	done
 	stamps=$(echo -e $temp | sort -n)
 
-	METHOD=2
-
 	local VIDCAPFILE=00000001.png
 
 	# If the temporal vidcap already exists, abort
@@ -295,12 +335,12 @@ process() {
 
 		echo "Generating capture #${n}/${#stamps[*]}..." >&2
 
-		if [ $METHOD -eq 1 ]; then
+		if [ $METHOD -eq $METHOD_MPLAYER ]; then
 			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-				-frames 1 -ss $stamp "$f" >/dev/null 2>&1
-		elif [ $METHOD -eq 2 ]; then
+				-frames 1 -ss $stamp $shoehorned "$f" >/dev/null 2>&1
+		elif [ $METHOD -eq $METHOD_FFMPEG ]; then
 			ffmpeg -y -ss $stamp -i "$f" -an -dframes 1 -vframes 1 -vcodec png \
-				-f rawvideo $VIDCAPFILE >/dev/null 2>&1
+				-f rawvideo $shoehorned $VIDCAPFILE >/dev/null 2>&1
 		else
 			error "Internal error!"
 			return 142
@@ -325,7 +365,7 @@ process() {
 	# geometry affects the source images, not the target one!
 	# Note the file name could also be added by using the "-title" option, but I reserved
 	# it for used set titles
-	montage_command+=" -geometry ${th_width}x+10+5 -tile ${COLS}x -shadow"
+	montage_command+=" -geometry x${vidcap_height}+10+5 -tile ${numcols}x -shadow"
 	if [ "$title" ]; then
 		montage_command+=" -font $FONT_META -fill $FG_META -title '$title'"
 	fi
@@ -415,8 +455,15 @@ Options:
   -u|--user <arg>       Set the username found in the signature to this.
   -S|--stamp <arg>      Add the image found at the timestamp "arg", same format
                         as -i.
+  -H|--height <arg>     Set the output (individual thumbnail) height. Width is
+                        derived accordingly. Note width cannot be manually set.
   -j|--jpeg             Output in jpeg (by default output is in png).
   -h|--help             Show this text.
+
+  Options used for debugging purposes or to tweak the internal workings:
+  -M|--mplayer          Force the usage of mplayer.
+  -F|--ffmpeg           Force the usage of ffmpeg.
+  --shoehorn <arg>      Pass "arg" to mplayer/ffmpeg. You probably don't need it.
 
 Examples:
     Create a contact sheet with default values (vidcaps at intervals of
@@ -448,8 +495,8 @@ test_programs || exit 54
 # On debian systems see </usr/share/doc/util-linux/examples/getopt-parse.bash.gz>
 
 # FIXME: use username / no name at all with -u noarg, and not -u
-TEMP=$(getopt -o i:n:u:T:f:t:S:jh \
-       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help" \
+TEMP=$(getopt -o i:n:u:T:f:t:S:jhFMH:c: \
+       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,shoehorn:,mplayer,ffmpeg,height:,columns:" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -507,8 +554,30 @@ while true ; do
 			;;
 		-j|--jpeg) OUTFMT=jpg ;;
 		-h|--help) show_help ; exit 0 ;;
+		--shoehorn)
+			shoehorned="$2"
+			shift
+			;;
+		-F) METHOD=$METHOD_FFMPEG ;;
+		-M) METHOD=$METHOD_MPLAYER ;;
+		-H|--height)
+			if ! is_number "$2" ; then
+				error "Height must be a number (given $2)"
+				exit 68
+			fi
+			th_height="$2"
+			shift
+			;;
+		-c|--columns)
+			if ! is_number "$2" ; then
+				error "Columns must be a number (given $2)"
+				exit 68
+			fi
+			cols="$2"
+			shift
+			;;
 		--) shift ; break ;;
-		*) error "Internal error!" ; exit 76 ;
+		*) error "Internal error! (remaining opts: $@)" ; exit 76 ;
 	esac
 	shift
 done
