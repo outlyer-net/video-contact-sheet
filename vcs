@@ -1,11 +1,21 @@
 #!/bin/bash
 
-# $Rev: 246 $ $Date: 2007-04-11 00:06:25 +0200 (dc, 11 abr 2007) $
+# $Rev: 249 $ $Date: 2007-04-13 05:29:36 +0200 (dv, 13 abr 2007) $
 
+declare -r VERSION="1.0.1a"
 #
 # History:
 #
-# 1.0a:
+# 1.0.1a:
+#    * Print output filename
+#    * Added manual mode (all timestamps provided by user)
+#    * More flexible timestamp format (now e.g. 1h5 is allowed (means 1h 5secs)
+#    * BUGFIX: Discard repeated timestamps
+#    * Added "set -e". TODO: Add more verbose error messages when called
+#      programs fail.
+#    * Added basic support for a user configuration file.
+#
+# 1.0a: (2007-04-10)
 #    * First release keeping track of history
 #    * Put vcs' url in the signature
 #    * Use system username in signature
@@ -24,56 +34,123 @@
 # 0.5a: * First usable version
 # 0.1:  * First proof of concept
 
-declare -r VERSION="0.99.1a"
+set -e
 
-# Options
-declare -i interval=300 # Interval of captures (= numsecs / numcaps)
-declare -i numcaps=16   # Number of captures (= numsecs / interval)
-
-declare user=$(id -un)
-declare -r USER_SIGNATURE="Preview created by"
-declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
-
-# Options used in imagemagick, these options set the final aspect
-# of the contact sheet so tweak them to your liking
+# Configuration file, please, use this file to modify the behaviour of the
+# script. Using this allows overriding some variables (see below)
+# to your liking. Only lines with a variable assignment are evaluated,
+# it should follow bash syntax, note though that ';' can't be used
+# currently in the variable values; e.g.:
 #
-declare -i OUTPUT_QUALITY=92	  # Output image quality (only affects the final image,
-								  # and only in lossy formats)
-# Colours, see convert -list color
-declare -r BG_META=YellowGreen	  # Background for meta info (size, codec...)
-declare -r BG_SIGN=SandyBrown	  # Background for signature
-declare -r FG_META=black		  # Font colour for meta info box
-declare -r FG_SIGN=black		  # Font colour for signature
-declare -r FG_STAMPS=white		  # Font colour for timestamps
-# Fonts, see convert -list type
-declare -r FONT_STAMPS=courier	  # Used for timestamps behind the thumbnails
-declare -r FONT_META=helvetica	  # Used for meta info box
-declare -r FONT_SIGN=$FONT_META   # Used for the signature box
-# Font sizes, in points
-declare -i PS_STAMPS=18			  # Used for the timestamps
-declare -i PS_META=16			  # Used for the meta info box
-declare -i PS_SIGN=11			  # Used for the signature
+#	# Sample configuration for vcs
+#	user=myname		# Sign all compositions as myname
+#	BG_META=gray	# Make the heading gray
+#
+# The variables that can be overriden are below the block of constants ahead.
+declare -r CFGFILE=~/.vcs.conf
 
-# Constants and other internal usage variables, no need to mess with this!
-# Which of the two methods should be used to guess the number of thumbnails
+# Constants {{{
+# see $METHOD
+declare -ri METHOD_MPLAYER=1 METHOD_FFMPEG=2
+# See $derive_from
 declare -ri INTERVAL=1 NUMCAPS=3
+# These can't be overriden, modify this line if you feel the need
+declare -r PROGRAM_SIGNATURE=<<EOT
+with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>
+EOT
+
+# }}} # End of constants
+
+# Override-able variables {{{
+
+declare -i DEFAULT_INTERVAL=300
+declare -i DEFAULT_NUMCAPS=16
+# Text before the user name in the signature
+declare USER_SIGNATURE="Preview created by"
+# By default sign as the system's username
+declare user=$(id -un)
+# Which of the two methods should be used to guess the number of thumbnails
 declare -i derive_from=$INTERVAL
-declare -ri DEFAULT_INTERVAL=$interval
 # Which of the two vidcappers should be used (see -F, -M)
 # mplayer seems to fail for mpeg or WMV9 files, at least on my system
-declare -ri METHOD_MPLAYER=1
-declare -ri METHOD_FFMPEG=2
 declare -i METHOD=$METHOD_FFMPEG
+# Options used in imagemagick, these options set the final aspect
+# of the contact sheet
+declare OUTFMT=png            # ImageMagick decides the type from the extension
+declare -i OUTPUT_QUALITY=92  # Output image quality (only affects the final
+                              # image and obviously only in lossy formats)
+# Colours, see convert -list color to get the list
+declare BG_META=YellowGreen   # Background for meta info (size, codec...)
+declare BG_SIGN=SandyBrown    # Background for signature
+declare FG_META=black         # Font colour for meta info box
+declare FG_SIGN=black         # Font colour for signature
+declare FG_STAMPS=white       # Font colour for timestamps
+# Fonts, see convert -list type to get the list
+declare FONT_STAMPS=courier   # Used for timestamps behind the thumbnails
+declare FONT_META=helvetica   # Used for meta info box
+declare FONT_SIGN=$FONT_META  # Used for the signature box
+# Font sizes, in points
+declare PS_STAMPS=18          # Used for the timestamps
+declare PS_META=16            # Used for the meta info box
+declare PS_SIGN=11            # Used for the signature
+# See --shoehorn
+declare shoehorned=
 
-# Internal variables:
+# }}} # End of override-able variables
+
+# Options and other internal usage variables, no need to mess with this!
+declare -i interval=$DEFAULT_INTERVAL # Interval of captures (= numsecs / numcaps)
+declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (= numsecs / interval)
 declare title=""
 declare -i fromtime=0 # Starting second (see -f)
 declare -i totime=-1  # Ending second (see -t)
-declare initial_stamps=( ) # Stamps added to the calculated ones (see -S)
-declare OUTFMT=png
-declare shoehorned=   # See --shoehorn
+declare -a initial_stamps=( ) # Stamps added to the calculated ones (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
 declare -i cols=2     # Number of output columns
+declare -i manual_mode=0 # if 1, only command line timestamps will be used
+
+load_config() {
+	# These are the variables allowed to be overriden in the config file,
+	# please.
+	# They're REGEXes, they'll be concatenated to form a regex like
+	# (override1|override2|...).
+	# Don't mess with this unless you're pretty sure of what you're doing.
+	# All this extra complexity is done to avoid including the config
+	# file directly for security reasons.
+	declare -ra ALLOWED_OVERRIDES=(
+		'user'
+		'USER_SIGNATURE'
+		'BG_.*'
+		'FONT_.*'
+		'PS_.*'
+		'FG_.*'
+		'OUTPUT_QUALITY'
+		'DEFAULT_INTERVAL'
+		'DEFAULT_NUMCAPS'
+		'METHOD'
+		'OUTFMT'
+		'shoehorned'
+		'derive_from'
+	)
+
+	if [ ! -f "$CFGFILE" ]; then return 0 ; fi
+
+	local compregex=$( sed 's/ /|/g' <<<${ALLOWED_OVERRIDES[*]} )
+
+	while read line ; do # auto variable $line
+		# Don't allow ';', FIXME: dunno how secure that really is
+		if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*=[^;]*' <<<"$line" ; then
+			continue
+		fi
+		if ! egrep -q "^($compregex)=" <<<"$line" ; then
+			continue
+		fi
+		# FIXME: Only print in verbose mose
+		# FIXME: Only for really overridden ones
+		echo "Overridden variable" $(sed -r 's/^[[:space:]]*([a-zA-Z0-9_]*)=.*/\1/'<<<$line)
+		eval $line
+	done <$CFGFILE
+}
 
 # {{{ # Convenience functions
 
@@ -82,25 +159,47 @@ is_number() {
 	return $?
 }
 
+# The current code is a tad permissive, it allows e.g. things like
+# 10m1h (equivalent to 1h10m)
+# 1m1m  (equivalent to 2m)
 get_interval() {
 	if is_number "$1" ; then echo $1 ; return 0 ; fi
 
 	local s=$(tr '[A-Z]' '[a-z]' <<<"$1")
-	local len_n=$(( ${#s} - 1 )) # Length of the theoretical numeric part
-	local u=${s:$len_n}
-	local n=${s:0:$len_n}
-	local i=0
 
-	if ! is_number "$n" ; then return 1 ; fi
+	# Only allowed characters
+	if ! grep -q '[0-9smh]' <<<"$s"; then
+		return 1;
+	fi
 
-	case "$u" in
-		s) i=$n ;;
-		m) i=$((n * 60)) ;;
-		h) i=$((n * 3600)) ;;
-		*) return 2 ; break ;;
-	esac
+	# FIXME: Find some cleaner way
+	local i= c= num= sum=0
+	for i in $(seq 0 $(( ${#s} - 1)) ); do
+		c=${s:$i:1}
+		if is_number $c ; then
+			num+=$c
+		else
+			case $c in
+				h) num=$(($num * 3600)) ;;
+				m) num=$(($num * 60)) ;;
+				s) ;;
+				*)
+					return 2
+				;;
+			esac
+			sum=$(($sum + $num))
+			num=
+		fi
+	done
 
-	echo $i
+	# If last element was a number, it's seconds and they weren't added
+	if is_number $c ; then
+		sum=$(( $sum + $num ))
+	fi
+
+	echo $sum
+
+	return 0
 }
 
 pad() {
@@ -173,6 +272,7 @@ safe_rename() {
 	done
 
 	mv "$from" "$to"
+	echo "$to" >&2
 }
 
 test_programs() {
@@ -293,17 +393,25 @@ process() {
 		return 17
 	fi
 
-	# Get the stamps...
+	local n=
 
-	local n=$(( $startsec + $in ))
-	local stamps=( ${initial_stamps[*]} $n )
+	# Get the stamps (if in auto mode)...
 
-	while [ $n -le $endsec ]; do
-		n=$(( $n + $in ))
-		if [ $n -gt $endsec ]; then break; fi
+	local stamps=( )
+	if [ $manual_mode -ne 1 ]; then
 
-		stamps=( ${stamps[*]} $n )
-	done
+		n=$(( $startsec + $in ))
+		stamps=( ${initial_stamps[*]} $n )
+
+		while [ $n -le $endsec ]; do
+			n=$(( $n + $in ))
+			if [ $n -gt $endsec ]; then break; fi
+
+			stamps=( ${stamps[*]} $n )
+		done
+	else
+		stamps=( ${initial_stamps[*]} )
+	fi
 
 	n=1
 	local p=""
@@ -312,12 +420,13 @@ process() {
 	                       -gravity SouthEast -fill white "
 	local output=$(tempfile --prefix "vcs-" --suffix '-preview.png' -d .)
 
-	# Let's reorder the stamps, this away user-added stamps get their correct position
-	local temp=""
-	for stamp in ${stamps[*]} ; do
-		temp+="$stamp\n"
-	done
-	stamps=$(echo -e $temp | sort -n)
+	# Let's reorder the stamps, this away user-added stamps get their correct
+	# position also remove duplicates. Note AFAIK sort only sorts lines, that's
+	# why y replace spaces by newlines.
+	#
+	# Note that stamps keeps being an array and stamps[1..N] still hold their
+	# old values, although it's treated as a string after this
+	stamps=$( sed 's/ /\n/g' <<<"${stamps[*]}" | sort -n | uniq )
 
 	local VIDCAPFILE=00000001.png
 
@@ -327,13 +436,14 @@ process() {
 		exit 134
 	fi
 
+	local NUMSTAMPS=$(wc -w <<<"$stamps")
 	# TODO: Aspect ratio
 	for stamp in $stamps; do
 		# Note that it must be checked against numsecs and not endsec, to allow
 		# the user manually setting stamps beyond the boundaries
 		if [ $stamp -gt $numsecs ]; then continue; fi
 
-		echo "Generating capture #${n}/${#stamps[*]}..." >&2
+		echo "Generating capture #${n}/${NUMSTAMPS}..." >&2
 
 		if [ $METHOD -eq $METHOD_MPLAYER ]; then
 			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
@@ -344,7 +454,10 @@ process() {
 		else
 			error "Internal error!"
 			return 142
-		fi
+		fi || {
+			error "The capturing program failed!"
+			return 143
+		}
 
 		p=$(pad 6 $stamp).png
 #		mv 00000001.png $dir/$p
@@ -382,6 +495,7 @@ process() {
 		0x10000001) vcodec="MPEG-1" ;;
 		0x10000002) vcodec="MPEG-2" ;;
 		avc1) vcodec="MPEG-4 AVC" ;;
+		wmv2) vcodec="WMV 8" ;; # WMV2 is v8
 	esac
 	if [ "$vdec" == "ffodivx" ]; then
 		vcodec+=" (MPEG-4)"
@@ -393,6 +507,7 @@ process() {
 		85) acodec='MPEG-1 Layer III (MP3)' ;;
 		80) acodec='MPEG-1 Layer II (MP2)' ;;
 		mp4a) acodec='MPEG-4 AAC' ;;
+		353) acodec='WMA 2' ;;
 		"") acodec="no audio" ;;
 	esac
 
@@ -428,6 +543,7 @@ $PROGRAM_SIGNATURE"
 		output="$newout"
 	fi
 	
+	echo -n "Output wrote to " >&2
 	safe_rename "$output" "$(basename "$f").$OUTFMT"
 }
 
@@ -455,6 +571,9 @@ Options:
   -u|--user <arg>       Set the username found in the signature to this.
   -S|--stamp <arg>      Add the image found at the timestamp "arg", same format
                         as -i.
+  -m|--manual           Manual mode: Only timestamps indicated by the user are
+                        used (use in conjunction with -S), when using this
+                        -i and -n are ignored.
   -H|--height <arg>     Set the output (individual thumbnail) height. Width is
                         derived accordingly. Note width cannot be manually set.
   -j|--jpeg             Output in jpeg (by default output is in png).
@@ -489,14 +608,16 @@ EOF
 # Test requirements
 test_programs || exit 54
 
+load_config
+
 # {{{ # Command line parsing
 
 # Based on getopt-parse.bash example.
 # On debian systems see </usr/share/doc/util-linux/examples/getopt-parse.bash.gz>
 
 # FIXME: use username / no name at all with -u noarg, and not -u
-TEMP=$(getopt -o i:n:u:T:f:t:S:jhFMH:c: \
-       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,shoehorn:,mplayer,ffmpeg,height:,columns:" \
+TEMP=$(getopt -o i:n:u:T:f:t:S:jhFMH:c:m \
+       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,shoehorn:,mplayer,ffmpeg,height:,columns:,manual" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -576,6 +697,7 @@ while true ; do
 			cols="$2"
 			shift
 			;;
+		-m|--manual) manual_mode=1 ;;
 		--) shift ; break ;;
 		*) error "Internal error! (remaining opts: $@)" ; exit 76 ;
 	esac
@@ -587,6 +709,12 @@ if [ ! "$1" ]; then
 	show_help
 	exit 67
 fi
+# If -m is used then -S must be used
+if [ $manual_mode -eq 1 ] && [ -z $initial_stamps ]; then
+	error "You must provide timestamps (-S) when using manual mode (-m)"
+	exit 68
+fi
+
 for arg do process "$arg" ; done
 
 # }}} # Command line parsing
