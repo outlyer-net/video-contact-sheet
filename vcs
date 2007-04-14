@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# $Rev: 258 $ $Date: 2007-04-14 04:09:48 +0200 (ds, 14 abr 2007) $
+# $Rev: 262 $ $Date: 2007-04-14 15:38:45 +0200 (ds, 14 abr 2007) $
 #
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
@@ -24,9 +24,12 @@
 # Author: Toni Corvera <outlyer@outlyer.net>
 #
 
-declare -r VERSION="1.0.2b"
+declare -r VERSION="1.0.3b"
 #
 # History:
+#
+# 1.0.3b: (2007-04-14)
+#    * BUGFIX: Don't put the full video path in the heading
 #
 # 1.0.2b: (2007-04-14)
 #    * Licensed under LGPL (was unlicensed before)
@@ -565,7 +568,7 @@ process() {
 	esac
 
 
-	local meta="Filename: $f
+	local meta="Filename: $(basename "$f")
 File size: $(get_pretty_size "$f")
 Length: $(pretty_stamp "$numsecs")"
 	local meta2="Dimensions: ${width}x${height}
