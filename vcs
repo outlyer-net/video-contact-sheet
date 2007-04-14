@@ -1,12 +1,43 @@
 #!/bin/bash
+#
+# $Rev: 257 $ $Date: 2007-04-14 02:42:43 +0200 (ds, 14 abr 2007) $
+#
+# vcs
+# Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
+#
+# Copyright (C) 2007 Toni Corvera
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+# Author: Toni Corvera <outlyer@outlyer.net>
+#
 
-# $Rev: 249 $ $Date: 2007-04-13 05:29:36 +0200 (dv, 13 abr 2007) $
-
-declare -r VERSION="1.0.1a"
+declare -r VERSION="1.0.2b"
 #
 # History:
 #
-# 1.0.1a:
+# 1.0.2b: (2007-04-14)
+#    * Licensed under LGPL (was unlicensed before)
+#    * Renamed variables and constants to me more congruent
+#    * Added DEFAULT_COLS
+#    * BUGFIX: Fixed program signature
+#    * Streamlined error codes
+#    * Added cleanup on failure and on delayed cleanup on success
+#    * Changed default signature background to SlateGray (blue-ish gray)
+#
+# 1.0.1a: (2007-04-13)
 #    * Print output filename
 #    * Added manual mode (all timestamps provided by user)
 #    * More flexible timestamp format (now e.g. 1h5 is allowed (means 1h 5secs)
@@ -44,20 +75,18 @@ set -e
 #
 #	# Sample configuration for vcs
 #	user=myname		# Sign all compositions as myname
-#	BG_META=gray	# Make the heading gray
+#	bg_heading=gray	# Make the heading gray
 #
 # The variables that can be overriden are below the block of constants ahead.
 declare -r CFGFILE=~/.vcs.conf
 
 # Constants {{{
-# see $METHOD
-declare -ri METHOD_MPLAYER=1 METHOD_FFMPEG=2
-# See $derive_from
-declare -ri INTERVAL=1 NUMCAPS=3
+# see $decoder
+declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
+# See $timecode_from
+declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
 # These can't be overriden, modify this line if you feel the need
-declare -r PROGRAM_SIGNATURE=<<EOT
-with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>
-EOT
+declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
 
 # }}} # End of constants
 
@@ -65,49 +94,58 @@ EOT
 
 declare -i DEFAULT_INTERVAL=300
 declare -i DEFAULT_NUMCAPS=16
+declare -i DEFAULT_COLS=2
 # Text before the user name in the signature
-declare USER_SIGNATURE="Preview created by"
+declare user_signature="Preview created by"
 # By default sign as the system's username
 declare user=$(id -un)
 # Which of the two methods should be used to guess the number of thumbnails
-declare -i derive_from=$INTERVAL
+declare -i timecode_from=$TC_INTERVAL
 # Which of the two vidcappers should be used (see -F, -M)
 # mplayer seems to fail for mpeg or WMV9 files, at least on my system
-declare -i METHOD=$METHOD_FFMPEG
+declare -i decoder=$DEC_FFMPEG
 # Options used in imagemagick, these options set the final aspect
 # of the contact sheet
-declare OUTFMT=png            # ImageMagick decides the type from the extension
-declare -i OUTPUT_QUALITY=92  # Output image quality (only affects the final
+declare output_format=png     # ImageMagick decides the type from the extension
+declare -i output_quality=92  # Output image quality (only affects the final
                               # image and obviously only in lossy formats)
 # Colours, see convert -list color to get the list
-declare BG_META=YellowGreen   # Background for meta info (size, codec...)
-declare BG_SIGN=SandyBrown    # Background for signature
-declare FG_META=black         # Font colour for meta info box
-declare FG_SIGN=black         # Font colour for signature
-declare FG_STAMPS=white       # Font colour for timestamps
+declare bg_heading=YellowGreen  # Background for meta info (size, codec...)
+declare bg_sign=SlateGray       # Background for signature
+declare fg_heading=black        # Font colour for meta info box
+declare fg_sign=black           # Font colour for signature
+declare fg_tstamps=white        # Font colour for timestamps
 # Fonts, see convert -list type to get the list
-declare FONT_STAMPS=courier   # Used for timestamps behind the thumbnails
-declare FONT_META=helvetica   # Used for meta info box
-declare FONT_SIGN=$FONT_META  # Used for the signature box
+declare font_tstamps=courier    # Used for timestamps behind the thumbnails
+declare font_heading=helvetica  # Used for meta info box
+declare font_sign=$font_heading # Used for the signature box
 # Font sizes, in points
-declare PS_STAMPS=18          # Used for the timestamps
-declare PS_META=16            # Used for the meta info box
-declare PS_SIGN=11            # Used for the signature
+declare pts_tstamps=18          # Used for the timestamps
+declare pts_meta=16             # Used for the meta info box
+declare pts_sign=11             # Used for the signature
 # See --shoehorn
 declare shoehorned=
 
 # }}} # End of override-able variables
 
 # Options and other internal usage variables, no need to mess with this!
-declare -i interval=$DEFAULT_INTERVAL # Interval of captures (= numsecs / numcaps)
-declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (= numsecs / interval)
+declare -i interval=$DEFAULT_INTERVAL # Interval of captures (=numsecs/numcaps)
+declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (=numsecs/interval)
 declare title=""
-declare -i fromtime=0 # Starting second (see -f)
-declare -i totime=-1  # Ending second (see -t)
-declare -a initial_stamps=( ) # Stamps added to the calculated ones (see -S)
+declare -i fromtime=0                 # Starting second (see -f)
+declare -i totime=-1                  # Ending second (see -t)
+declare -a initial_stamps=( )         # Manually added stamps (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
-declare -i cols=2     # Number of output columns
+declare -i cols=$DEFAULT_COLS         # Number of output columns
 declare -i manual_mode=0 # if 1, only command line timestamps will be used
+
+declare -a TEMPSTUFF=( )              # Temporal files
+
+# Exit codes, same codes as /usr/include/sysexits.h
+declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
+           EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
+           EX_INTERRUPTED=79 # This one is not on sysexits.h
+
 
 load_config() {
 	# These are the variables allowed to be overriden in the config file,
@@ -119,18 +157,19 @@ load_config() {
 	# file directly for security reasons.
 	declare -ra ALLOWED_OVERRIDES=(
 		'user'
-		'USER_SIGNATURE'
-		'BG_.*'
-		'FONT_.*'
-		'PS_.*'
-		'FG_.*'
-		'OUTPUT_QUALITY'
+		'user_signature'
+		'bg_.*'
+		'font_.*'
+		'pts_.*'
+		'fg_.*'
+		'output_quality'
 		'DEFAULT_INTERVAL'
 		'DEFAULT_NUMCAPS'
-		'METHOD'
-		'OUTFMT'
+		'DEFAULT_COLS'
+		'decoder'
+		'output_format'
 		'shoehorned'
-		'derive_from'
+		'timecode_from'
 	)
 
 	if [ ! -f "$CFGFILE" ]; then return 0 ; fi
@@ -169,7 +208,7 @@ get_interval() {
 
 	# Only allowed characters
 	if ! grep -q '[0-9smh]' <<<"$s"; then
-		return 1;
+		return $EX_USAGE;
 	fi
 
 	# FIXME: Find some cleaner way
@@ -184,7 +223,7 @@ get_interval() {
 				m) num=$(($num * 60)) ;;
 				s) ;;
 				*)
-					return 2
+					return $EX_SOFTWARE
 				;;
 			esac
 			sum=$(($sum + $num))
@@ -214,7 +253,7 @@ pad() {
 }
 
 pretty_stamp() {
-	if ! is_number "$1" ; then return 1 ; fi
+	if ! is_number "$1" ; then return $EX_USAGE ; fi
 
 	local t=$1
 	local h=$(( $t / 3600 ))
@@ -286,6 +325,17 @@ test_programs() {
 	done
 }
 
+cleanup() {
+	if [ -z $TEMPSTUFF ]; then return 0 ; fi
+	echo "Cleaning up..." >&2 # TODO: Only in verbose mode
+	rm -rf ${TEMPSTUFF[*]}
+	TEMPSTUFF=( )
+}
+
+exithdlr() {
+	cleanup
+}
+
 # Print some text to stderr
 error() {
 	echo "$1" >&2
@@ -302,7 +352,7 @@ process() {
 
 	if [ ! -f "$f" ]; then
 		error "File \"$f\" doesn't exist"
-		return 100
+		return $EX_NOINPUT
 	fi
 	echo "Processing $f..." >&2
 
@@ -325,7 +375,7 @@ process() {
 	
 	if ! is_number $numsecs ; then
 		error "Internal error!"
-		return 15
+		return $EX_SOFTWARE
 	fi
 
 	local nc=$numcaps
@@ -353,14 +403,14 @@ process() {
 	# Note that when numcaps mandates the interval is obtained from
 	# the actually allowed secods (hence it is not movie_length / numcaps )
 	# Adjust interval/numcaps:
-	if [ "$derive_from" -eq "$INTERVAL" ]; then
+	if [ "$timecode_from" -eq "$TC_INTERVAL" ]; then
 		# Interval rules => it doesn't change
 		nc=$(( $delta / $interval ))
 		# If a multiple, an extra vidcap is generated (at the last second)
 		if [ $(( $delta % $interval )) -eq 0 ]; then
 			nc=$(( $nc + 1 ))
 		fi
-	elif [ "$derive_from" -eq "$NUMCAPS" ]; then
+	elif [ "$timecode_from" -eq "$TC_NUMCAPS" ]; then
 		# Numcaps rules => it doesn't change
 		if [ $numcaps -eq 1 ]; then # If just one cap, center it
 			in=$(( $numsecs / 2 ))
@@ -369,7 +419,7 @@ process() {
 		fi
 	else
 		error "Internal error!"
-		return 145
+		return $EX_SOFTWARE
 	fi
 
 	# Let's try to make some sense...
@@ -378,7 +428,7 @@ process() {
 		error "The interval is longer than the video length."
 		error "Use a lower interval or numcaps instead."
 		error "Skipping \"$f\"."
-		return 16
+		return $EX_USAGE
 	fi
 	# Contact sheet minimum cols:
 	if [ $nc -lt $numcols ]; then
@@ -390,8 +440,9 @@ process() {
 	local dir=$(mktemp -d -p . vcs.XXXXXX)
 	if [ "$?" -ne 0 ]; then
 		error "Error creating temporary directory"
-		return 17
+		return $EX_CANTCREAT
 	fi
+	TEMPSTUFF+=( "$dir" )
 
 	local n=
 
@@ -416,9 +467,10 @@ process() {
 	n=1
 	local p=""
 	local cap=""
-	local montage_command="montage -font $FONT_STAMPS -pointsize $PS_STAMPS \
+	local montage_command="montage -font $font_tstamps -pointsize $pts_tstamps \
 	                       -gravity SouthEast -fill white "
 	local output=$(tempfile --prefix "vcs-" --suffix '-preview.png' -d .)
+	TEMPSTUFF+=( "$output" )
 
 	# Let's reorder the stamps, this away user-added stamps get their correct
 	# position also remove duplicates. Note AFAIK sort only sorts lines, that's
@@ -433,10 +485,11 @@ process() {
 	# If the temporal vidcap already exists, abort
 	if [ -f $VIDCAPFILE ]; then
 		error "Temporal vidcap file ($VIDCAPFILE) exists, remove it before running!."
-		exit 134
+		return $EX_CANTCREAT
 	fi
 
 	local NUMSTAMPS=$(wc -w <<<"$stamps")
+	TEMPSTUFF+=( $VIDCAPFILE )
 	# TODO: Aspect ratio
 	for stamp in $stamps; do
 		# Note that it must be checked against numsecs and not endsec, to allow
@@ -445,18 +498,19 @@ process() {
 
 		echo "Generating capture #${n}/${NUMSTAMPS}..." >&2
 
-		if [ $METHOD -eq $METHOD_MPLAYER ]; then
+		if [ $decoder -eq $DEC_MPLAYER ]; then
 			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
 				-frames 1 -ss $stamp $shoehorned "$f" >/dev/null 2>&1
-		elif [ $METHOD -eq $METHOD_FFMPEG ]; then
+		elif [ $decoder -eq $DEC_FFMPEG ]; then
 			ffmpeg -y -ss $stamp -i "$f" -an -dframes 1 -vframes 1 -vcodec png \
 				-f rawvideo $shoehorned $VIDCAPFILE >/dev/null 2>&1
 		else
 			error "Internal error!"
-			return 142
+			return $EX_SOFTWARE
 		fi || {
+			local retval=$?
 			error "The capturing program failed!"
-			return 143
+			return $retval
 		}
 
 		p=$(pad 6 $stamp).png
@@ -467,20 +521,19 @@ process() {
 		# Add the timestamp to each vidcap, doing it hear is much powerful/simple
 		# than with the next montage command
 		convert -box '#000000aa' \
-				-fill $FG_STAMPS -pointsize $PS_STAMPS -gravity SouthEast \
+				-fill $fg_tstamps -pointsize $pts_tstamps -gravity SouthEast \
 				-stroke none -strokewidth 3 -annotate +5+5 " $(pretty_stamp $stamp) " \
 				$VIDCAPFILE "$cap"
 
 		montage_command+=" $cap"
 	done
-	rm -f $VIDCAPFILE
 
 	# geometry affects the source images, not the target one!
 	# Note the file name could also be added by using the "-title" option, but I reserved
 	# it for used set titles
 	montage_command+=" -geometry x${vidcap_height}+10+5 -tile ${numcols}x -shadow"
 	if [ "$title" ]; then
-		montage_command+=" -font $FONT_META -fill $FG_META -title '$title'"
+		montage_command+=" -font $font_heading -fill $fg_heading -title '$title'"
 	fi
 	montage_command+=" $output"
 
@@ -518,33 +571,33 @@ Length: $(pretty_stamp "$numsecs")"
 	local meta2="Dimensions: ${width}x${height}
 Format: $vcodec / $acodec
 FPS: $fps"
-	local signature="$USER_SIGNATURE $user
+	local signature="$user_signature $user
 $PROGRAM_SIGNATURE"
 
 	# Now let's add meta info
 	# This one enlarges the image to add the text, and puts
 	# meta info in two columns
-	convert -font $FONT_META -pointsize $PS_META \
-		-background $BG_META -fill $FG_META -splice 0x$(( $PS_META * 4 )) \
+	convert -font $font_heading -pointsize $pts_meta \
+		-background $bg_heading -fill $fg_heading -splice 0x$(( $pts_meta * 4 )) \
 		-gravity NorthWest -draw "text 10,10 '$meta'" \
 		-gravity NorthEast -draw "text 10,10 '$meta2'" \
 		"$output" "$output"
 	# Finishing touch, signature
 
-	convert -gravity South -font $FONT_SIGN -pointsize $PS_SIGN \
-		-background $BG_SIGN -splice 0x34+0-0 \
-		-fill $FG_SIGN -draw "text 10,3 '$signature'" "$output" "$output"
-	rm -rf $dir/
+	convert -gravity South -font $font_sign -pointsize $pts_sign \
+		-background $bg_sign -splice 0x34+0-0 \
+		-fill $fg_sign -draw "text 10,3 '$signature'" "$output" "$output"
 
-	if [ $OUTFMT != "png" ]; then
-		local newout="$(basename "$output" .png).$OUTFMT"
-		convert -quality $OUTPUT_QUALITY "$output" "$newout"
-		rm "$output"
+	if [ $output_format != "png" ]; then
+		local newout="$(basename "$output" .png).$output_format"
+		convert -quality $output_quality "$output" "$newout"
 		output="$newout"
 	fi
 	
 	echo -n "Output wrote to " >&2
-	safe_rename "$output" "$(basename "$f").$OUTFMT"
+	safe_rename "$output" "$(basename "$f").$output_format"
+
+	cleanup
 }
 
 show_help() {
@@ -605,8 +658,13 @@ EOF
 
 # }}} # Core functionality
 
+#### Execution starts here ####
+
+# Execute exithdlr on exit
+trap exithdlr EXIT
+
 # Test requirements
-test_programs || exit 54
+test_programs || exit $EX_UNAVAILABLE
 
 load_config
 
@@ -627,22 +685,22 @@ while true ; do
 		-i|--interval)
 			if ! interval=$(get_interval "$2") ; then
 				error "Interval must be a number (given $2)"
-				exit 68
+				exit $EX_USAGE
 			fi
 			if [ "$interval" -le 0 ]; then
 				error "Interval must be higher than 0, set to the default $DEFAULT_INTERVAL"
 				interval=$DEFAULT_INTERVAL
 			fi
-			derive_from=$INTERVAL
+			timecode_from=$TC_INTERVAL
 			shift # Option arg
 			;;
 		-n|--numcaps)
 			if ! is_number "$2" ; then
 				error "Number of caps must be a number! (given $2)"
-				exit 68
+				exit $EX_USAGE
 			fi
 			numcaps="$2"
-			derive_from=$NUMCAPS
+			timecode_from=$TC_NUMCAPS
 			shift # Option arg
 			;;
 		-u|--username) user="$2" ; shift ;;
@@ -650,14 +708,14 @@ while true ; do
 		-f|--from)
 			if ! fromtime=$(get_interval "$2") ; then
 				error "Starting timestamp must be a valid interval"
-				exit 68
+				exit $EX_USAGE
 			fi
 			shift
 			;;
 		-t|--to)
 			if ! totime=$(get_interval "$2") ; then
 				error "Ending timestamp must be a valid interval"
-				exit 68
+				exit $EX_USAGE
 			fi
 			if [ "$totime" -eq 0 ]; then
 				error "Ending timestamp was set to 0, set to movie length"
@@ -668,23 +726,23 @@ while true ; do
 		-S|--stamp)
 			if ! temp=$(get_interval "$2") ; then
 				error "Timestamps must be a valid interval"
-				exit 68
+				exit $EX_USAGE
 			fi
 			initial_stamps=( ${initial_stamps[*]} $temp )
 			shift
 			;;
-		-j|--jpeg) OUTFMT=jpg ;;
-		-h|--help) show_help ; exit 0 ;;
+		-j|--jpeg) output_format=jpg ;;
+		-h|--help) show_help ; exit $EX_OK ;;
 		--shoehorn)
 			shoehorned="$2"
 			shift
 			;;
-		-F) METHOD=$METHOD_FFMPEG ;;
-		-M) METHOD=$METHOD_MPLAYER ;;
+		-F) decoder=$DEC_FFMPEG ;;
+		-M) decoder=$DEC_MPLAYER ;;
 		-H|--height)
 			if ! is_number "$2" ; then
 				error "Height must be a number (given $2)"
-				exit 68
+				exit $EX_USAGE
 			fi
 			th_height="$2"
 			shift
@@ -692,14 +750,14 @@ while true ; do
 		-c|--columns)
 			if ! is_number "$2" ; then
 				error "Columns must be a number (given $2)"
-				exit 68
+				exit $EX_USAGE
 			fi
 			cols="$2"
 			shift
 			;;
 		-m|--manual) manual_mode=1 ;;
 		--) shift ; break ;;
-		*) error "Internal error! (remaining opts: $@)" ; exit 76 ;
+		*) error "Internal error! (remaining opts: $@)" ; exit $EX_SOFTWARE ;
 	esac
 	shift
 done
@@ -707,14 +765,15 @@ done
 # Remaining arguments
 if [ ! "$1" ]; then
 	show_help
-	exit 67
+	exit $EX_USAGE
 fi
 # If -m is used then -S must be used
 if [ $manual_mode -eq 1 ] && [ -z $initial_stamps ]; then
 	error "You must provide timestamps (-S) when using manual mode (-m)"
-	exit 68
+	exit $EX_USAGE
 fi
 
+set +e # Don't fail automatically
 for arg do process "$arg" ; done
 
 # }}} # Command line parsing
