@@ -1,0 +1,58 @@
+1.0.4b: (2007-04-17)
+   * Added error checks for failures to create vidcap or to process it
+     convert
+   * BUGFIX: Corrected error check on tempdir creation
+   * BUGFIX: Use temporary locations for temporary files (thanks to
+     Alon Levy).
+   * Aspect ratio support (might be buggy). Requires bc.
+   * Added $safe_rename_pattern to allow overriding the default alternate
+     naming when the output file exists
+   * Moved previous previous versions' changes to a separate file.
+   * Support for per-dir and system-wide configuration files. Precedence
+     in ascending order:
+     /etc/vcs.conf ~/.vcs.conf ./vcs.conf
+   * Added default_options (broken, currently ignored)
+   * BUGFIX: (Apparently) Corrected the one-vidcap-less/more bug
+   * Added codec ids of WMV9 and WMA3
+
+1.0.3b: (2007-04-14)
+   * BUGFIX: Don't put the full video path in the heading
+
+1.0.2b: (2007-04-14)
+   * Licensed under LGPL (was unlicensed before)
+   * Renamed variables and constants to me more congruent
+   * Added DEFAULT_COLS
+   * BUGFIX: Fixed program signature (broken in 1.0.1a)
+   * Streamlined error codes
+   * Added cleanup on failure and on delayed cleanup on success
+   * Changed default signature background to SlateGray (blue-ish gray)
+
+1.0.1a: (2007-04-13)
+   * Print output filename
+   * Added manual mode (all timestamps provided by user)
+   * More flexible timestamp format (now e.g. 1h5 is allowed (means 1h 5secs)
+   * BUGFIX: Discard repeated timestamps
+   * Added "set -e". TODO: Add more verbose error messages when called
+     programs fail.
+   * Added basic support for a user configuration file.
+
+1.0a: (2007-04-10)
+   * First release keeping track of history
+   * Put vcs' url in the signature
+   * Use system username in signature
+   * Added --shoehorn (you get the idea, right?) to feed extra commands to
+     the cappers. Lowelevel and not intended to be used anyway :P
+   * When just a vidcap is requested, take it from the middle of the video
+   * Added -H|--height
+   * Added codec ids of WMV8 and WMA2
+
+0.99.1a: Interim version, renamed to 1.0a
+
+0.99a:
+   * Added shadows
+   * More colourful headers
+   * Easier change of colours/fonts
+
+0.5a: * First usable version
+0.1:  * First proof of concept
+
