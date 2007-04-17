@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# $Rev: 262 $ $Date: 2007-04-14 15:38:45 +0200 (ds, 14 abr 2007) $
+# $Rev: 272 $ $Date: 2007-04-17 04:31:12 +0200 (dt, 17 abr 2007) $
 #
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
@@ -24,49 +24,28 @@
 # Author: Toni Corvera <outlyer@outlyer.net>
 #
 
-declare -r VERSION="1.0.3b"
+declare -r VERSION="1.0.4b"
 #
-# History:
+# History (The full changelog was moved to a separate file and can be found
+# at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.3b: (2007-04-14)
-#    * BUGFIX: Don't put the full video path in the heading
+# 1.0.4b: (2007-04-17)
+#    * Added error checks for failures to create vidcap or to process it
+#      convert
+#    * BUGFIX: Corrected error check on tempdir creation
+#    * BUGFIX: Use temporary locations for temporary files (thanks to
+#      Alon Levy).
+#    * Aspect ratio support (might be buggy). Requires bc.
+#    * Added $safe_rename_pattern to allow overriding the default alternate
+#      naming when the output file exists
+#    * Moved previous previous versions' changes to a separate file.
+#    * Support for per-dir and system-wide configuration files. Precedence
+#      in ascending order:
+#      /etc/vcs.conf ~/.vcs.conf ./vcs.conf
+#    * Added default_options (broken, currently ignored)
+#    * BUGFIX: (Apparently) Corrected the one-vidcap-less/more bug
+#    * Added codec ids of WMV9 and WMA3
 #
-# 1.0.2b: (2007-04-14)
-#    * Licensed under LGPL (was unlicensed before)
-#    * Renamed variables and constants to me more congruent
-#    * Added DEFAULT_COLS
-#    * BUGFIX: Fixed program signature
-#    * Streamlined error codes
-#    * Added cleanup on failure and on delayed cleanup on success
-#    * Changed default signature background to SlateGray (blue-ish gray)
-#
-# 1.0.1a: (2007-04-13)
-#    * Print output filename
-#    * Added manual mode (all timestamps provided by user)
-#    * More flexible timestamp format (now e.g. 1h5 is allowed (means 1h 5secs)
-#    * BUGFIX: Discard repeated timestamps
-#    * Added "set -e". TODO: Add more verbose error messages when called
-#      programs fail.
-#    * Added basic support for a user configuration file.
-#
-# 1.0a: (2007-04-10)
-#    * First release keeping track of history
-#    * Put vcs' url in the signature
-#    * Use system username in signature
-#    * Added --shoehorn (you get the idea, right?) to feed extra commands to
-#      the cappers. Lowelevel and not intended to be used anyway :P
-#    * When just a vidcap is requested, take it from the middle of the video
-#    * Added -H|--height
-#
-# 0.99.1a: Interim version, renamed to 1.0a
-#
-# 0.99a:
-#    * Added shadows
-#    * More colourful headers
-#    * Easier change of colours/fonts
-#
-# 0.5a: * First usable version
-# 0.1:  * First proof of concept
 
 set -e
 
@@ -80,6 +59,11 @@ set -e
 #	user=myname		# Sign all compositions as myname
 #	bg_heading=gray	# Make the heading gray
 #
+# There is a total of three configuration files than are loaded if the exist:
+# * /etc/vcs.conf: System wide conf, least precedence
+# * $CFGFILE (by default ~/.vcs.conf): Per-user conf, second least precedence
+# * ./vcs.conf: Per-dir confif, most precedence
+#
 # The variables that can be overriden are below the block of constants ahead.
 declare -r CFGFILE=~/.vcs.conf
 
@@ -90,6 +74,8 @@ declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
 # These can't be overriden, modify this line if you feel the need
 declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
+# see $safe_rename_pattern
+declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 
 # }}} # End of constants
 
@@ -128,6 +114,28 @@ declare pts_meta=16             # Used for the meta info box
 declare pts_sign=11             # Used for the signature
 # See --shoehorn
 declare shoehorned=
+# This can only be changed in the configuration file
+# Change it to change the safe renanimg:
+# When writing the output file, the input name + output extension is
+# used (e.g.: "some video.avi.png"), if it already exists, though,
+# a number if appended to the name. This variable dictates where the number is
+# placed.
+# By default "%b-%N.%e" where:
+# %b is the basename (file name without extension)
+# %N is the appended number
+# %e is the extension
+# The default creates outputs like "output.avi-1.png"
+#
+# If overridden with an incorrect value it will be silently set to the default
+declare safe_rename_pattern="$DEFAULT_SAFE_REN_PATT"
+# Options added always to the ones in the command line
+# (command line options override them).
+# Note using this is a bit tricky :P mostly because I've no clue of how this
+# should be done.
+# As an example: you want to set always the title to "My Title" and output
+# to jpeg: default_options="-T'My Title' -j"
+declare default_options=
+
 
 # }}} # End of override-able variables
 
@@ -141,6 +149,7 @@ declare -a initial_stamps=( )         # Manually added stamps (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
 declare -i cols=$DEFAULT_COLS         # Number of output columns
 declare -i manual_mode=0 # if 1, only command line timestamps will be used
+declare aspect_ratio=0                # If 0 no transformations done (see -a)
 
 declare -a TEMPSTUFF=( )              # Temporal files
 
@@ -173,32 +182,61 @@ load_config() {
 		'output_format'
 		'shoehorned'
 		'timecode_from'
+		'safe_rename_pattern'
+		'default_options'
 	)
-
-	if [ ! -f "$CFGFILE" ]; then return 0 ; fi
 
 	local compregex=$( sed 's/ /|/g' <<<${ALLOWED_OVERRIDES[*]} )
 
-	while read line ; do # auto variable $line
-		# Don't allow ';', FIXME: dunno how secure that really is
-		if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*=[^;]*' <<<"$line" ; then
-			continue
-		fi
-		if ! egrep -q "^($compregex)=" <<<"$line" ; then
-			continue
-		fi
-		# FIXME: Only print in verbose mose
-		# FIXME: Only for really overridden ones
-		echo "Overridden variable" $(sed -r 's/^[[:space:]]*([a-zA-Z0-9_]*)=.*/\1/'<<<$line)
-		eval $line
-	done <$CFGFILE
+	local basecfg="$(basename "$CFGFILE")"
+	local CONFIGS=( /etc/vcs.conf $CFGFILE ./vcs.conf)
+
+	for cfgfile in ${CONFIGS[*]} ;do
+		if [ ! -f "$cfgfile" ]; then continue; fi
+
+		while read line ; do # auto variable $line
+			# Don't allow ';', FIXME: dunno how secure that really is
+			if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*=[^;]*' <<<"$line" ; then
+				continue
+			fi
+			if ! egrep -q "^($compregex)=" <<<"$line" ; then
+				continue
+			fi
+			# FIXME: Only print in verbose mose
+			# FIXME: Only for really overridden ones
+			local varname=$(sed -r 's/^[[:space:]]*([a-zA-Z0-9_]*)=.*/\1/'<<<$line)
+			echo "Overridden variable $varname from file $cfgfile"
+			eval $line
+		done <$cfgfile
+	done
 }
 
 # {{{ # Convenience functions
 
+# Returns true if input is composed only of numbers
 is_number() {
 	egrep -q '^[0-9]+$' <<<"$1"
-	return $?
+}
+
+# Returns true if input can be parsed as a floating point number
+# Accepted: XX.YY XX. .YY (.24=0.24
+is_float() {
+	egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))$'<<<"$1"
+}
+
+# Returns true if input is a fraction
+# Only accepts XX/YY
+is_fraction() {
+	egrep -q '^[0-9]+/[0-9]+$'<<<"$1"
+}
+
+# Prints the width correspoding to the input height and the variable
+# aspect ratio
+# compute_width(height) (=AR*height) (rounded)
+compute_width() {
+	local wfloat=$(bc -lq <<< "$aspect_ratio * $1")
+	local wint=$(bc -q <<<"($wfloat+0.5)/1")
+	echo $wint
 }
 
 # The current code is a tad permissive, it allows e.g. things like
@@ -300,17 +338,31 @@ get_pretty_size() {
 	echo $size
 }
 
-# Rename a file, if the target exists, try with -1, -2, ...
+# Rename a file, if the target exists, try with appending numbers to the name
+# And print the output name to stderr
 safe_rename() {
 	local from="$1"
 	local to="$2"
 
+	# Extension
 	local ext=$(sed -r 's/.*\.(.*)/\1/g' <<<"$to")
+	# Basename without extension
+	local b=$(basename "$2" ".$ext")
+
+	# safe_rename_pattern is override-able, ensure it has a valid value:
+	if  ! grep -q '%e' <<<"$safe_rename_pattern" ||
+		! grep -q '%N' <<<"$safe_rename_pattern" ||
+		! grep -q '%b' <<<"$safe_rename_pattern" ; then
+		safe_rename_pattern=$DEFAULT_SAFE_REN_PATT
+	fi
 
 	local n=1
-	while [ -f "$to" ]; do
-		to="$(basename "$2" .$ext)-$n.$ext"
-		n=$(( $n + 1))
+	while [ -f "$to" ]; do # Only executes if $2 exists
+		to=$(sed "s/%b/$b/g" <<<"$safe_rename_pattern")
+		to=$(sed "s/%N/$n/g" <<<"$to")
+		to=$(sed "s/%e/$ext/g" <<<"$to")
+
+		let 'n++';
 	done
 
 	mv "$from" "$to"
@@ -318,7 +370,7 @@ safe_rename() {
 }
 
 test_programs() {
-	for prog in mplayer convert montage ffmpeg ; do
+	for prog in mplayer convert montage ffmpeg bc ; do
 		type -pf "$prog" >/dev/null
 		local retval=$?
 		if [ $retval -ne 0 ] ; then
@@ -348,6 +400,50 @@ error() {
 
 # {{{ # Core functionality
 
+MPLAYER_CACHE=
+numsecs() {
+	echo $(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2 | cut -d. -f1)
+}
+
+compute_timecodes() {
+	local st=0 numsecs=$(numsecs) end=
+	end=$numsecs
+	if [ $st -lt $fromtime ]; then
+		st=$fromtime
+	fi
+	if [ $totime -gt 0 ] && [ $end -gt $totime ]; then
+		end=$totime
+	fi
+
+	local inc=
+	if [ "$timecode_from" -eq $TC_INTERVAL ]; then
+		inc=$interval
+	elif [ "$timecode_from" -eq $TC_NUMCAPS ]; then
+		# Numcaps mandates: timecodes are obtained dividing the length
+		# by the number of captures
+		if [ $numcaps -eq 1 ]; then # Special case, just one capture, center it
+			inc=$(( ($end-$st) / 2 +  1))
+		else
+			inc=$(( ($end-$st) / $numcaps ))
+		fi
+	else
+		error "Internal error"
+		return $EX_SOFTWARE
+	fi
+
+	if [ $inc -gt $numsecs ]; then
+		error "Interval is longer than video length, skipping $f"
+		return $EX_USAGE
+	fi
+
+	local LTC=( ) stamp=
+	for stamp in $(seq $st $inc $end); do
+		LTC+=( $stamp )
+	done
+	unset LTC[0] # Initial cap (=$st)
+	TIMECODES=( ${TIMECODES[*]} ${LTC[*]} )
+}
+
 process() {
 	local f=$1
 
@@ -360,21 +456,25 @@ process() {
 	echo "Processing $f..." >&2
 
 	# Meta data extraction
-	# Don't change the -vc as it would affect $vdec
-	local mplayer_cache=$(mplayer -benchmark -ao null -vo null -identify -frames 0 -quiet "$f" 2>/dev/null | grep ^ID)
-	local vcodec=$(grep ID_VIDEO_FORMAT <<<"$mplayer_cache" | cut -d'=' -f2) # FourCC
-	local acodec=$(grep ID_AUDIO_FORMAT <<<"$mplayer_cache" | cut -d'=' -f2)
-	local vdec=$(grep ID_VIDEO_CODEC <<<"$mplayer_cache" | cut -d'=' -f2) # Decoder
-	local width=$(grep ID_VIDEO_WIDTH <<<"$mplayer_cache" | cut -d'=' -f2)
-	local height=$(grep ID_VIDEO_HEIGHT <<<"$mplayer_cache" | cut -d'=' -f2)
-	local fps=$(grep ID_VIDEO_FPS <<<"$mplayer_cache" | cut -d'=' -f2)
+	# Note to self: Don't change the -vc as it would affect $vdec
+	MPLAYER_CACHE=$(mplayer -benchmark -ao null -vo null -identify -frames 0 -quiet "$f" 2>/dev/null | grep ^ID)
+	local vcodec=$(grep ID_VIDEO_FORMAT <<<"$MPLAYER_CACHE" | cut -d'=' -f2) # FourCC
+	local acodec=$(grep ID_AUDIO_FORMAT <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
+	local vdec=$(grep ID_VIDEO_CODEC <<<"$MPLAYER_CACHE" | cut -d'=' -f2) # Decoder
+	local width=$(grep ID_VIDEO_WIDTH <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
+	local height=$(grep ID_VIDEO_HEIGHT <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
+	local fps=$(grep ID_VIDEO_FPS <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
 	# Vidcap/Thumbnail height
 	local vidcap_height=$th_height
 	if ! is_number "$vidcap_height" || [ "$vidcap_height" -eq 0 ]; then
 		vidcap_height=$height
 	fi
+	if [ "0" == "$aspect_ratio" ]; then
+		aspect_ratio=$(bc -lq <<< "$width / $height")
+	fi
+	local vidcap_width=$(compute_width $vidcap_height)
 
-	local numsecs=$(grep ID_LENGTH <<<"$mplayer_cache"| cut -d'=' -f2 | cut -d. -f1)
+	local numsecs=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2 | cut -d. -f1)
 	
 	if ! is_number $numsecs ; then
 		error "Internal error!"
@@ -382,57 +482,7 @@ process() {
 	fi
 
 	local nc=$numcaps
-	local in=$interval
 
-	# Start bound:
-	local startsec=0
-	if [ $startsec -lt $fromtime ]; then
-		startsec=$fromtime
-	fi
-
-	# End bound:
-	local endsec=$numsecs
-	if [ $totime -ne -1 ] && [ $endsec -gt $totime ]; then
-		endsec=$totime
-	fi
-	
-	if [ $startsec -ne 0 ] || [ $endsec -ne $numsecs ]; then
-		echo "Restricting to range [$startsec..$endsec]" >&2
-	fi
-
-	local delta=$(( $endsec - $startsec ))
-	# FIXME: the total # of caps is currently broken when using -f and -t
-
-	# Note that when numcaps mandates the interval is obtained from
-	# the actually allowed secods (hence it is not movie_length / numcaps )
-	# Adjust interval/numcaps:
-	if [ "$timecode_from" -eq "$TC_INTERVAL" ]; then
-		# Interval rules => it doesn't change
-		nc=$(( $delta / $interval ))
-		# If a multiple, an extra vidcap is generated (at the last second)
-		if [ $(( $delta % $interval )) -eq 0 ]; then
-			nc=$(( $nc + 1 ))
-		fi
-	elif [ "$timecode_from" -eq "$TC_NUMCAPS" ]; then
-		# Numcaps rules => it doesn't change
-		if [ $numcaps -eq 1 ]; then # If just one cap, center it
-			in=$(( $numsecs / 2 ))
-		else
-			in=$(( $numsecs / $numcaps ))
-		fi
-	else
-		error "Internal error!"
-		return $EX_SOFTWARE
-	fi
-
-	# Let's try to make some sense...
-	# Minimum interval allowance:
-	if [ $in -gt $numsecs ]; then
-		error "The interval is longer than the video length."
-		error "Use a lower interval or numcaps instead."
-		error "Skipping \"$f\"."
-		return $EX_USAGE
-	fi
 	# Contact sheet minimum cols:
 	if [ $nc -lt $numcols ]; then
 		numcols=$nc
@@ -440,8 +490,8 @@ process() {
 
 	# Tempdir
 
-	local dir=$(mktemp -d -p . vcs.XXXXXX)
-	if [ "$?" -ne 0 ]; then
+	local dir=$(mktemp -d -t vcs.XXXXXX)
+	if [ ! -d "$dir" ]; then
 		error "Error creating temporary directory"
 		return $EX_CANTCREAT
 	fi
@@ -449,39 +499,23 @@ process() {
 
 	local n=
 
-	# Get the stamps (if in auto mode)...
-
-	local stamps=( )
+	# Compute the stamps (if in auto mode)...
+	TIMECODES=${initial_stamps[*]}
 	if [ $manual_mode -ne 1 ]; then
-
-		n=$(( $startsec + $in ))
-		stamps=( ${initial_stamps[*]} $n )
-
-		while [ $n -le $endsec ]; do
-			n=$(( $n + $in ))
-			if [ $n -gt $endsec ]; then break; fi
-
-			stamps=( ${stamps[*]} $n )
-		done
-	else
-		stamps=( ${initial_stamps[*]} )
+		compute_timecodes
 	fi
 
 	n=1
 	local p=""
-	local cap=""
 	local montage_command="montage -font $font_tstamps -pointsize $pts_tstamps \
 	                       -gravity SouthEast -fill white "
-	local output=$(tempfile --prefix "vcs-" --suffix '-preview.png' -d .)
+	local output=$(tempfile --prefix "vcs-" --suffix '-preview.png')
 	TEMPSTUFF+=( "$output" )
 
 	# Let's reorder the stamps, this away user-added stamps get their correct
 	# position also remove duplicates. Note AFAIK sort only sorts lines, that's
 	# why y replace spaces by newlines.
-	#
-	# Note that stamps keeps being an array and stamps[1..N] still hold their
-	# old values, although it's treated as a string after this
-	stamps=$( sed 's/ /\n/g' <<<"${stamps[*]}" | sort -n | uniq )
+	local stamps=$( sed 's/ /\n/g' <<<"${TIMECODES[*]}" | sort -n | uniq )
 
 	local VIDCAPFILE=00000001.png
 
@@ -493,6 +527,7 @@ process() {
 
 	local NUMSTAMPS=$(wc -w <<<"$stamps")
 	TEMPSTUFF+=( $VIDCAPFILE )
+	local capfile=
 	# TODO: Aspect ratio
 	for stamp in $stamps; do
 		# Note that it must be checked against numsecs and not endsec, to allow
@@ -500,6 +535,9 @@ process() {
 		if [ $stamp -gt $numsecs ]; then continue; fi
 
 		echo "Generating capture #${n}/${NUMSTAMPS}..." >&2
+
+		p=$(pad 6 $stamp).png
+		capfile=$dir/$p
 
 		if [ $decoder -eq $DEC_MPLAYER ]; then
 			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
@@ -515,34 +553,40 @@ process() {
 			error "The capturing program failed!"
 			return $retval
 		}
+		if [ "0" == "$(du "$VIDCAPFILE" | cut -f1)" ]; then
+			error "Failed to capture frame (at second $stamp)"
+			return $EX_SOFTWARE
+		fi
 
-		p=$(pad 6 $stamp).png
-#		mv 00000001.png $dir/$p
-		n=$(( $n + 1 ))
+		let 'n++' # $n++
 
-		cap=$dir/$p
-		# Add the timestamp to each vidcap, doing it hear is much powerful/simple
+		# Add the timestamp to each vidcap, doing it here is much powerful/simple
 		# than with the next montage command
-		convert -box '#000000aa' \
+		# Note the '!', it is necessary to apply aspect ratio change
+		convert -box '#000000aa' -geometry ${vidcap_width}x${vidcap_height}! \
 				-fill $fg_tstamps -pointsize $pts_tstamps -gravity SouthEast \
 				-stroke none -strokewidth 3 -annotate +5+5 " $(pretty_stamp $stamp) " \
-				$VIDCAPFILE "$cap"
+				$VIDCAPFILE "$capfile"
+		if [ ! -f "$capfile" ]; then
+			error "Failed to process capture"
+			return $EX_CANTCREAT
+		fi
 
-		montage_command+=" $cap"
+		montage_command+=" \"$capfile\""
 	done
+	unset capfile
 
 	# geometry affects the source images, not the target one!
 	# Note the file name could also be added by using the "-title" option, but I reserved
 	# it for used set titles
-	montage_command+=" -geometry x${vidcap_height}+10+5 -tile ${numcols}x -shadow"
+	montage_command+=" -geometry ${vidcap_width}x${vidcap_height}+10+5 -tile ${numcols}x -shadow"
 	if [ "$title" ]; then
 		montage_command+=" -font $font_heading -fill $fg_heading -title '$title'"
 	fi
-	montage_command+=" $output"
+	montage_command+=" \"$output\""
 
 	echo "Composing contact sheet..." >&2
 	eval $montage_command # eval is required to evaluate correctly the text in quotes!
-	mv "$output" . 2>/dev/null || true
 
 	# Codec "prettyfication"
 	case $( tr '[A-Z]' '[a-z]' <<<$vcodec) in
@@ -551,7 +595,8 @@ process() {
 		0x10000001) vcodec="MPEG-1" ;;
 		0x10000002) vcodec="MPEG-2" ;;
 		avc1) vcodec="MPEG-4 AVC" ;;
-		wmv2) vcodec="WMV 8" ;; # WMV2 is v8
+		wmv2) vcodec="WMV8" ;; # v2 is same as v8
+		wmv3) vcodec="WMV9" ;;
 	esac
 	if [ "$vdec" == "ffodivx" ]; then
 		vcodec+=" (MPEG-4)"
@@ -563,7 +608,8 @@ process() {
 		85) acodec='MPEG-1 Layer III (MP3)' ;;
 		80) acodec='MPEG-1 Layer II (MP2)' ;;
 		mp4a) acodec='MPEG-4 AAC' ;;
-		353) acodec='WMA 2' ;;
+		353) acodec='WMA2' ;;
+		354) acodec='WMA3' ;;
 		"") acodec="no audio" ;;
 	esac
 
@@ -592,7 +638,7 @@ $PROGRAM_SIGNATURE"
 		-fill $fg_sign -draw "text 10,3 '$signature'" "$output" "$output"
 
 	if [ $output_format != "png" ]; then
-		local newout="$(basename "$output" .png).$output_format"
+		local newout="$(dirname "$output")/$(basename "$output" .png).$output_format"
 		convert -quality $output_quality "$output" "$newout"
 		output="$newout"
 	fi
@@ -632,6 +678,7 @@ Options:
                         -i and -n are ignored.
   -H|--height <arg>     Set the output (individual thumbnail) height. Width is
                         derived accordingly. Note width cannot be manually set.
+  -a|--aspect <aspect>  Aspect ration. Accepts floating point number or fractions.
   -j|--jpeg             Output in jpeg (by default output is in png).
   -h|--help             Show this text.
 
@@ -673,9 +720,10 @@ load_config
 # Based on getopt-parse.bash example.
 # On debian systems see </usr/share/doc/util-linux/examples/getopt-parse.bash.gz>
 
-# FIXME: use username / no name at all with -u noarg, and not -u
-TEMP=$(getopt -o i:n:u:T:f:t:S:jhFMH:c:m \
-       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,shoehorn:,mplayer,ffmpeg,height:,columns:,manual" \
+# TODO: use no name at all with -u noarg
+#eval set -- "${default_options} ${@}"
+TEMP=$(getopt -o i:n:u:T:f:t:S:jhFMH:c:ma: \
+       --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -745,6 +793,15 @@ while true ; do
 				exit $EX_USAGE
 			fi
 			th_height="$2"
+			shift
+			;;
+		-a|--aspect)
+			if ! is_float "$2"  && ! is_fraction "$2" ; then
+				error "Aspect ratio must be expressed as a floating point "\
+"number or as a fraction (ie: 1, 1.33, 4/3, 2.5)"
+				exit 12
+			fi
+			aspect_ratio="$2"
 			shift
 			;;
 		-c|--columns)
