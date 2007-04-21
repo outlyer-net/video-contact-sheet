@@ -1,3 +1,7 @@
+1.0.6b: (2007-04-21) (Bugfix release)
+   * BUGFIX: Use mktemp instead of tempfile (Thanks to 'o kapi')
+   * Make sure mktemp is installed, just in case ;)
+
 1.0.5b: (2007-04-20)
    * INTERNAL: Split functionality in more separate pieces (functions)
    * BUGFIX: Corrected --aspect declaration
