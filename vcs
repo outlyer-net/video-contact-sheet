@@ -24,16 +24,28 @@
 # Author: Toni Corvera <outlyer@outlyer.net>
 #
 
-declare -r VERSION="1.0.6b"
+declare -r VERSION="1.0.7b"
 #
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
 # TODO: Support for ms timestamps (ffmpeg supports it e.g. 54.9 is ok and != 54)
 #
-# 1.0.6b: (2007-04-21) (Bugfix release)
-#    * BUGFIX: Use mktemp instead of tempfile (Thanks to 'o kapi')
-#    * Make sure mktemp is installed, just in case ;)
+# 1.0.7b:
+#    * Print title *before* the highlights.
+#    * Added the forgotten -O and -c to the help text (oops!)
+#    * Experimental: Allow using non-latin alphabets by switching font. See -I.
+#       It only affects the filename! Also allow overriding the font to be used
+#       to print the filename ($font_filename). Right now only using a Mincho font,
+#       it can be overriding by overriding $FONT_MINCHO.
+#   * Make title font size independent of the timestamps size. And allow
+#       overriding the title font ($font_title), font size ($pts_title)
+#       and colours ($fg_title and $bg_title).
+#   * Allow overriding the previews' background ($bg_contact)
+#   * Added getopt, identify, sed, grep and egrep to the checked programs
+#   * BUGFIX: Corrected test of accepted characters for intervals
+#   * Allow floating point intervals (e.g.: 3m.3 is 3 minutes and 0.3 seconds)
+#   * INTERNAL: New parsing code
 #
 
 set -e
@@ -69,6 +81,8 @@ declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $verbosity
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
+# see $font_filename and $FONT_MINCHO
+declare -ri FF_DEFAULT=5 FF_MINCHO=7
 
 # }}} # End of constants
 
@@ -96,17 +110,31 @@ declare -i output_quality=92  # Output image quality (only affects the final
 # Colours, see convert -list color to get the list
 declare bg_heading=YellowGreen  # Background for meta info (size, codec...)
 declare bg_sign=SlateGray       # Background for signature
+declare bg_title=White          # Background for the title (see -T)
+declare bg_contact=White        # Background of the thumbnails
 declare fg_heading=black        # Font colour for meta info box
 declare fg_sign=black           # Font colour for signature
 declare fg_tstamps=white        # Font colour for timestamps
+declare fg_title=Black          # Font colour fot the title
 # Fonts, see convert -list type to get the list
-declare font_tstamps=courier    # Used for timestamps behind the thumbnails
-declare font_heading=helvetica  # Used for meta info box
+declare font_tstamps=courier    # Used for timestamps over the thumbnails
+declare font_heading=helvetica  # Used for the heading (meta info box)
 declare font_sign=$font_heading # Used for the signature box
+# Unlike other font_ variables this doesn't take a font name directly
+# but is restricted to the $FF_ values. This is to allow overrides
+# from the command line to be placed anywhere, i.e. in
+#  $ vcs -I file.avi -O 'FONT_MINCHO=whatever'
+# as the font is overridden is after requesting its use, it wouldn't be
+# affected 
+# The other font_ variables are only affected by overrides and not command
+# line options that's why this one is special.
+declare font_filename=$FF_DEFAULT # Used to print only the filename in the heading
+declare font_title=$font_heading # Used fot the title (see -T)
 # Font sizes, in points
-declare pts_tstamps=18          # Used for the timestamps
-declare pts_meta=16             # Used for the meta info box
-declare pts_sign=11             # Used for the signature
+declare -i pts_tstamps=18          # Used for the timestamps
+declare -i pts_meta=16             # Used for the meta info box
+declare -i pts_sign=11             # Used for the signature
+declare -i pts_title=36            # Used for the title (see -T)
 # See --shoehorn
 declare shoehorned=
 # This can only be changed in the configuration file
@@ -141,11 +169,20 @@ declare -i verbosity=$V_ALL
 # When set to 0 the status messages printed by vcs while running
 # are coloured if the terminal supports it. Set to 1 if this annoys you.
 declare -i plain_messages=0
+# Experimental in 1.0.7b:
+# Experiment to get international font support
+# I'll need to get some help here, so if you use anything beyond a latin
+# alphabet, please help me choosing the correct fonts
+# To my understanding Ming/Minchō fonts should cover most of Japanse,
+# Chinese and Korean
+# Apparently Kochi Mincho includes Hangul *and* Cyrillic... which would be
+# great :)
+declare FONT_MINCHO=/usr/share/fonts/truetype/kochi/kochi-mincho.ttf
 
 # }}} # End of override-able variables
 
 # Options and other internal usage variables, no need to mess with this!
-declare -i interval=$DEFAULT_INTERVAL # Interval of captures (=numsecs/numcaps)
+declare interval=$DEFAULT_INTERVAL    # Interval of captures (=numsecs/numcaps)
 declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (=numsecs/interval)
 declare title=""
 declare -i fromtime=0                 # Starting second (see -f)
@@ -175,6 +212,33 @@ declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
            EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
            EX_INTERRUPTED=79 # This one is not on sysexits.h
 
+# Experimental in 1.0.7b: transformations/filters
+# Operations are decomposed into independent optional steps, this will allow
+# to add some intermediate steps (e.g. polaroid mode)
+# Filters in this context are functions.
+# There're two kinds of filters and a delegate:
+#  * individual filters are run over each vidcap
+#  * global filters are run over all vidcaps at once
+#  * The contact sheet creator delegates on some function to create the actual
+#    contact sheet
+#
+# Individual filters take the form:
+#  filt_name( vidcapfile, timestamp in seconds.milliseconds, width, height )
+# They're executed in order by filter_vidcap()
+declare -a FILTERS_IND=( filt_apply_stamp )
+# Global filters take the form
+#  filtall_name( vidcapfile1, vidcapfile2, ... )
+# They're executed in order by filter_all_vidcaps
+declare -a FILTERS_CS=( )
+# The contact sheet creators take the form
+#  csheet_name( number of columns, context, vidcapfile1, vidcapfile2, ... ) : outputfile
+# The context allows the creator to identify which contact sheet it is creating
+# (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
+# It is executed by create_contact_sheet()
+declare CSHEET_DELEGATE=csheet_montage
+declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
+
+
 # These are the variables allowed to be overriden in the config file,
 # please.
 # They're REGEXes, they'll be concatenated to form a regex like
@@ -202,6 +266,7 @@ declare -ra ALLOWED_OVERRIDES=(
 	'extended_factor'
 	'verbosity'
 	'plain_messages'
+	'FONT_MINCHO'
 )
 
 # Loads the configuration files if present
@@ -307,41 +372,33 @@ compute_width() {
 get_interval() {
 	if is_number "$1" ; then echo $1 ; return 0 ; fi
 
-	local s=$(tr '[A-Z]' '[a-z]' <<<"$1")
+	local s=$(tr '[A-Z]' '[a-z]' <<<"$1") t r
 
 	# Only allowed characters
-	if ! grep -q '[0-9smh]' <<<"$s"; then
+	if ! egrep -qi '^[0-9smh.]+$' <<<"$s"; then
 		return $EX_USAGE;
 	fi
 
-	# FIXME: Find some cleaner way
-	local i= c= num= sum=0
-	for i in $(seq 0 $(( ${#s} - 1)) ); do
-		c=${s:$i:1}
-		if is_number $c ; then
-			num+=$c
-		else
-			case $c in
-				h) num=$(($num * 3600)) ;;
-				m) num=$(($num * 60)) ;;
-				s) ;;
-				*)
-					return $EX_SOFTWARE
-				;;
-			esac
-			sum=$(($sum + $num))
-			num=
-		fi
-	done
+	# New parsing code: replaces units by a product
+	# and feeds the resulting string to bc
+	t=$s
+	t=$(sed -r 's/([0-9]+)h/ ( \1 * 3600 ) + /g' <<<$t)
+	t=$(sed -r 's/([0-9]+)m/ ( \1 * 60 ) + /g' <<<$t)
+	t=$(sed 's/s/ + /g' <<<$t)
+	t=$(sed -r 's/\.\.+/./g'<<<$t)
+	t=$(sed -r 's/(\.[0-9]+)/0\1 + /g' <<<$t)
+	t=$(sed -r 's/\+ ?$//g' <<<$t)
 
-	# If last element was a number, it's seconds and they weren't added
-	if is_number $c ; then
-		sum=$(( $sum + $num ))
+	r=$(bc -lq <<<$t 2>/dev/null) # bc parsing fails with correct return code
+	if [ -z "$r" ]; then
+		return $EX_USAGE
+	fi
+	# Negative interval
+	if [ "-" == ${r:0:1} ]; then
+		return $EX_USAGE
 	fi
 
-	echo $sum
-
-	return 0
+	echo $r
 }
 
 # Pads a string with zeroes on the left until it is at least
@@ -447,13 +504,14 @@ safe_rename() {
 # test_programs()
 test_programs() {
 	local retval=0 last=0
-	for prog in mplayer convert montage bc ffmpeg mktemp ; do
+	for prog in getopt mplayer convert montage identify bc ffmpeg mktemp sed grep egrep ; do
 		type -pf "$prog" >/dev/null
 		if [ $? -ne 0 ] ; then
 			error "Required program $prog not found!"
 			let 'retval++'
 		fi
 	done
+	# XXX: Is egrep universal enough ?
 
 	return $retval
 }
@@ -656,9 +714,23 @@ capture() {
 	return 0
 }
 
+# Applies all individual vidcap filters
+# filter_vidcap($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filter_vidcap() {
+	for filter in ${FILTERS_IND[@]}; do
+		$filter "$1" "$2" "$3" "$4"
+	done
+}
+
+# Applies all global vidcap filters
+filter_all_vidcaps() {
+	# TODO: Do something with "$@"
+	true
+}
+
 # Draw a timestamp in the file
-# apply_stamp($1 = filename, $2 = timestamp, $3 = width, $4 = height)
-apply_stamp() {
+# filt_apply_stamp($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filt_apply_stamp() {
 	local filename=$1 timestamp=$2 width=$3 height=$4
 
 	local temp=$(new_temp_file ".png")
@@ -667,14 +739,40 @@ apply_stamp() {
 	# than with the next montage command
 	# Note the '!', it is necessary to apply aspect ratio change
 	convert -box '#000000aa' -geometry ${width}x${height}! \
-			-fill $fg_tstamps -pointsize $pts_tstamps -gravity SouthEast \
-			-stroke none -strokewidth 3 -annotate +5+5 " $(pretty_stamp $stamp) " \
+			-fill "$fg_tstamps" -pointsize "$pts_tstamps" -gravity SouthEast \
+			-stroke none -strokewidth 3 -annotate +5+5 " "$(pretty_stamp $stamp)" " \
 			"$temp" "$filename"
 	if [ ! -f "$filename" ]; then
 		error "Failed to add timestamp to capture"
 		mv "$temp" "$filename" # Leave things as before
 		return $EX_CANTCREAT
 	fi
+}
+
+# Creates a contact sheet by calling the delegate
+# create_contact_sheet($1 = columns, $2... = vidcaps) : output
+create_contact_sheet() {
+	$CSHEET_DELEGATE "$@"
+}
+
+# This is the standard contact sheet creator
+# csheet_montage($1 = columns, $2 = context, $3... = vidcaps) : output
+csheet_montage() {
+	local cols=$1 ctx=$2 output=$(new_temp_file .png)
+	shift ; shift
+	case $ctx in
+		$CTX_STD|$CTX_HL) hpad=10 vpad=5 ;;
+		$CTX_EXT) hpad=5 vpad=2 ;;
+		*) error "Internal error" && return $EX_SOFTWARE ;;
+	esac
+	# Using transparent seems to make -shadow futile
+	montage -background Transparent "$@" -geometry +$hpad+$vpad -tile "$cols"x "$output"
+	# This produces soft-shadows, which look much better than the montage ones
+	#
+	convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
+
+	# FIXME: Error handling
+	echo $output
 }
 
 # Sorts timestamps and removes duplicates
@@ -783,38 +881,32 @@ process() {
 	TEMPSTUFF+=( $VIDCAPFILE )
 
 	# Highlighs
-	local hlfile="$VCSTEMPDIR/highlights.png" n=1 # Must be outside the if!
+	local hlfile n=1 # hlfile Must be outside the if!
 	if [ "$HLTIMECODES" ]; then
-		local hlmontage_command="montage -gravity SouthEast -texture xc:LightGoldenRod "
-		local hlcapfile=
-		local pretty=
+		local hlcapfile= pretty= capfiles=( )
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
 			if [ $stamp -gt $numsecs ]; then let 'n++' && continue ; fi
 			pretty=$(pretty_stamp $stamp)
 			info "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
 
 			capture "$f" $stamp || return $?
-			apply_stamp "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
-
+			filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
+	
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 			mv "$VIDCAPFILE" "$hlcapfile"
-			hlmontage_command+=" \"$hlcapfile\""
+			capfiles+=( "$hlcapfile" )
 			let 'n++'
 		done
 
-		#if [ "$title" ]; then
-		#	hlmontage_command+=" -font $font_heading -fill $fg_heading -title '$title'"
-		#fi
 		info "Composing highlights contact sheet..."
-		eval "$hlmontage_command -geometry ${vidcap_width}x${vidcap_height}!+10+5 \
-		      -tile ${numcols}x -shadow \"$hlfile\""
-		unset hlcapfile hlmontage_command pretty
+		hlfile=$( create_contact_sheet $numcols $CTX_HL "${capfiles[@]}" )
+		unset hlcapfile pretty n capfiles
 	fi
 	unset n
 
 	# Normal captures
 	# TODO: Don't reference $VIDCAPFILE
-	local capfile= pretty= n=1 montage_command=$base_montage_command
+	local capfile pretty n=1 capfiles=( )
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
 		# Note that it must be checked against numsecs and not endsec, to allow
@@ -825,28 +917,19 @@ process() {
 		info "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
 
 		capture "$f" $stamp || return $?
-		apply_stamp "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
+		filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
+
+		# identified by capture number, padded to 6 characters
 		capfile=$(new_temp_file "-cap-$(pad 6 $n).png")
-		# move to tempdir/<frame num>.png, cap num is padded to 6 characters
 		mv "$VIDCAPFILE" "$capfile"
-		montage_command+=" \"$capfile\""
+		capfiles+=( "$capfile" )
 		let 'n++' # $n++
 	done
-	unset capfile pretty n
-
-	# geometry affects the source images, not the target one!
-	# Note the file name could also be added by using the "-title" option, but I reserved
-	# it for used set titles
-	# FIXME: Title should go before the highlights
-	montage_command+=" -geometry ${vidcap_width}x${vidcap_height}+10+5 -tile ${numcols}x -shadow"
-	if [ "$title" ]; then
-		montage_command+=" -font $font_heading -fill $fg_heading -title '$title'"
-	fi
-	montage_command+=" \"$output\""
+	filter_all_vidcaps "${capfiles[@]}"
 
 	info "Composing standard contact sheet..."
-	eval $montage_command # eval is required to evaluate correctly the text in quotes!
-	unset montage_command
+	output=$(create_contact_sheet $numcols $CTX_STD "${capfiles[@]}")
+	unset capfile capfiles pretty n
 
 	# Extended mode
 	local extoutput=
@@ -859,27 +942,25 @@ process() {
 		compute_timecodes $TC_NUMCAPS "" $hlnc
 		unset hlnc
 
-		local n=1 w= h= capfile= pretty= montage_command=$base_montage_command
-		extoutput=$(new_temp_file "-extended.png")
-
+		local n=1 w= h= capfile= pretty= capfiles=( )
 		# The image size of the extra captures is 1/4
 		let 'w=vidcap_width/2, h=vidcap_height/2'
-
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
 			info "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
 			capture "$f" $stamp || return $?
-			apply_stamp "$VIDCAPFILE" $pretty $w $h || return $?
+			filter_vidcap "$VIDCAPFILE" $pretty $w $h || return $?
+
 			capfile=$(new_temp_file "-excap-$(pad 6 $n).png")
 			mv "$VIDCAPFILE" "$capfile"
-			montage_command+=" \"$capfile\""
+			capfiles+=( "$capfile" )
 			let 'n++'
 		done
-		montage_command+=" -geometry ${w}x${h}+5+2 -tile $(($numcols * 2))x -shadow"
 		info "Composing extended contact sheet..."
-		eval $montage_command "$extoutput"
-		unset montage_command w h capfile pretty n
-	fi
+		extoutput=$( csheet_montage $(($numcols * 2)) $CTX_EXT "${capfiles[@]}" )
+
+		unset w h capfile pretty n
+	fi # Extended mode
 
 	# Codec "prettyfication"
 	# Official FourCCs: <http://msdn2.microsoft.com/en-us/library/ms867195.aspx>
@@ -972,44 +1053,110 @@ process() {
 	fi
 
 
-	local meta="Filename: $(basename "$f")
-File size: $(get_pretty_size "$f")
-Length: $(pretty_stamp "${VID[$LEN]}")"
-	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
-Format: $vcodec / $acodec
-FPS: ${VID[$FPS]}"
-	local signature="$user_signature $user
-$PROGRAM_SIGNATURE"
-	unset acodec vcodec
-
 	if [ "$HLTIMECODES" ] || [ "$extended_factor" != "0" ]; then
 		info "Merging contact sheets..."
 	fi
 	# If there were highlights then mix them in
 	if [ "$HLTIMECODES" ]; then
 		#\( -geometry x2 xc:black -background black \) # This breaks it!
-		convert \( "$hlfile" -background LightGoldenRod \) \
+		convert \( -background LightGoldenRod "$hlfile" -flatten \) \
 			\( "$output" \) -append "$output"
 	fi
 	# Extended captures
 	if [ "$extended_factor" != 0 ]; then
 		convert "$output" "$extoutput" -append "$output"
 	fi
+	# Add the background
+	convert -background "$bg_contact" "$output" -flatten "$output"
 
-	info "Creating header and footer..."
-	# Now let's add meta info
-	# This one enlarges the image to add the text, and puts
-	# meta info in two columns
-	convert -font $font_heading -pointsize $pts_meta \
-		-background $bg_heading -fill $fg_heading -splice 0x$(( $pts_meta * 4 )) \
-		-gravity NorthWest -draw "text 10,10 '$meta'" \
-		-gravity NorthEast -draw "text 10,10 '$meta2'" \
-		"$output" "$output"
-	# Finishing touch, signature
-
-	convert -gravity South -font $font_sign -pointsize $pts_sign \
-		-background $bg_sign -splice 0x34+0-0 \
-		-fill $fg_sign -draw "text 10,3 '$signature'" "$output" "$output"
+	# Let's add meta info and signature
+	info "Adding header and footer..."
+	# Newer method, incremental construction of the heading:
+	# FIXME: Height guessing could be better...
+	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
+Format: $vcodec / $acodec
+FPS: ${VID[$FPS]}"
+	local signature="$user_signature $user
+$PROGRAM_SIGNATURE"
+	local headwidth=$(identify "$output" | cut -d' ' -f3 | cut -d'x' -f1)
+	local headheight=$(($pts_meta * 4 ))
+	local heading=$(new_temp_file .png)
+	# Add the title if any
+	if [ "$title" ]; then
+		# TODO: Use a better height calculation
+		convert \
+			\( \
+				-size ${headwidth}x$(( $pts_title + ($pts_title/2) )) "xc:$bg_title" \
+				-font "$font_title" -pointsize "$pts_title" \
+				-background "$bg_title" -fill "$fg_title" \
+				-gravity Center -annotate 0 "$title" \
+			\) \
+			-flatten \
+			"$output" -append "$output"
+	fi
+	local fn_font=	# see $font_filename
+	case $font_filename in
+		$FF_DEFAULT) fn_font="$font_heading" ;;
+		$FF_MINCHO) fn_font="$FONT_MINCHO" ;;
+		*)
+			warn "\$font_filename was overridden with an incorrect value, using default."
+			fn_font="$font_heading"
+			;;
+	esac
+	# Talk about voodoo... feel the power of IM... let's try to explain what's this:
+	# It might technically be wrong but it seems to work as I think it should
+	# (hence the voodoo I was talking)
+	# Parentheses restrict options inside them to only affect what's inside too
+	# * Create a base canvas of the desired width and height 1. The width is tweaked
+	#   because using "label:" later makes the text too close to the border, that
+	#   will be compensated in the last step.
+	# * Create independent intermediate images with each row of information, the
+	#   filename row is split in two images to allow changing the font, and then
+	#   they're horizontally appended (and the font reset)
+	# * All rows are vertically appended and cropped to regain the width in case
+	#   the filename is too long
+	# * The appended rows are appended to the original canvas, the resulting image
+	#   contains the left row of information with the full heading width and
+	#   height, and this is the *new base canvas*
+	# * Draw over the new canvas the right row with annotate in one
+	#   operation, the offset compensates for the extra pixel from the original
+	#   base canvas. XXX: Using -annotate allows setting alignment but it breaks
+	#   vertical alignment with the other rows' labels.
+	# * Finally add the border that was missing from the initial width, we have
+	#   now the *complete header*
+	# * Add the contact sheet and append it to what we had.
+	# * Start a new image and annotate it with the signature, then append it too.
+	convert \
+		\( \
+			-size $(( ${headwidth} -18 ))x1 "xc:$bg_heading" +size \
+			-font "$font_heading" -pointsize "$pts_meta" \
+			-background "$bg_heading" -fill "$fg_heading" \
+			\( \
+				-gravity West \
+				\( label:"Filename:" \
+					-font "$fn_font" label:"$(basename "$f")" +append \
+				\) \
+				-font "$font_heading" \
+				label:"File size: $(get_pretty_size "$f")" \
+				label:"Length: $(pretty_stamp "${VID[$LEN]}")" \
+				-append -crop ${headwidth}x${headheight}+0+0 \
+			\) \
+			-append \
+			\( \
+				-size ${headwidth}x${headheight} \
+				-gravity East -annotate +0-1 "$meta2" \
+			\) \
+			-bordercolor "$bg_heading" -border 9 \
+		\) \
+		"$output" -append \
+		\( \
+			-size ${headwidth}x34 -gravity Center "xc:$bg_sign" \
+			-font "$font_sign" -pointsize "$pts_sign" \
+			-fill "$fg_sign" -annotate 0 "$signature" \
+		\) \
+		-append \
+		"$output"
+	unset signature meta2 headwidth headheight heading fn_font
 
 	if [ $output_format != "png" ]; then
 		local newout="$(dirname "$output")/$(basename "$output" .png).$output_format"
@@ -1047,6 +1194,7 @@ Options:
                         Use either -i or -n.
   -n|--numcaps <arg>    Set the number of captured images to arg. Use either
                         -i or -n.
+  -c|--columns <arg>    Arrange the output in 'arg' columns.
   -f|--from <arg>       Set starting time. No caps before this. Same format
                         as -i.
   -t|--to <arg>         Set ending time. No caps beyond this. Same format
@@ -1073,6 +1221,13 @@ Options:
   -j|--jpeg             Output in jpeg (by default output is in png).
   -q|--quiet            Don't print progess messages just errors. Repeat to
                         mute completely even on error.
+  -Ij|-Ik
+  --mincho              Use the kana/kanji/hiragana font (EXPERIMENTAL) might
+                        also work for Hangul and Cyrillic.
+  -O|--override <arg>   Use it to override a variable (see the homepage for
+                        more details). Format accepted is 'variable=value' (can
+                        also be quoted -variable="some value"- and can take an
+                        internal variable too -variable="\$SOME_VAR"-).
   -h|--help             Show this text.
 
   Options used for debugging purposes or to tweak the internal workings:
@@ -1118,10 +1273,10 @@ load_config
 
 # TODO: use no name at all with -u noarg
 #eval set -- "${default_options} ${@}"
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO: \
+TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO:I:: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
-"extended::,fullname,quiet,autoaspect,override:" \
+"extended::,fullname,quiet,autoaspect,override:,mincho" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -1130,10 +1285,10 @@ while true ; do
 	case "$1" in
 		-i|--interval)
 			if ! interval=$(get_interval "$2") ; then
-				error "Interval must be a (positive) number. Got '$2'."
+				error "Incorrect interval format. Got '$2'."
 				exit $EX_USAGE
 			fi
-			if [ "$interval" -le 0 ]; then
+			if [ "$interval" == "0" ]; then
 				error "Interval must be higher than 0, set to the default $DEFAULT_INTERVAL"
 				interval=$DEFAULT_INTERVAL
 			fi
@@ -1249,6 +1404,23 @@ while true ; do
 			else
 				extended_factor=$DEFAULT_EXT_FACTOR
 			fi
+			shift
+			;;
+		--mincho) font_filename=$FF_MINCHO ;;
+		-I) # -I technically takes an optional argument (for future alternative
+			# fonts) although it is documented as a two-letter option
+			# Don't relay on using -I though, if I ever add a new alternative font
+			# I might not allow it anymore
+			if [ "$2" ] ; then
+				# If an argument is passed, test it is one of the known ones
+				case "$2" in
+					k|j) ;;
+					*) error "-I must be followed by j or k!" && exit $EX_USAGE ;;
+				esac
+			fi
+			# It isn't tested for existence because it could also be a font
+			# which convert would understand without giving the full path
+			font_filename=$FF_MINCHO;
 			shift
 			;;
 		-O|--override)
