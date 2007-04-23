@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# $Rev: 249 $ $Date: 2007-04-13 05:29:36 +0200 (dv, 13 abr 2007) $
+# $Rev$ $Date$
 
 declare -r VERSION="1.0.1a"
 #
