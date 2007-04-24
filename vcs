@@ -46,6 +46,12 @@ declare -r VERSION="1.0.7b"
 #   * BUGFIX: Corrected test of accepted characters for intervals
 #   * Allow floating point intervals (e.g.: 3m.3 is 3 minutes and 0.3 seconds)
 #   * INTERNAL: New parsing code
+#   * FEATURE: Replaced hard by soft shadows
+#   * BUGFIX: Corrected colour usage: Print the colours to the correct channel
+#   * Made tput (coloured console output) optional (AFAIK should be present in
+#     any sane system though).
+#   * FEATURE: Funky modes (more to come...)
+#   * FEATURE: Polaroid funky mode (-kp)
 #
 
 set -e
@@ -238,6 +244,8 @@ declare -a FILTERS_CS=( )
 declare CSHEET_DELEGATE=csheet_montage
 declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
+# Gravity of the timestamp (will be override-able in the future)
+declare grav_timestamp=SouthEast
 
 # These are the variables allowed to be overriden in the config file,
 # please.
@@ -340,6 +348,13 @@ is_fraction() {
 	egrep -q '^[0-9]+/[0-9]+$'<<<"$1"
 }
 
+# Makes a string lowercase
+# tolower($1 = string)
+tolower() {
+	tr '[A-Z]' '[a-z]' <<<"$1"
+}
+
+
 # Rounded product
 # multiplies parameters and prints the result, rounded to the closest int
 # parameters can be separated by commas or spaces
@@ -352,6 +367,13 @@ rmultiply() {
 	# division is integer by default (without -l) so it's the smae
 	# as rounding to the lower int
 	bc -q <<<"( $f + 0.5 ) / 1"
+}
+
+# Like rmultiply() but always rounded upwards
+ceilmultiply() {
+	local exp=$(sed 's/[ ,]/*/g'<<<"$@") # bc expression
+	local f=$(bc -lq<<<"$exp") # exact float value
+	bc -q <<<"( $f + 0.999999999 ) / 1"
 }
 
 # Prints the width correspoding to the input height and the variable
@@ -372,7 +394,7 @@ compute_width() {
 get_interval() {
 	if is_number "$1" ; then echo $1 ; return 0 ; fi
 
-	local s=$(tr '[A-Z]' '[a-z]' <<<"$1") t r
+	local s=$(tolower "$1") t r
 
 	# Only allowed characters
 	if ! egrep -qi '^[0-9smh.]+$' <<<"$s"; then
@@ -413,6 +435,18 @@ pad() {
 	done
 
 	echo $str
+}
+
+# Get Image Width
+# imw($1 = file)
+imw() {
+	identify "$1" | cut -d' ' -f3 | cut -d'x' -f1
+}
+
+# Get Image Height
+# imh($1 = file)
+imh() {
+	identify "$1" | cut -d' ' -f3 | cut -d'x' -f2
 }
 
 # Prints a number of seconds in a more human readable form
@@ -504,7 +538,8 @@ safe_rename() {
 # test_programs()
 test_programs() {
 	local retval=0 last=0
-	for prog in getopt mplayer convert montage identify bc ffmpeg mktemp sed grep egrep ; do
+	for prog in getopt mplayer convert montage identify bc \
+				ffmpeg mktemp sed grep egrep cut; do
 		type -pf "$prog" >/dev/null
 		if [ $? -ne 0 ] ; then
 			error "Required program $prog not found!"
@@ -547,8 +582,10 @@ error() {
 		# sgr0 is always used, this way if
 		# a) something prints inbetween messages it isn't affected
 		# b) if plain_messages is overridden colour stops after the override
-		echo "$1" >&2 ; tput sgr0
-	fi
+		echo "$1" ; tput sgr0
+	fi >&2
+	# It is important to redirect both tput and echo to stderr. Otherwise
+	# n=$(something) wouldn't be coloured
 }
 #
 # Print a non-fatal error or warning
@@ -558,8 +595,8 @@ warn() {
 		if [ $plain_messages -eq 0 ]; then
 			tput bold ; tput setaf 3;
 		fi
-		echo "$1" >&2 ; tput sgr0
-	fi
+		echo "$1" ; tput sgr0
+	fi >&2
 }
 #
 # Print an informational message
@@ -569,8 +606,8 @@ info() {
 		if [ $plain_messages -eq 0 ]; then
 			tput bold ; tput setaf 2;
 		fi
-		echo "$1" >&2 ; tput sgr0
-	fi
+		echo "$1" ; tput sgr0
+	fi >&2
 }
 #
 # Same as info but with no colour ever.
@@ -739,7 +776,7 @@ filt_apply_stamp() {
 	# than with the next montage command
 	# Note the '!', it is necessary to apply aspect ratio change
 	convert -box '#000000aa' -geometry ${width}x${height}! \
-			-fill "$fg_tstamps" -pointsize "$pts_tstamps" -gravity SouthEast \
+			-fill "$fg_tstamps" -pointsize "$pts_tstamps" -gravity "$grav_timestamp" \
 			-stroke none -strokewidth 3 -annotate +5+5 " "$(pretty_stamp $stamp)" " \
 			"$temp" "$filename"
 	if [ ! -f "$filename" ]; then
@@ -747,6 +784,25 @@ filt_apply_stamp() {
 		mv "$temp" "$filename" # Leave things as before
 		return $EX_CANTCREAT
 	fi
+}
+
+# Apply a Polaroid-like effect
+# Taken from <http://www.imagemagick.org/Usage/thumbnails/#polaroid>
+# filt_polaroid($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filt_polaroid() {
+	local file="$1" ts=$2 w=$3 h=$4
+	# Rotation angle [-9..18]
+	local angle=$(( ($RANDOM % 19) - 9 ))
+# Tweaking the size gives a nice effect too
+# w=$(( $w - ( $RANDOM % ( $w / 3 ) ) ))
+#	-geometry  ${w}x \
+	convert "$file" \
+		-bordercolor white  -border 6 \
+		-bordercolor grey60 -border 1 \
+		-background  none   -rotate $angle \
+		-background  black  \( +clone -shadow 60x4+4+4 \) +swap \
+		-background  none   -flatten \
+		"$file"
 }
 
 # Creates a contact sheet by calling the delegate
@@ -770,6 +826,104 @@ csheet_montage() {
 	# This produces soft-shadows, which look much better than the montage ones
 	#
 	convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
+
+	# FIXME: Error handling
+	echo $output
+}
+
+# Polaroid contact sheet creator: it overlaps vidcaps with some randomness
+# csheet_polaroid($1 = columns, $2 = context, $3... = $vidcaps) : output
+csheet_polaroid() {
+	local cols=$1 ctx=$2
+	# globals: $VID
+	shift ; shift
+
+	# TBD: Handle context
+
+	# Explanation of how this works:
+	# On the first loop we do what the "montage" command would do (arrange the
+	# images in a grid) but overlapping each image to the one on their left,
+	# creating the output row by row, each row in a file.
+	# On the second loop we append the rows, again overlapping each one to the
+	# one before (above) it.
+	# XXX: Compositing over huge images is quite slow, there's probably a
+	# better way to do it
+
+	# Offset bounds, this controls how much of each snap will be over the
+	# previous one
+	local maxoffset=$(( ${VID[$W]} / 3 )) # ~ Vid width / 3
+	local minoffset=$(( $maxoffset / 2 ))   # ~ Vid Width / 6
+
+	# Holds the files that will form the full contact sheet
+	# each file is a row on the final composition
+	local -a rowfiles=( )
+
+	# Dimensions of the canvas for each row, this should be enough
+	# to hold all snaps (not the snaps are rotated so width and height
+	# aren't necessarily the same as the video)
+	local canvasw=$(( ${VID[$W]} * ( $cols + 1 ) ))
+	local canvash=$(( ${VID[$H]} * 2 ))
+
+	# The number of rows required to hold all the snaps
+	local numrows=$(ceilmultiply ${#@},1/$cols) # rounded division
+
+	# Variables inside the loop
+	local col       # Current column
+	local rowfile   # Holds the row we're working on
+	local offset    # Random offset of the current snap [$minoffset..$maxoffset]
+	local accoffset # The absolute (horizontal) offset used on the next iteration
+	local cmdopts   # Holds the arguments passed to convert to compose the sheet
+	local w         # Width of the current snap
+	for row in $(seq 1 $numrows) ; do
+		col=0
+		rowfile=$(new_temp_file .png)
+		rowfiles+=( "$rowfile" )
+		accoffset=0
+		cmdopts= # This command is pretty time-consuming, let's make it in a row
+
+		# Base canvas
+		info "Creating polaroid base canvas $row/$numrows..."
+		convert -size ${canvasw}x${canvash} xc:transparent "$rowfile"
+
+		# Step through vidcaps (col=[0..cols-1])
+		for col in $(seq 0 $(( $cols - 1 ))); do
+			w=$(imw "$1")
+
+			# Stick the vicap in the canvas
+			#convert -geometry +${accoffset}+0 "$rowfile" "$1" -composite "$rowfile"
+			cmdopts+=" -geometry +${accoffset}+0 '$1' -composite "
+
+			offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
+			let 'accoffset=accoffset + w - offset'
+			shift
+		done
+		info "Composing polaroid row $row/$numrows..."
+		eval convert "'$rowfile'" "$cmdopts" -trim +repage "'$rowfile'" >&2
+	done
+
+	info "Merging polaroid rows..."
+	output=$(new_temp_file .png)
+	# Standard composition
+	#convert -background Transparent "${rowfiles[@]}" -append polaroid.png
+	# Overlapped composition
+	convert -size ${canvasw}x$(( $canvash * $cols )) xc:transparent "$output"
+	cmdopts=
+	accoffset=0
+	local h
+	for row in "${rowfiles[@]}" ; do
+		w=$(imw "$row")
+		h=$(imh "$row")
+		minoffset=$(( $h / 8 ))
+		maxoffset=$(( $h / 4 ))
+		offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
+		# The row is also offset horizontally
+		cmdopts+=" -geometry +$(( $RANDOM % $maxoffset ))+$accoffset '$row' -composite "
+		let 'accoffset=accoffset + h - offset'
+	done
+	# After the trim the top corners are too near the heading, we add some space
+	# with -splce
+	eval convert -background transparent "$output" $cmdopts -trim +repage \
+		-bordercolor Transparent -splice 0x10 "$output" >&2
 
 	# FIXME: Error handling
 	echo $output
@@ -968,7 +1122,7 @@ process() {
 	# Another software with a list of fourccs -> name mappings:
 	# <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php?view=markup>
 	local vcodec= acodec=
-	case $( tr '[A-Z]' '[a-z]' <<<${VID[$VCODEC]}) in
+	case $(tolower ${VID[$VCODEC]}) in
 		xvid) vcodec=Xvid ;;
 		dx50) vcodec="DivX 5" ;;
 		0x10000001) vcodec="MPEG-1" ;;
@@ -1010,7 +1164,7 @@ process() {
 		vcodec+=" (h.264)"
 	fi
 
-	case $( tr '[A-Z]' '[a-z]' <<<${VID[$ACODEC]} ) in
+	case $(tolower ${VID[$ACODEC]} ) in
 		85) acodec='MPEG Layer III (MP3)' ;;
 		80) acodec='MPEG Layer I/II (MP1/MP2)' ;; # Apparently they use the same tag
 		mp4a) acodec='MPEG-4 AAC' ;; # LC and HE, apparently
@@ -1224,6 +1378,16 @@ Options:
   -Ij|-Ik
   --mincho              Use the kana/kanji/hiragana font (EXPERIMENTAL) might
                         also work for Hangul and Cyrillic.
+  -k <arg>
+  --funky <arg>         Funky modes:
+                        These are toy output modes in which the contact sheet
+                        gets a more informal look. They're random in nature
+                        so using the same funky mode twice will usually lead to
+                        quite different results.
+                        Currently the only "funky mode" available is
+                        "polaroid": Use '-kp' or '--funky polaroid'
+                             Makes output look like photographs laid over a
+                             table.
   -O|--override <arg>   Use it to override a variable (see the homepage for
                         more details). Format accepted is 'variable=value' (can
                         also be quoted -variable="some value"- and can take an
@@ -1259,6 +1423,14 @@ EOF
 
 #### Execution starts here ####
 
+# If tput isn't found simply ignore tput commands
+# (no colour support)
+# Important to do it before any message can be thrown
+if ! type -pf tput >/dev/null ; then
+	tput() { cat >/dev/null <<<"$1"; }
+	warn "tput wasn't found. Coloured feedback disabled."
+fi
+
 # Execute exithdlr on exit
 trap exithdlr EXIT
 
@@ -1273,10 +1445,10 @@ load_config
 
 # TODO: use no name at all with -u noarg
 #eval set -- "${default_options} ${@}"
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO:I:: \
+TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO:I::k: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
-"extended::,fullname,quiet,autoaspect,override:,mincho" \
+"extended::,fullname,quiet,autoaspect,override:,mincho,funky:" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -1430,6 +1602,22 @@ while true ; do
 				exit $EX_USAGE
 			fi
 			override "$2" "command line"
+			shift
+			;;
+		-k|--funky) # Funky modes
+			case $(tolower "$2") in
+				p|polaroid)
+					info "Changed to polaroid funky mode."
+					FILTERS_IND+=( 'filt_polaroid' )
+					CSHEET_DELEGATE='csheet_polaroid'
+					# The timestamp must change location to be visible
+					grav_timestamp=NorthWest
+					;;
+				*)
+					error "Unknown funky mode. Got '$2'."
+					exit $EX_UAGE
+					;;
+			esac
 			shift
 			;;
 		-q|--quiet)
