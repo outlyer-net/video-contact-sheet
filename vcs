@@ -237,11 +237,14 @@ declare -a FILTERS_IND=( filt_apply_stamp )
 # They're executed in order by filter_all_vidcaps
 declare -a FILTERS_CS=( )
 # The contact sheet creators take the form
-#  csheet_name( number of columns, context, vidcapfile1, vidcapfile2, ... ) : outputfile
-# The context allows the creator to identify which contact sheet it is creating
-# (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
+#  csheet_name( number of columns, context, width, height, vidcapfile1,
+#               vidcapfile2, ... ) : outputfile
+# Context is one of the CTX_* constants (see below)
+# The width and height are those of an individual capture
 # It is executed by create_contact_sheet()
 declare CSHEET_DELEGATE=csheet_montage
+# The context allows the creator to identify which contact sheet it is creating
+# (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
 declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
 # Gravity of the timestamp (will be override-able in the future)
@@ -374,6 +377,12 @@ ceilmultiply() {
 	local exp=$(sed 's/[ ,]/*/g'<<<"$@") # bc expression
 	local f=$(bc -lq<<<"$exp") # exact float value
 	bc -q <<<"( $f + 0.999999999 ) / 1"
+}
+
+# Applies the Pythagorean Theorem
+# pyth_th($1 = cathetus1, $2 = cathetus2)
+pyth_th() {
+	bc -ql <<<"sqrt( $1^2 + $2^2)"
 }
 
 # Prints the width correspoding to the input height and the variable
@@ -791,8 +800,8 @@ filt_apply_stamp() {
 # filt_polaroid($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filt_polaroid() {
 	local file="$1" ts=$2 w=$3 h=$4
-	# Rotation angle [-9..18]
-	local angle=$(( ($RANDOM % 19) - 9 ))
+	# Rotation angle [-18..18]
+	local angle=$(( ($RANDOM % 37) - 18 ))
 # Tweaking the size gives a nice effect too
 # w=$(( $w - ( $RANDOM % ( $w / 3 ) ) ))
 #	-geometry  ${w}x \
@@ -806,16 +815,18 @@ filt_polaroid() {
 }
 
 # Creates a contact sheet by calling the delegate
-# create_contact_sheet($1 = columns, $2... = vidcaps) : output
+# create_contact_sheet($1 = columns, $2 = context, $3 = width, $4 = height,
+#                      $5...$# = vidcaps) : output
 create_contact_sheet() {
 	$CSHEET_DELEGATE "$@"
 }
 
 # This is the standard contact sheet creator
-# csheet_montage($1 = columns, $2 = context, $3... = vidcaps) : output
+# csheet_montage($1 = columns, $2 = context, $3 = width, $4 = height,
+#                $5... = vidcaps) : output
 csheet_montage() {
-	local cols=$1 ctx=$2 output=$(new_temp_file .png)
-	shift ; shift
+	local cols=$1 ctx=$2 width=$3 height=$4 output=$(new_temp_file .png)
+	shift 4
 	case $ctx in
 		$CTX_STD|$CTX_HL) hpad=10 vpad=5 ;;
 		$CTX_EXT) hpad=5 vpad=2 ;;
@@ -832,11 +843,12 @@ csheet_montage() {
 }
 
 # Polaroid contact sheet creator: it overlaps vidcaps with some randomness
-# csheet_polaroid($1 = columns, $2 = context, $3... = $vidcaps) : output
+# csheet_polaroid($1 = columns, $2 = context, $3 = width, $4 = height,
+#                 $5... = $vidcaps) : output
 csheet_polaroid() {
-	local cols=$1 ctx=$2
+	local cols=$1 ctx=$2 width=$3 height=$4
 	# globals: $VID
-	shift ; shift
+	shift 4
 
 	# TBD: Handle context
 
@@ -850,19 +862,23 @@ csheet_polaroid() {
 	# better way to do it
 
 	# Offset bounds, this controls how much of each snap will be over the
-	# previous one
-	local maxoffset=$(( ${VID[$W]} / 3 )) # ~ Vid width / 3
-	local minoffset=$(( $maxoffset / 2 ))   # ~ Vid Width / 6
+	# previous one. Note it is important to work over $width and not $VID[$W]
+	# to cover all possibilities (extended mode and -H change the vidcap size)
+	local maxoffset=$(( $width / 3 ))
+	local minoffset=$(( $width / 6 ))
 
 	# Holds the files that will form the full contact sheet
 	# each file is a row on the final composition
 	local -a rowfiles=( )
 
-	# Dimensions of the canvas for each row, this should be enough
-	# to hold all snaps (not the snaps are rotated so width and height
-	# aren't necessarily the same as the video)
-	local canvasw=$(( ${VID[$W]} * ( $cols + 1 ) ))
-	local canvash=$(( ${VID[$H]} * 2 ))
+	# Dimensions of the canvas for each row, it should be big enough
+	# to hold all snaps.
+	# My trigonometry is pretty rusty but considering we restrict the angle a lot
+	# I believe no image should ever be wider/taller than the diagonal (note the
+	# ceilmultiply is there to simply round the result)
+	local diagonal=$(ceilmultiply $(pyth_th $width $height) 1)
+	local canvasw=$(( $diagonal * $cols ))
+	local canvash=$(( $diagonal ))
 
 	# The number of rows required to hold all the snaps
 	local numrows=$(ceilmultiply ${#@},1/$cols) # rounded division
@@ -887,6 +903,8 @@ csheet_polaroid() {
 
 		# Step through vidcaps (col=[0..cols-1])
 		for col in $(seq 0 $(( $cols - 1 ))); do
+			# More cols than files in the last iteration (e.g. -n10 -c4)
+			if [ -z "$1" ]; then break; fi
 			w=$(imw "$1")
 
 			# Stick the vicap in the canvas
@@ -1053,7 +1071,7 @@ process() {
 		done
 
 		info "Composing highlights contact sheet..."
-		hlfile=$( create_contact_sheet $numcols $CTX_HL "${capfiles[@]}" )
+		hlfile=$( create_contact_sheet $numcols $CTX_HL $vidcap_width $vidcap_height "${capfiles[@]}" )
 		unset hlcapfile pretty n capfiles
 	fi
 	unset n
@@ -1082,7 +1100,7 @@ process() {
 	filter_all_vidcaps "${capfiles[@]}"
 
 	info "Composing standard contact sheet..."
-	output=$(create_contact_sheet $numcols $CTX_STD "${capfiles[@]}")
+	output=$(create_contact_sheet $numcols $CTX_STD $vidcap_width $vidcap_height "${capfiles[@]}")
 	unset capfile capfiles pretty n
 
 	# Extended mode
@@ -1111,7 +1129,7 @@ process() {
 			let 'n++'
 		done
 		info "Composing extended contact sheet..."
-		extoutput=$( csheet_montage $(($numcols * 2)) $CTX_EXT "${capfiles[@]}" )
+		extoutput=$( create_contact_sheet $(($numcols * 2)) $CTX_EXT $w $h "${capfiles[@]}" )
 
 		unset w h capfile pretty n
 	fi # Extended mode
