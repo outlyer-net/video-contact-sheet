@@ -665,6 +665,70 @@ new_temp_file() {
 	echo "$r"
 }
 
+# Randomizes the colours and fonts. The result won't be of much use
+# in most cases but it might be a good way to discover some colour/font
+# or colour combination you like.
+# randomize_look()
+randomize_look() {
+
+	mode=f
+
+	if [ "f" == $mode ]; then # Random mode
+		# There're 5 rows of extra info printed
+		local ncolours=$(( $(convert -list color | wc -l) - 5 ))
+		randcolour() {
+		convert -list color | cut -d' ' -f1 |
+			head -n$(( 5 + ( $RANDOM % $ncolours ) )) | tail -n1
+		}
+	else # Pseudo-random mode, WIP!
+		randccomp() {
+			# colours are in the 0..65535 range, while RANDOM in 0..32767
+			echo $(( $RANDOM + $RANDOM + ($RANDOM % 1) ))
+		}
+		randcolour() {
+			echo "rgb($(randccomp),$(randccomp),$(randccomp))"
+		}
+	fi
+
+	local nfonts=$(( $(convert -list type | wc -l) - 5 ))
+	randfont() {
+		convert -list type | cut -d' ' -f1 | head -n$(( 5 + ( $RANDOM % $nfonts ))) | tail -n1
+	}
+
+	bg_heading=$(randcolour)
+	bg_sign=$(randcolour)
+	bg_title=$(randcolour)
+	bg_contact=$(randcolour)
+	fg_heading=$(randcolour)
+	fg_sign=$(randcolour)
+	fg_tstamps=$(randcolour)
+	fg_title=$(randcolour)
+	font_tstamps=$(randfont)
+	font_heading=$(randfont)
+	font_sign=$(randfont)
+	font_title=$(randfont)
+	info "Randomization result:
+ Chosen backgrounds:
+   '$bg_heading' for the heading
+   '$bg_sign' for the signature
+   '$bg_title' for the title
+   '$bg_contact' for the contact sheet
+ Chosen font colours:
+   '$fg_heading' for the heading
+   '$fg_sign' for the signature
+   '$fg_title' for the title
+   '$fg_tstamps' for the timestamps,
+ Chosen fonts:
+   '$font_heading' for the heading
+   '$font_sign' for the signature
+   '$font_title' for the title
+   '$font_tstamps' for the timestamps"
+
+   unset -f randcolour randfound randccomp
+}
+
+randomize_look
+
 # Add to $TIMECODES the timecodes at which a capture should be taken
 # from the current video
 # compute_timecodes($1 = timecode_from, $2 = interval, $3 = numcaps)
