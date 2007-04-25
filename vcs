@@ -52,6 +52,7 @@ declare -r VERSION="1.0.7b"
 #     any sane system though).
 #   * FEATURE: Funky modes (more to come...)
 #   * FEATURE: Polaroid funky mode (-kp)
+#   * INTERNAL: Use /dev/shm as base tempdir if possible
 #
 
 set -e
@@ -634,7 +635,13 @@ infoplain() {
 # Creates a new temporary directory
 # create_temp_dir()
 create_temp_dir() {
-	VCSTEMPDIR=$(mktemp -d -t vcs.XXXXXX)
+	# Try to use /dev/shm if available, this provided a very small
+	# benefit on my system but me of help for huge files. Or maybe won't.
+	if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+		VCSTEMPDIR=$(mktemp -d -p /dev/shm vcs.XXXXXX)
+	else
+		VCSTEMPDIR=$(mktemp -d -t vcs.XXXXXX)
+	fi
 	if [ ! -d "$VCSTEMPDIR" ]; then
 		error "Error creating temporary directory"
 		return $EX_CANTCREAT
