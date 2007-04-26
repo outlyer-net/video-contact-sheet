@@ -858,7 +858,10 @@ filter_vidcap() {
 	for filter in ${FILTERS_IND[@]}; do
 		cmdopts+=" $( $filter "$1" "$2" "$3" "$4" ) "
 	done
-	eval "convert '$1' $cmdopts '$1'"
+	local t=$(new_temp_file .png)
+	eval "convert '$1' $cmdopts '$t'"
+	# If $t doesn't exist returns non-zero
+	[ -f "$t" ] && mv "$t" "$1"
 }
 
 # Applies all global vidcap filters
@@ -1190,7 +1193,11 @@ process() {
 			info "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
 
 			capture "$f" $stamp || return $?
-			filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
+			filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || {
+				local r=$?
+				error "Failed to apply transformations to the capture."
+				return $r
+			}
 	
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 			mv "$VIDCAPFILE" "$hlcapfile"
