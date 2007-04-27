@@ -393,6 +393,22 @@ ceilmultiply() {
 	bc -q <<<"( $f + 0.999999999 ) / 1"
 }
 
+# numeric test eqivalent for floating point
+# fptest($1 = op1, $2 = operator, $3 = op2)
+fptest() {
+	local op=
+	case $2 in
+		-gt) op='>' ;;
+		-lt) op='<' ;;
+		-ge) op='>=' ;;
+		-le) op='<=' ;;
+		-eq) op='==' ;;
+		-ne) op='!=' ;;
+		*) error "Internal error" && return $EX_SOFTWARE
+	esac
+	[ '1' == $(bc -q <<<"$1 $op $3") ]
+}
+
 # Applies the Pythagorean Theorem
 # pyth_th($1 = cathetus1, $2 = cathetus2)
 pyth_th() {
@@ -476,13 +492,18 @@ imh() {
 # e.g.: 3600 becomes 1:00:00
 # pretty_stamp($1 = seconds)
 pretty_stamp() {
-	if ! is_number "$1" ; then return $EX_USAGE ; fi
+	if ! is_float "$1" ; then return $EX_USAGE ; fi
+
+	# For the time being simply ignore below seconds
+	local in=$(sed 's/\..*//' <<<$1)
 
 	local t=$1
-	local h=$(( $t / 3600 ))
-	t=$(( $t % 3600 ))
-	local m=$(( $t / 60 ))
-	t=$(( $t % 60 ))
+	#local h=$(( $t / 3600 ))
+	# bc's modulus seems to *require* not using the math lib (-l)
+	local h=$( bc -q <<<"$t / 3600")
+	t=$(bc -q <<<"$t % 3600")
+	local m=$( bc -q <<<"$t / 60")
+	t=$(bc -q <<<"$t % 60")
 	local s=$t
 
 	local R=""
@@ -492,7 +513,8 @@ pretty_stamp() {
 	fi
 	R+=$(pad 2 "$m"):$(pad 2 $s)
 
-	echo $R
+	# Trim (most) decimals
+	sed -r 's/\.([0-9][0-9]).*/.\1/'<<<$R
 }
 
 # Prints the size of a file in a human friendly form
@@ -763,23 +785,26 @@ compute_timecodes() {
 		# Numcaps mandates: timecodes are obtained dividing the length
 		# by the number of captures
 		if [ $tcnumcaps -eq 1 ]; then # Special case, just one capture, center it
-			inc=$(( ($end-$st) / 2 +  1))
+			inc=$( bc -lq <<< "($end-$st)/2 + 1" )
 		else
-			inc=$(( ($end-$st) / $tcnumcaps ))
+			#inc=$(( ($end-$st) / $tcnumcaps ))
+			# FIXME: The last second is avoided (-1) to get the correct caps number
+			inc=$( bc -lq <<< "($end-$st-1)/$tcnumcaps" )
 		fi
 	else
 		error "Internal error"
 		return $EX_SOFTWARE
 	fi
 
-	if [ $inc -gt ${VID[$LEN]} ]; then
+	if fptest $inc -gt ${VID[$LEN]}; then
 		error "Interval is longer than video length, skipping $f"
 		return $EX_USAGE
 	fi
 
-	local LTC=( ) stamp=
-	for stamp in $(seq $st $inc $end); do
+	local LTC=( ) stamp=$st
+	while fptest $stamp -le $end; do
 		LTC+=( $stamp )
+		stamp=$(bc -q <<<"$stamp+$inc")
 	done
 	unset LTC[0] # Discard initial cap (=$st)
 	TIMECODES=( ${TIMECODES[*]} ${LTC[*]} )
@@ -1225,7 +1250,7 @@ process() {
 		# Note that it must be checked against numsecs and not endsec, to allow
 		# the user manually setting stamps beyond the boundaries
 		# This shouldn't occur automatically anymore with the new code.
-		if [ $stamp -gt $numsecs ]; then let 'n++' && continue; fi
+		if fptest $stamp -gt $numsecs ; then let 'n++' && continue; fi
 
 		info "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
 
@@ -1250,6 +1275,7 @@ process() {
 		# Number of captures. Always rounded to a multiplier of 2
 		# TODO: Round it to a multiplier of the number of columns
 		local hlnc=$(bc -q <<<"( (${#TIMECODES[*]} * $extended_factor) / 2 * 2)")
+
 		unset TIMECODES # required step to get the right count
 		TIMECODES=${initial_stamps[*]}
 		compute_timecodes $TC_NUMCAPS "" $hlnc
@@ -1617,6 +1643,7 @@ load_config
 
 # TODO: use no name at all with -u noarg
 #eval set -- "${default_options} ${@}"
+ARGS="$@"
 TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO:I::k:W: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
@@ -1730,7 +1757,6 @@ while true ; do
 			shift
 			;;
 		-m|--manual) manual_mode=1 ;;
-		-D) echo "Command line: $0 $*" && title="$0 $*" ; ;;
 		-e|--extended)
 			# Optional argument quirks: $2 is always present, set to '' if unused
 			# from the commandline it MUST be directly after the -e (-e2 not -e 2)
@@ -1827,6 +1853,7 @@ while true ; do
 				verbosity=$V_NONE
 			fi
 			;;
+		-D) echo "Command line: $0 $ARGS" && title="$(basename "$0") $ARGS" ; ;;
 		--) shift ; break ;;
 		*) error "Internal error! (remaining opts: $@)" ; exit $EX_SOFTWARE ;
 	esac
