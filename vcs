@@ -23,6 +23,11 @@
 #
 # Author: Toni Corvera <outlyer@outlyer.net>
 #
+# References:
+# Pages from I've taken snippets or wrote code based on them.
+# I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1
+# [R1] http://wooledge.org/mywiki/BashFaq
+#
 
 declare -r VERSION="1.0.7b"
 #
@@ -56,6 +61,9 @@ declare -r VERSION="1.0.7b"
 #   * INTERNAL: Use /dev/shm as base tempdir if possible
 #   * BUGFIX: Fixed safe_rename(): Don't assume current dir, added '--' to mv
 #   * Added workaround for ffmpeg arguments order
+#   * Allow getting the output of ffmpeg/mplayer (with $stdout and $stderr)
+#   * INTERNAL: Renamed info() to inf() to eliminate ambiguities
+#   * INTERNAL: guess_aspect() doesn't operate globally
 #
 
 set -e
@@ -188,6 +196,8 @@ declare -i plain_messages=0
 # Apparently Kochi Mincho includes Hangul *and* Cyrillic... which would be
 # great :)
 declare FONT_MINCHO=/usr/share/fonts/truetype/kochi/kochi-mincho.ttf
+# Output of capturing programs is redirected here
+declare stdout=/dev/null stderr=/dev/null
 
 # }}} # End of override-able variables
 
@@ -292,6 +302,8 @@ declare -ra ALLOWED_OVERRIDES=(
 	'verbosity'
 	'plain_messages'
 	'FONT_MINCHO'
+	'stdout'
+	'stderr'
 )
 
 # Loads the configuration files if present
@@ -380,10 +392,11 @@ tolower() {
 # rmultiply($1 = "operator1,operator2,...")
 rmultiply() {
 	local exp=$(sed 's/[ ,]/*/g'<<<"$@") # bc expression
-	local f=$(bc -lq<<<"$exp") # exact float value
+	#local f=$(bc -lq<<<"$exp") # exact float value
 	# division is integer by default (without -l) so it's the smae
 	# as rounding to the lower int
-	bc -q <<<"( $f + 0.5 ) / 1"
+	#bc -q <<<"( $f + 0.5 ) / 1"
+	bc -q <<<"scale=5; v=( ($exp) + 0.5 ) ; scale=0 ; v/1"
 }
 
 # Like rmultiply() but always rounded upwards
@@ -466,13 +479,11 @@ get_interval() {
 # the indicated length
 # pad($1 = minimum length, $2 = string)
 pad() {
-	local len=$1
+	# printf "%0${1}d\n" "$2" # [[R1#18]] # Can't be used with non-numbers
 	local str=$2
-
-	while [ ${#str} -lt $len ]; do
-		str=0$str
+	while [ "${#str}" -lt $1 ]; do
+		str="0$str"
 	done
-
 	echo $str
 }
 
@@ -604,7 +615,7 @@ test_programs() {
 # cleanup()
 cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
-	info "Cleaning up..."
+	inf "Cleaning up..."
 	rm -rf ${TEMPSTUFF[*]}
 	TEMPSTUFF=( )
 }
@@ -648,8 +659,8 @@ warn() {
 }
 #
 # Print an informational message
-# info($1 = text)
-info() {
+# inf($1 = text)
+inf() {
 	if [ $verbosity -ge $V_INFO ]; then
 		if [ $plain_messages -eq 0 ]; then
 			tput bold ; tput setaf 2;
@@ -658,9 +669,9 @@ info() {
 	fi >&2
 }
 #
-# Same as info but with no colour ever.
-# infoplain($1 = text)
-infoplain() {
+# Same as inf but with no colour ever.
+# infplain($1 = text)
+infplain() {
 	if [ $verbosity -ge $V_INFO ]; then
 		echo "$1" >&2
 	fi
@@ -709,14 +720,14 @@ new_temp_file() {
 # randomize_look()
 randomize_look() {
 
-	mode=f
+	local mode=f lineno
 
 	if [ "f" == $mode ]; then # Random mode
 		# There're 5 rows of extra info printed
 		local ncolours=$(( $(convert -list color | wc -l) - 5 ))
 		randcolour() {
-		convert -list color | cut -d' ' -f1 |
-			head -n$(( 5 + ( $RANDOM % $ncolours ) )) | tail -n1
+		lineno=$(( 5 + ( $RANDOM % $ncolours ) ))
+		convert -list color | sed -n "${lineno}p" | cut -d' ' -f1 # [[R1#19]]
 		}
 	else # Pseudo-random mode, WIP!
 		randccomp() {
@@ -730,7 +741,8 @@ randomize_look() {
 
 	local nfonts=$(( $(convert -list type | wc -l) - 5 ))
 	randfont() {
-		convert -list type | cut -d' ' -f1 | head -n$(( 5 + ( $RANDOM % $nfonts ))) | tail -n1
+		lineno=$(( 5 + ( $RANDOM % $nfonts )))
+		convert -list type | sed -n "${lineno}p" | cut -d' ' -f1 # [[R1#19]]
 	}
 
 	bg_heading=$(randcolour)
@@ -745,7 +757,7 @@ randomize_look() {
 	font_heading=$(randfont)
 	font_sign=$(randfont)
 	font_title=$(randfont)
-	info "Randomization result:
+	inf "Randomization result:
  Chosen backgrounds:
    '$bg_heading' for the heading
    '$bg_sign' for the signature
@@ -812,31 +824,30 @@ compute_timecodes() {
 
 # Tries to guess an aspect ratio comparing width and height to some
 # known values (e.g. VCD resolution turns into 4/3)
-# guess_aspect()
+# guess_aspect($1 = width, $2 = height)
 guess_aspect() {
 	# mplayer's ID_ASPECT seems to be always 0 ¿?
-	local w=${VID[$W]} h=${VID[$H]}
+	local w=$1 h=$2 ar
 	if [ $w -eq 352 ]; then # VCD / DVD @ VCD Res. / Half-D1 / CVD
 		if [ $h -eq 288 ] || [ $h -eq 240 ]; then
-			aspect_ratio=4/3
+			ar=4/3
 		elif [ $h -eq 576 ] || [ $h -eq 480 ]; then # Half-D1 / CVD
-			aspect_ratio=4/3
+			ar=4/3
 		fi
 	elif [ $w -eq 704 ] || [ $w -eq 720 ]; then # DVD / DVB
 		# Actually for 720x576/720x480 16/9 is as good a guess
 		if [ $h -eq 576 ] || [ $h -eq 480 ]; then
-			aspect_ratio=4/3
+			ar=4/3
 		fi
 	elif [ $w -eq 480 ]; then # SVCD
 		if [ $h -eq 576 ] || [ $h -eq 480 ]; then
-			aspect_ratio=4/3
+			ar=4/3
 		fi
 	else
 		warn "Couldn't guess aspect ratio."
-		aspect_ratio=$(bc -lq <<<"$w / $h")
+		ar="$w/$h" # Don't calculate it yet
 	fi
-	local AR=$(sed -r 's/(\.[0-9]{2}).*/\1/g'<<<$aspect_ratio)
-	info "Aspect ratio set to $AR"
+	echo $ar
 }
 
 # Capture a frame
@@ -847,16 +858,18 @@ capture() {
 	# globals: $shoehorned $decoder
 
 	if [ $decoder -eq $DEC_MPLAYER ]; then
-		mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			-frames 1 -ss $stamp $shoehorned "$f" >/dev/null 2>&1
+		{
+			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+			-frames 1 -ss $stamp $shoehorned "$f"
+		} >"$stdout" 2>"$stderr"
 	elif [ $decoder -eq $DEC_FFMPEG ]; then
 		# XXX: It would be nice to show a message if it takes too long
-		{ # Used to redirect output
+		{
 			# See wa_ss_* declarations at the start of the file for details
 			ffmpeg -y ${wa_ss_be/ / $stamp} -i "$f" ${wa_ss_af/ / $stamp} -an \
 				-dframes 1 -vframes 1 -vcodec png \
 				-f rawvideo $shoehorned $VIDCAPFILE
-		} >/dev/null 2>&1
+		} >"$stdout" 2>"$stderr"
 	else
 		error "Internal error!"
 		return $EX_SOFTWARE
@@ -1060,7 +1073,7 @@ csheet_overlap() {
 		cmdopts= # This command is pretty time-consuming, let's make it in a row
 
 		# Base canvas
-		info "Creating polaroid base canvas $row/$numrows..."
+		inf "Creating polaroid base canvas $row/$numrows..."
 		convert -size ${canvasw}x${canvash} xc:transparent "$rowfile"
 
 		# Step through vidcaps (col=[0..cols-1])
@@ -1077,11 +1090,11 @@ csheet_overlap() {
 			let 'accoffset=accoffset + w - offset'
 			shift
 		done
-		info "Composing polaroid row $row/$numrows..."
+		inf "Composing polaroid row $row/$numrows..."
 		eval convert "'$rowfile'" "$cmdopts" -trim +repage "'$rowfile'" >&2
 	done
 
-	info "Merging polaroid rows..."
+	inf "Merging polaroid rows..."
 	output=$(new_temp_file .png)
 	# Standard composition
 	#convert -background Transparent "${rowfiles[@]}" -append polaroid.png
@@ -1163,7 +1176,7 @@ process() {
 		error "File \"$f\" doesn't exist"
 		return $EX_NOINPUT
 	fi
-	info "Processing $f..."
+	inf "Processing $f..."
 
 	identify_video "$f" || {
 		error "Found unsupported value while identifying video. Can't continue."
@@ -1178,7 +1191,8 @@ process() {
 	if [ "0" == "$aspect_ratio" ]; then
 		aspect_ratio=$(bc -lq <<< "${VID[$W]} / ${VID[$H]}")
 	elif [ "-1" == "$aspect_ratio" ]; then
-		guess_aspect
+		aspect_ratio=$(guess_aspect ${VID[$W]} ${VID[$H]})
+		inf "Aspect ratio set to $(sed -r 's/(\.[0-9]{2}).*/\1/g'<<<$aspect_ratio)"
 	fi
 	local vidcap_width=$(compute_width $vidcap_height)
 
@@ -1221,7 +1235,7 @@ process() {
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
 			if [ $stamp -gt $numsecs ]; then let 'n++' && continue ; fi
 			pretty=$(pretty_stamp $stamp)
-			info "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
+			inf "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
 
 			capture "$f" $stamp || return $?
 			filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || {
@@ -1236,7 +1250,7 @@ process() {
 			let 'n++'
 		done
 
-		info "Composing highlights contact sheet..."
+		inf "Composing highlights contact sheet..."
 		hlfile=$( create_contact_sheet $numcols $CTX_HL $vidcap_width $vidcap_height "${capfiles[@]}" )
 		unset hlcapfile pretty n capfiles
 	fi
@@ -1252,7 +1266,7 @@ process() {
 		# This shouldn't occur automatically anymore with the new code.
 		if fptest $stamp -gt $numsecs ; then let 'n++' && continue; fi
 
-		info "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
+		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
 
 		capture "$f" $stamp || return $?
 		filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
@@ -1265,7 +1279,7 @@ process() {
 	done
 	#filter_all_vidcaps "${capfiles[@]}"
 
-	info "Composing standard contact sheet..."
+	inf "Composing standard contact sheet..."
 	output=$(create_contact_sheet $numcols $CTX_STD $vidcap_width $vidcap_height "${capfiles[@]}")
 	unset capfile capfiles pretty n
 
@@ -1286,7 +1300,7 @@ process() {
 		let 'w=vidcap_width/2, h=vidcap_height/2'
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
-			info "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
+			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
 			capture "$f" $stamp || return $?
 			filter_vidcap "$VIDCAPFILE" $pretty $w $h || return $?
 
@@ -1295,7 +1309,7 @@ process() {
 			capfiles+=( "$capfile" )
 			let 'n++'
 		done
-		info "Composing extended contact sheet..."
+		inf "Composing extended contact sheet..."
 		extoutput=$( create_contact_sheet $(($numcols * 2)) $CTX_EXT $w $h "${capfiles[@]}" )
 
 		unset w h capfile pretty n
@@ -1393,7 +1407,7 @@ process() {
 
 
 	if [ "$HLTIMECODES" ] || [ "$extended_factor" != "0" ]; then
-		info "Merging contact sheets..."
+		inf "Merging contact sheets..."
 	fi
 	# If there were highlights then mix them in
 	if [ "$HLTIMECODES" ]; then
@@ -1408,8 +1422,8 @@ process() {
 	# Add the background
 	convert -background "$bg_contact" "$output" -flatten "$output"
 
-	# Let's add meta info and signature
-	info "Adding header and footer..."
+	# Let's add meta inf and signature
+	inf "Adding header and footer..."
 	# Newer method, incremental construction of the heading:
 	# FIXME: Height guessing could be better...
 	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
@@ -1507,14 +1521,14 @@ $PROGRAM_SIGNATURE"
 		error "Failed to write the output file!"
 		return $EX_CANTCREAT
 	}
-	info "Done. Output wrote to $output_name"
+	inf "Done. Output wrote to $output_name"
 
 	cleanup
 }
 
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
-	info "Video Contact Sheet *NIX v${VERSION}, (c) 2007 Toni Corvera" "sgr0"
+	inf "Video Contact Sheet *NIX v${VERSION}, (c) 2007 Toni Corvera" "sgr0"
 }
 
 # Prints the list of options to stdout
@@ -1596,8 +1610,10 @@ Options:
   -M|--mplayer          Force the usage of mplayer.
   -F|--ffmpeg           Force the usage of ffmpeg.
   --shoehorn <arg>      Pass "arg" to mplayer/ffmpeg. You shouldn't need it.
-  -D                    Debug mode: Currently just prints the parsed
-                        commandline as the title and to stderr.
+  -D                    Debug mode. Used to test features/integrity. It:
+                          * Prints the input command line
+                          * Sets the title to reflect the command line
+                          * Does a basic test of consistency.
 
 Examples:
     Create a contact sheet with default values (vidcaps at intervals of
@@ -1618,6 +1634,61 @@ EOF
 }
 
 # }}} # Core functionality
+
+# {{{ # Debugging helpers
+
+# Tests integrity of some operations.
+# Used to test internal changes for consistency.
+# It helps me to identify incorrect optimizations.
+# unit_test()
+unit_test() {
+	local t op val ret comm retval=0
+
+	# Tests are in the form "operation arguments correct_result #Description"
+	local TESTS=(
+		"rmultiply 1,1 1 #Identity"
+		"rmultiply 16/9,1 2 #Rounding" # 1.77 rounded 2
+		"rmultiply 4/3 1 #Rounding"    # 1.33 rounded 1
+		"rmultiply 1,16/9 2 #Commutative property"
+		"rmultiply 1.7 2 #Alternate syntax"
+
+		"ceilmultiply 1,1 1 #"
+		"ceilmultiply 4/3 2 #" # 1.33 rounded 2
+		"ceilmultiply 7,1/2 4 #" # 3.5 rounded 4
+		"ceilmultiply 7/2 4 #Alternative syntax"
+		"ceilmultiply 1/2,7 4 #Commutative property"
+
+		"pad 10 0 0000000000 #Padding"
+		"pad 1 20 20 #Unneeded padding"
+		"pad 5 23.3 023.3 #Floating point padding"
+
+		"guess_aspect 720 576 4/3 #DVD AR Guess"
+		"guess_aspect 1024 576 1024/576 #Unsupported Wide AR Guess"
+	)
+	
+	for t in "${TESTS[@]}" ; do
+		# Note the use of ! as separator, this is because # and / are used in
+		# many of the inputs
+		comm=$(sed 's!.* #!!g' <<<$t)
+		# Expected value
+		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		ret=$($op)
+		if [ -z "$comm" ]; then
+			comm=unnamed
+		fi
+
+		if [ "$ret" != "$val" ] && fptest "$ret" -ne "$val" ; then
+			error "Failed test ($comm): '$op $val'. Got result '$ret'."
+			let 'retval++'
+		else
+			inf "Passed test ($comm): '$op $val'."
+		fi
+	done
+	return $retval
+}
+
+# }}} # Debugging helpers
 
 #### Execution starts here ####
 
@@ -1813,7 +1884,7 @@ while true ; do
 		-k|--funky) # Funky modes
 			case $(tolower "$2") in
 				p|polaroid) # Same as overlap + rotate + photoframe
-					info "Changed to polaroid funky mode."
+					inf "Changed to polaroid funky mode."
 					FILTERS_IND+=( 'filt_photoframe' 'filt_randrot' )
 					CSHEET_DELEGATE='csheet_overlap'
 					# The timestamp must change location to be visible
@@ -1830,11 +1901,11 @@ while true ; do
 					FILTERS_IND+=( 'filt_photoframe' )
 					;;
 				i|film)
-					info "Enabled film mode."
+					inf "Enabled film mode."
 					FILTERS_IND+=( 'filt_film' )
 					;;
 				x|random) # Random colours/fonts
-					info "Enabled random colours and fonts."
+					inf "Enabled random colours and fonts."
 					randomize_look
 					;;
 				*)
@@ -1853,7 +1924,17 @@ while true ; do
 				verbosity=$V_NONE
 			fi
 			;;
-		-D) echo "Command line: $0 $ARGS" && title="$(basename "$0") $ARGS" ; ;;
+		-D)
+			inf "Testing internal consistency..."
+			unit_test
+			if [ $? -eq 0 ]; then
+				warn "All tests passed"
+			else
+				error "Some tests failed!"
+			fi
+			warn "Command line: $0 $ARGS"
+			title="$(basename "$0") $ARGS"
+			;;
 		--) shift ; break ;;
 		*) error "Internal error! (remaining opts: $@)" ; exit $EX_SOFTWARE ;
 	esac
