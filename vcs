@@ -34,8 +34,6 @@ declare -r VERSION="1.0.7b"
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# TODO: Support for ms timestamps (ffmpeg supports it e.g. 54.9 is ok and != 54)
-#
 # 1.0.7b:
 #    * Print title *before* the highlights.
 #    * Added the forgotten -O and -c to the help text (oops!)
@@ -49,24 +47,31 @@ declare -r VERSION="1.0.7b"
 #   * Allow overriding the previews' background ($bg_contact)
 #   * Added getopt, identify, sed, grep and egrep to the checked programs
 #   * BUGFIX: Corrected test of accepted characters for intervals
-#   * Allow floating point intervals (e.g.: 3m.3 is 3 minutes and 0.3 seconds)
 #   * INTERNAL: New parsing code
 #   * FEATURE: Replaced hard by soft shadows
 #   * BUGFIX: Corrected colour usage: Print the colours to the correct channel
 #   * Made tput (coloured console output) optional (AFAIK should be present in
 #     any sane system though).
-#   * FEATURE: Funky modes (more to come...)
-#   * FEATURE: Polaroid funky mode (-kp)
-#   * FEATURE: Film funky mode (-kf) (rough initial version)
+#   * FEATURE: Funky modes (more to come...): Polaroid, Film (rough, initial,
+#     version), Photoframe and Random colours/fonts. (see --help)
 #   * INTERNAL: Use /dev/shm as base tempdir if possible
 #   * BUGFIX: Fixed safe_rename(): Don't assume current dir, added '--' to mv
 #   * Added workaround for ffmpeg arguments order
 #   * Allow getting the output of ffmpeg/mplayer (with $stdout and $stderr)
 #   * INTERNAL: Renamed info() to inf() to eliminate ambiguities
 #   * INTERNAL: guess_aspect() doesn't operate globally
+#   * Reorganized help by alphabetical/rarity order
+#   * FEATURE: Full milliseconds support (actually, full decimal seconds), timecode format
+#     extended to support e.g. 3m.24 (which means 00:03:00.240)
+#   * BUGFIX/FEATURE: The number of extended captures is rounded to match the standard
+#     columns (extended width matches standard)
 #
 
 set -e
+
+# TODO / FIXME:
+# * [[R1#22]] states that not all bc versions understand '<', more info required
+#
 
 # Configuration file, please, use this file to modify the behaviour of the
 # script. Using this allows overriding some variables (see below)
@@ -306,6 +311,9 @@ declare -ra ALLOWED_OVERRIDES=(
 	'stderr'
 )
 
+# This is only used to exit when -DD is used
+declare -i DEBUGGED=0 # It will be 1 after using -D
+
 # Loads the configuration files if present
 # load_config()
 load_config() {
@@ -370,7 +378,7 @@ is_float() {
 	egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))$'<<<"$1"
 }
 
-# Returns true if input is a fraction
+# Returns true if input is a fraction (*strictly*, i.e. "1" is not a fraction)
 # Only accepts XX/YY
 # is_fraction($1 = input)
 is_fraction() {
@@ -404,6 +412,18 @@ ceilmultiply() {
 	local exp=$(sed 's/[ ,]/*/g'<<<"$@") # bc expression
 	local f=$(bc -lq<<<"$exp") # exact float value
 	bc -q <<<"( $f + 0.999999999 ) / 1"
+}
+
+# Round to a multiple
+# Rounds a number ($1) to a multiple of ($2)
+# rtomult($1 = number, $2 = divisor)
+rtomult() {
+	local n=$1 d=$2
+	local r=$(( $n % $d ))
+	if [ $r -ne 0 ]; then
+		let 'n += ( d - r )'
+	fi
+	echo $n
 }
 
 # numeric test eqivalent for floating point
@@ -505,9 +525,6 @@ imh() {
 pretty_stamp() {
 	if ! is_float "$1" ; then return $EX_USAGE ; fi
 
-	# For the time being simply ignore below seconds
-	local in=$(sed 's/\..*//' <<<$1)
-
 	local t=$1
 	#local h=$(( $t / 3600 ))
 	# bc's modulus seems to *require* not using the math lib (-l)
@@ -515,14 +532,19 @@ pretty_stamp() {
 	t=$(bc -q <<<"$t % 3600")
 	local m=$( bc -q <<<"$t / 60")
 	t=$(bc -q <<<"$t % 60")
-	local s=$t
+	local s=$(cut -d'.' -f1 <<<$t)
+	local ms=$(cut -d'.' -f2 <<<$t)
 
 	local R=""
 
 	if [ $h -gt 0 ]; then
 		R+="$h:"
 	fi
-	R+=$(pad 2 "$m"):$(pad 2 $s)
+	# Right pad of decimal seconds
+	if [ ${#ms} -lt 2 ]; then
+		ms="${ms}0"
+	fi
+	R+=$(pad 2 "$m"):$(pad 2 $s).$ms
 
 	# Trim (most) decimals
 	sed -r 's/\.([0-9][0-9]).*/.\1/'<<<$R
@@ -797,11 +819,11 @@ compute_timecodes() {
 		# Numcaps mandates: timecodes are obtained dividing the length
 		# by the number of captures
 		if [ $tcnumcaps -eq 1 ]; then # Special case, just one capture, center it
-			inc=$( bc -lq <<< "($end-$st)/2 + 1" )
+			inc=$( bc -lq <<< "scale=3; ($end-$st)/2 + 1" )
 		else
 			#inc=$(( ($end-$st) / $tcnumcaps ))
 			# FIXME: The last second is avoided (-1) to get the correct caps number
-			inc=$( bc -lq <<< "($end-$st-1)/$tcnumcaps" )
+			inc=$( bc -lq <<< "scale=3; ($end-$st-1)/$tcnumcaps" )
 		fi
 	else
 		error "Internal error"
@@ -1143,7 +1165,7 @@ identify_video() {
 	VID[$W]=$(grep ID_VIDEO_WIDTH <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
 	VID[$H]=$(grep ID_VIDEO_HEIGHT <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
 	VID[$FPS]=$(grep ID_VIDEO_FPS <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
-	VID[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2 | cut -d. -f1)
+	VID[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2)
 	# For some reason my (one track) samples have two ..._NCH, first one 0
 	VID[$CHANS]=$(grep ID_AUDIO_NCH <<<"$MPLAYER_CACHE"|cut -d'=' -f2|head -2|tail -1)
 
@@ -1161,7 +1183,7 @@ identify_video() {
 	fi
 
 	# Check sanity of the most important values
-	is_number "${VID[$W]}" && is_number "${VID[$H]}" && is_number "${VID[$LEN]}"
+	is_number "${VID[$W]}" && is_number "${VID[$H]}" && is_float "${VID[$LEN]}"
 }
 
 # Main function.
@@ -1233,7 +1255,7 @@ process() {
 	if [ "$HLTIMECODES" ]; then
 		local hlcapfile= pretty= capfiles=( )
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
-			if [ $stamp -gt $numsecs ]; then let 'n++' && continue ; fi
+			if fptest $stamp -gt $numsecs ; then let 'n++' && continue ; fi
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
 
@@ -1261,11 +1283,6 @@ process() {
 	local capfile pretty n=1 capfiles=( )
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
-		# Note that it must be checked against numsecs and not endsec, to allow
-		# the user manually setting stamps beyond the boundaries
-		# This shouldn't occur automatically anymore with the new code.
-		if fptest $stamp -gt $numsecs ; then let 'n++' && continue; fi
-
 		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
 
 		capture "$f" $stamp || return $?
@@ -1286,12 +1303,13 @@ process() {
 	# Extended mode
 	local extoutput=
 	if [ "$extended_factor" != 0 ]; then
-		# Number of captures. Always rounded to a multiplier of 2
-		# TODO: Round it to a multiplier of the number of columns
-		local hlnc=$(bc -q <<<"( (${#TIMECODES[*]} * $extended_factor) / 2 * 2)")
+		# Number of captures. Always rounded to a multiplier of *double* the
+		# number of columns (the extended caps are half width, this way they
+		# match approx with the standard caps width)
+		local hlnc=$(rtomult "$(( ${#TIMECODES[@]} * $extended_factor ))" $((2*$numcols)))
 
 		unset TIMECODES # required step to get the right count
-		TIMECODES=${initial_stamps[*]}
+		declare -a TIMECODES # Note the manual stamps aren't included anymore
 		compute_timecodes $TC_NUMCAPS "" $hlnc
 		unset hlnc
 
@@ -1491,7 +1509,7 @@ $PROGRAM_SIGNATURE"
 				\) \
 				-font "$font_heading" \
 				label:"File size: $(get_pretty_size "$f")" \
-				label:"Length: $(pretty_stamp "${VID[$LEN]}")" \
+				label:"Length: $(cut -d'.' -f1 <<<$(pretty_stamp ${VID[$LEN]}))" \
 				-append -crop ${headwidth}x${headheight}+0+0 \
 			\) \
 			-append \
@@ -1548,34 +1566,40 @@ Options:
   -n|--numcaps <arg>    Set the number of captured images to arg. Use either
                         -i or -n.
   -c|--columns <arg>    Arrange the output in 'arg' columns.
+  -H|--height <arg>     Set the output (individual thumbnail) height. Width is
+                        derived accordingly. Note width cannot be manually set.
+  -a|--aspect <aspect>  Aspect ration. Accepts floating point number or
+                        fractions.
   -f|--from <arg>       Set starting time. No caps before this. Same format
                         as -i.
   -t|--to <arg>         Set ending time. No caps beyond this. Same format
                         as -i.
   -T|--title <arg>      Add a title above the vidcaps.
-  -u|--user <arg>       Set the username found in the signature to this.
-  -U|--fullname         Use user's full/real name (e.g. John Smith) as found in
-                        /etc/passwd.
-  -S|--stamp <arg>      Add the image found at the timestamp "arg". Same format
-                        as -i.
-  -l|--highlight <arg>  Add the image found at the timestamp "arg" as a
-                        highlight. Same format as -i.
-  -e[arg] | --extended=[arg]
-                        Enables extended mode and optionally sets the extended
-                        factor. By default it's $DEFAULT_EXT_FACTOR.
-  -m|--manual           Manual mode: Only timestamps indicated by the user are
-                        used (use in conjunction with -S), when using this
-                        -i and -n are ignored.
-  -H|--height <arg>     Set the output (individual thumbnail) height. Width is
-                        derived accordingly. Note width cannot be manually set.
-  -a|--aspect <aspect>  Aspect ration. Accepts floating point number or
-                        fractions.
-  -A|--autoaspect       Try to guess aspect ratio from resolution.
   -j|--jpeg             Output in jpeg (by default output is in png).
   -q|--quiet            Don't print progess messages just errors. Repeat to
                         mute completely even on error.
+  -h|--help             Show this text.
   -Wo                   Workaround: Change ffmpeg's arguments order, might
                         work with some files that fail otherwise.
+  -A|--autoaspect       Try to guess aspect ratio from resolution.
+  -e[num] | --extended=[num]
+                        Enables extended mode and optionally sets the extended
+                        factor. -e is the same as -e$DEFAULT_EXT_FACTOR.
+  -l|--highlight <arg>  Add the image found at the timestamp "arg" as a
+                        highlight. Same format as -i.
+  -m|--manual           Manual mode: Only timestamps indicated by the user are
+                        used (use in conjunction with -S), when using this
+                        -i and -n are ignored.
+  -O|--override <arg>   Use it to override a variable (see the homepage for
+                        more details). Format accepted is 'variable=value' (can
+                        also be quoted -variable="some value"- and can take an
+                        internal variable too -variable="\$SOME_VAR"-).
+  -S|--stamp <arg>      Add the image found at the timestamp "arg". Same format
+                        as -i.
+
+  -u|--user <arg>       Set the username found in the signature to this.
+  -U|--fullname         Use user's full/real name (e.g. John Smith) as found in
+                        /etc/passwd.
   -Ij|-Ik
   --mincho              Use the kana/kanji/hiragana font (EXPERIMENTAL) might
                         also work for Hangul and Cyrillic.
@@ -1600,11 +1624,6 @@ Options:
                             Imitates filmstrip look.
                         "random":   Use '-kx' or '--funky random'
                             Randomizes colours and fonts.
-  -O|--override <arg>   Use it to override a variable (see the homepage for
-                        more details). Format accepted is 'variable=value' (can
-                        also be quoted -variable="some value"- and can take an
-                        internal variable too -variable="\$SOME_VAR"-).
-  -h|--help             Show this text.
 
   Options used for debugging purposes or to tweak the internal workings:
   -M|--mplayer          Force the usage of mplayer.
@@ -1644,6 +1663,7 @@ EOF
 unit_test() {
 	local t op val ret comm retval=0
 
+	# Textual tests, compare output to expected output
 	# Tests are in the form "operation arguments correct_result #Description"
 	local TESTS=(
 		"rmultiply 1,1 1 #Identity"
@@ -1664,6 +1684,11 @@ unit_test() {
 
 		"guess_aspect 720 576 4/3 #DVD AR Guess"
 		"guess_aspect 1024 576 1024/576 #Unsupported Wide AR Guess"
+
+		"tolower ABC abc #lowercase conversion"
+
+		"pyth_th 4 3 5 #Integer pythagorean theorem"
+		"pyth_th 16 9 18.35755975068581929849 #FP pythagorean theorem"
 	)
 	
 	for t in "${TESTS[@]}" ; do
@@ -1673,18 +1698,60 @@ unit_test() {
 		# Expected value
 		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
 		op=$(sed "s! $val #$comm\$!!g" <<<$t)
-		ret=$($op)
 		if [ -z "$comm" ]; then
 			comm=unnamed
 		fi
+		ret=$($op) || true
 
 		if [ "$ret" != "$val" ] && fptest "$ret" -ne "$val" ; then
 			error "Failed test ($comm): '$op $val'. Got result '$ret'."
-			let 'retval++'
+			let 'retval++,1' # The ,1 ensures let doesn't fail
 		else
 			inf "Passed test ($comm): '$op $val'."
 		fi
 	done
+
+	# Returned value tests, compare return to expected return
+	local TESTS=(
+		# Floating point numeric "test"
+		"fptest 3 -eq 3 0 #FP test" 
+		"fptest 3.2 -gt 1 0 #FP test"
+		"fptest 1/2 -le 2/3 0 #FP test"
+		"fptest 6.34 -gt 6.34 1 # FP test"
+
+		"is_number 3 0 #Numeric recognition"
+		"is_number '3' 1 #Quoted numeric recognition"
+		"is_number 3.3 1 #Non-numeric recognition"
+
+		"is_float 3.33 0 #Float recognition"
+		"is_float 3 0 #Float recognition"
+		"is_float 1/3 1 #Non-float recognition"
+
+		"is_fraction 1/1 0 #Fraction recognition"
+		"is_fraction 1 1 #non-fraction recognition"
+		"is_fraction 1.1 1 #Non-fraction recognition"
+	)
+	for t in "${TESTS[@]}"; do
+		comm=$(sed 's!.* #!!g' <<<$t)
+		# Expected value
+		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		if [ -z "$comm" ]; then
+			comm=unnamed
+		fi
+		ret=0
+		$op || {
+			ret=$?
+		}
+
+		if [ $val -eq $ret ]; then
+			inf "Passed test ($comm): '$op; returns $val'."
+		else
+			error "Failed test ($comm): '$op; returns $val'. Returned '$ret'"
+			let 'retval++,1'
+		fi
+	done
+
 	return $retval
 }
 
@@ -1924,7 +1991,8 @@ while true ; do
 				verbosity=$V_NONE
 			fi
 			;;
-		-D)
+		-D) # Repeat to just test consistency
+			if [ $DEBUGGED -gt 0 ]; then exit ; fi
 			inf "Testing internal consistency..."
 			unit_test
 			if [ $? -eq 0 ]; then
@@ -1932,6 +2000,7 @@ while true ; do
 			else
 				error "Some tests failed!"
 			fi
+			DEBUGGED=1
 			warn "Command line: $0 $ARGS"
 			title="$(basename "$0") $ARGS"
 			;;
