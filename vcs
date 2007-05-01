@@ -26,7 +26,14 @@
 # References:
 # Pages from I've taken snippets or wrote code based on them.
 # I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1
-# [R1] http://wooledge.org/mywiki/BashFaq
+# [R1] Bash (and other shells) tips
+#      <http://wooledge.org/mywiki/BashFaq>
+# [R2] List of officially registered FOURCCs and WAVE Formats (aka wFormatTag)
+#      <http://msdn2.microsoft.com/en-us/library/ms867195.aspx>
+# [R3] Unofficial list of FOURCCs
+#      <http://www.fourcc.org/>
+# [R4] A php module with a list of FOURCCs and wFormatTag's mappings
+#      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
 declare -r VERSION="1.0.7b"
@@ -61,10 +68,15 @@ declare -r VERSION="1.0.7b"
 #   * INTERNAL: Renamed info() to inf() to eliminate ambiguities
 #   * INTERNAL: guess_aspect() doesn't operate globally
 #   * Reorganized help by alphabetical/rarity order
-#   * FEATURE: Full milliseconds support (actually, full decimal seconds), timecode format
-#     extended to support e.g. 3m.24 (which means 00:03:00.240)
-#   * BUGFIX/FEATURE: The number of extended captures is rounded to match the standard
-#     columns (extended width matches standard)
+#   * FEATURE: Full milliseconds support (actually, full decimal seconds),
+#     timecode format extended to support e.g. 3m.24 (which means 00:03:00.240)
+#   * BUGFIX/FEATURE: The number of extended captures is rounded to match the
+#     standard columns (extended width matches standard)
+#   * Made FOURCCs list case sensitive (the list has grown enough that I no
+#     longer see a benefit in being ambigous)
+#   * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
+#     Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
+#     codecs.
 #
 
 set -e
@@ -891,6 +903,8 @@ capture() {
 			ffmpeg -y ${wa_ss_be/ / $stamp} -i "$f" ${wa_ss_af/ / $stamp} -an \
 				-dframes 1 -vframes 1 -vcodec png \
 				-f rawvideo $shoehorned $VIDCAPFILE
+			# Used to test bogus files (e.g. to test codec ids)
+			#convert -size 1x xc:black $VIDCAPFILE
 		} >"$stdout" 2>"$stderr"
 	else
 		error "Internal error!"
@@ -1333,44 +1347,48 @@ process() {
 		unset w h capfile pretty n
 	fi # Extended mode
 
-	# Codec "prettyfication"
-	# Official FourCCs: <http://msdn2.microsoft.com/en-us/library/ms867195.aspx>
-	# Unofficial list: <http://www.fourcc.org/>
-	# Another software with a list of fourccs -> name mappings:
-	# <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php?view=markup>
+	# Video codec "prettyfication", see [[R2]], [[R3]], [[R4]]
 	local vcodec= acodec=
-	case $(tolower ${VID[$VCODEC]}) in
-		xvid) vcodec=Xvid ;;
-		dx50) vcodec="DivX 5" ;;
+	case "${VID[$VCODEC]}" in
 		0x10000001) vcodec="MPEG-1" ;;
 		0x10000002) vcodec="MPEG-2" ;;
 		0x00000000) vcodec="Raw RGB" ;; # How correct is this?
 		avc1) vcodec="MPEG-4 AVC" ;;
-		wmv1) vcodec="WMV7" ;;
-		wmv2) vcodec="WMV8" ;;
-		wmv3) vcodec="WMV9" ;;
-		fmp4) vcodec="FFmpeg" ;; # XXX: Would LAVC be a better name?
-		mp42) vcodec="MS MPEG-4 v2" ;;
-		mpg4) vcodec="MS MPEG-4 v1" ;;
-		mp43) vcodec="MS MPEG-4 v3" ;;
-		div3) vcodec="DivX ;) Low Motion" ;; # Technically same as mp43
-		i420) vcodec="Raw I420" ;; # XXX: 420 presumably stands by 4:2:0 ?
-		rv10) vcodec="RealVideo 1.0/5.0" ;;
-		rv20) vcodec="RealVideo G2" ;;
-		svq1) vcodec="Sorenson Video 1" ;;
-		svq3) vcodec="Sorenson Video 3" ;;
+		DIV3) vcodec="DivX ;-) Low-Motion" ;; # Technically same as mp43
+		DX50) vcodec="DivX 5" ;;
+		FMP4) vcodec="FFmpeg" ;; # XXX: Would LAVC be a better name?
+		I420) vcodec="Raw I420 Video" ;; # XXX: Officially I420 is Indeo 4 but it is mapped to raw ¿?
+		MJPG) vcodec="M-JPEG" ;; # XXX: Actually mJPG != MJPG
+		MPG4) vcodec="MS MPEG-4 V1" ;;
+		MP42) vcodec="MS MPEG-4 V2" ;;
+		MP43) vcodec="MS MPEG-4 V3" ;;
+		RV10) vcodec="RealVideo 1.0/5.0" ;;
+		RV20) vcodec="RealVideo G2" ;;
+		RV30) vcodec="RealVideo 8" ;;
+		RV40) vcodec="RealVideo 9/10" ;;
+		SVQ1) vcodec="Sorenson Video 1" ;;
+		SVQ3) vcodec="Sorenson Video 3" ;;
+		theo) vcodec="Ogg Theora" ;;
+		tscc) vcodec="TechSmith Screen Capture Codec" ;;
+		VP6[012]) vcodec="On2 Truemotion VP6" ;;
+		WMV1) vcodec="WMV7" ;;
+		WMV2) vcodec="WMV8" ;;
+		WMV3) vcodec="WMV9" ;;
+		WMVA) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Unsupported.
+		XVID) vcodec="Xvid" ;;
+
 		# These are known FourCCs that I haven't tested against so far
-		wmva) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Unsupported.
-		rv30) vcodec="RealVideo 8" ;;
-		rv40) vcodec="RealVideo 9/10" ;;
-		div4) vcodec="DivX ;) Fast Motion" ;;
-		divx) vcodec="DivX" ;; # OpenDivX / DivX 5(?)
-		iv50) vcodec="Indeo 5.0" ;;
-		mjpg) vcodec="M-JPEG" ;; # XXX: Actually mJPG != MJPG
+		DIV4) vcodec="DivX ;-) Fast-Motion" ;;
+		DIVX|divx) vcodec="DivX" ;; # OpenDivX / DivX 5(?) / Project Mayo
+		IV4[0-9]) vcodec="Indeo Video 4" ;;
+		IV50) vcodec="Indeo 5.0" ;;
+		VP3[01]) vcodec="On2 VP3" ;;
+		VP40) vcodec="On2 VP4" ;;
+		VP50) vcodec="On2 VP5" ;;
 		# Legacy(-er) codecs (haven't seen files in these formats in awhile)
-		iv32) vcodec="Indeo 3.2" ;;
-		msvc) vcodec="Microsoft Video 1" ;;
-		mrle) vcodec="Microsoft RLE" ;;
+		IV3[0-9]) vcodec="Indeo Video 3" ;;
+		MSVC) vcodec="Microsoft Video 1" ;;
+		MRLE) vcodec="Microsoft RLE" ;;
 		*) # If not recognized show FOURCC
 			vcodec=${VID[$VCODEC]}
 			;;
@@ -1381,6 +1399,7 @@ process() {
 		vcodec+=" (h.264)"
 	fi
 
+	# Audio codec "prettyfication", see [[R4]]
 	case $(tolower ${VID[$ACODEC]} ) in
 		85) acodec='MPEG Layer III (MP3)' ;;
 		80) acodec='MPEG Layer I/II (MP1/MP2)' ;; # Apparently they use the same tag
