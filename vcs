@@ -25,7 +25,9 @@
 #
 # References:
 # Pages from I've taken snippets or wrote code based on them.
-# I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1
+# I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1.
+# I also use internal references in the form [x1] (anchor -where to point-)
+# and [[x1]] (x-reference -point to what-).
 # [R1] Bash (and other shells) tips
 #      <http://wooledge.org/mywiki/BashFaq>
 # [R2] List of officially registered FOURCCs and WAVE Formats (aka wFormatTag)
@@ -77,14 +79,19 @@ declare -r VERSION="1.0.7b"
 #   * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
 #     Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
 #     codecs.
-#   * Added $end_offset / -E, used to eliminate some seconds from the end
+#   * Added -E / --end_offset / $DEFAULT_END_OFFSET, used to eliminate some
+#     seconds from the end
 #
 
 set -e
 
 # TODO / FIXME:
 # * [[R1#22]] states that not all bc versions understand '<', more info required
+# * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
+# * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace.
 #
+
+# {{{ # Constants
 
 # Configuration file, please, use this file to modify the behaviour of the
 # script. Using this allows overriding some variables (see below)
@@ -104,7 +111,6 @@ set -e
 # The variables that can be overriden are below the block of constants ahead.
 declare -r CFGFILE=~/.vcs.conf
 
-# Constants {{{
 # see $decoder
 declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 # See $timecode_from
@@ -119,10 +125,19 @@ declare -ri DEFAULT_EXT_FACTOR=4
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
 # see $font_filename and $FONT_MINCHO
 declare -ri FF_DEFAULT=5 FF_MINCHO=7
+# Indexes in $VID
+declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7
+# Exit codes, same numbers as /usr/include/sysexits.h
+declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
+           EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
+           EX_INTERRUPTED=79 # This one is not on sysexits.h
+# The context allows the creator to identify which contact sheet it is creating
+# (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
+declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
 # }}} # End of constants
 
-# Override-able variables {{{
+# {{{ # Override-able variables
 
 declare -i DEFAULT_INTERVAL=300
 declare -i DEFAULT_NUMCAPS=16
@@ -221,6 +236,8 @@ declare stdout=/dev/null stderr=/dev/null
 
 # }}} # End of override-able variables
 
+# {{{ # Variables
+
 # Options and other internal usage variables, no need to mess with this!
 declare interval=$DEFAULT_INTERVAL    # Interval of captures (=numsecs/numcaps)
 declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (=numsecs/interval)
@@ -242,20 +259,14 @@ declare VCSTEMPDIR=                   # Temporal directory, all temporal files
                                       # go there
 # This holds the output of mplayer -identify on the current video
 declare MPLAYER_CACHE=
-# This holds the parsed values of MPLAYER_CACHE...
+# This holds the parsed values of MPLAYER_CACHE, see also the Indexes in VID
+# (defined in the constants block)
 declare -a VID=
-# ...and these are the indexes in $VID
-declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7
 
-# Exit codes, same codes as /usr/include/sysexits.h
-declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
-           EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
-           EX_INTERRUPTED=79 # This one is not on sysexits.h
-
-# Workaounds:
+# Workarounds:
 # Argument order in FFmpeg is important -ss before or after -i will make
-# the capture work or not depending on the file. XXX: I've yet to find why :P
-# Anyway, this is used to change the order. See -Wo.
+# the capture work or not depending on the file. See -Wo.
+# TODO: [x1].
 # Admittedly the workaraound is abit obscure: those variables will be added to
 # the ffmpeg arguments, before and after -i, replacing spaces by the timestamp.
 # e.g.: for second 50 '-ss ' will become '-ss 50' while '' will stay empty
@@ -289,12 +300,13 @@ declare -a FILTERS_CS=( )
 # The width and height are those of an individual capture
 # It is executed by create_contact_sheet()
 declare CSHEET_DELEGATE=csheet_montage
-# The context allows the creator to identify which contact sheet it is creating
-# (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
-declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
 # Gravity of the timestamp (will be override-able in the future)
 declare grav_timestamp=SouthEast
+
+# }}} # Variables
+
+# {{{ # Configuration handling
 
 # These are the variables allowed to be overriden in the config file,
 # please.
@@ -380,6 +392,8 @@ override() {
 		warn "Overridden variable '$varname' from $src"
 	fi
 }
+
+# }}} # Configuration handling
 
 # {{{ # Convenience functions
 
@@ -645,7 +659,7 @@ test_programs() {
 			let 'retval++'
 		fi
 	done
-	# XXX: Is egrep universal enough ?
+	# TODO: [x2]
 
 	return $retval
 }
@@ -1577,6 +1591,117 @@ $PROGRAM_SIGNATURE"
 	cleanup
 }
 
+# }}} # Core functionality
+
+# {{{ # Debugging helpers
+
+# Tests integrity of some operations.
+# Used to test internal changes for consistency.
+# It helps me to identify incorrect optimizations.
+# unit_test()
+unit_test() {
+	local t op val ret comm retval=0
+
+	# Textual tests, compare output to expected output
+	# Tests are in the form "operation arguments correct_result #Description"
+	local TESTS=(
+		"rmultiply 1,1 1 #Identity"
+		"rmultiply 16/9,1 2 #Rounding" # 1.77 rounded 2
+		"rmultiply 4/3 1 #Rounding"    # 1.33 rounded 1
+		"rmultiply 1,16/9 2 #Commutative property"
+		"rmultiply 1.7 2 #Alternate syntax"
+
+		"ceilmultiply 1,1 1 #"
+		"ceilmultiply 4/3 2 #" # 1.33 rounded 2
+		"ceilmultiply 7,1/2 4 #" # 3.5 rounded 4
+		"ceilmultiply 7/2 4 #Alternative syntax"
+		"ceilmultiply 1/2,7 4 #Commutative property"
+
+		"pad 10 0 0000000000 #Padding"
+		"pad 1 20 20 #Unneeded padding"
+		"pad 5 23.3 023.3 #Floating point padding"
+
+		"guess_aspect 720 576 4/3 #DVD AR Guess"
+		"guess_aspect 1024 576 1024/576 #Unsupported Wide AR Guess"
+
+		"tolower ABC abc #lowercase conversion"
+
+		"pyth_th 4 3 5 #Integer pythagorean theorem"
+		"pyth_th 16 9 18.35755975068581929849 #FP pythagorean theorem"
+	)
+	
+	for t in "${TESTS[@]}" ; do
+		# Note the use of ! as separator, this is because # and / are used in
+		# many of the inputs
+		comm=$(sed 's!.* #!!g' <<<$t)
+		# Expected value
+		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		if [ -z "$comm" ]; then
+			comm=unnamed
+		fi
+		ret=$($op) || true
+
+		if [ "$ret" != "$val" ] && fptest "$ret" -ne "$val" ; then
+			error "Failed test ($comm): '$op $val'. Got result '$ret'."
+			let 'retval++,1' # The ,1 ensures let doesn't fail
+		else
+			inf "Passed test ($comm): '$op $val'."
+		fi
+	done
+
+	# Returned value tests, compare return to expected return
+	local TESTS=(
+		# Don't use anything with a RE meaning
+
+		# Floating point numeric "test"
+		"fptest 3 -eq 3 0 #FP test" 
+		"fptest 3.2 -gt 1 0 #FP test"
+		"fptest 1/2 -le 2/3 0 #FP test"
+		"fptest 6.34 -gt 6.34 1 #FP test"
+		"fptest 1>0 -eq 1 0 #FP -logical- test"
+
+		"is_number 3 0 #Numeric recognition"
+		"is_number '3' 1 #Quoted numeric recognition"
+		"is_number 3.3 1 #Non-numeric recognition"
+
+		"is_float 3.33 0 #Float recognition"
+		"is_float 3 0 #Float recognition"
+		"is_float 1/3 1 #Non-float recognition"
+
+		"is_fraction 1/1 0 #Fraction recognition"
+		"is_fraction 1 1 #non-fraction recognition"
+		"is_fraction 1.1 1 #Non-fraction recognition"
+	)
+	for t in "${TESTS[@]}"; do
+		comm=$(sed 's!.* #!!g' <<<$t)
+		# Expected value
+		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		if [ -z "$comm" ]; then
+			comm=unnamed
+		fi
+		ret=0
+		$op || {
+			ret=$?
+		}
+
+		if [ $val -eq $ret ]; then
+			inf "Passed test ($comm): '$op; returns $val'."
+		else
+			error "Failed test ($comm): '$op; returns $val'. Returned '$ret'"
+			let 'retval++,1'
+		fi
+	done
+
+	return $retval
+}
+
+
+# }}} # Debugging helpers
+
+# {{{ # Help / Info
+
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
 	inf "Video Contact Sheet *NIX v${VERSION}, (c) 2007 Toni Corvera" "sgr0"
@@ -1688,113 +1813,7 @@ Examples:
 EOF
 }
 
-# }}} # Core functionality
-
-# {{{ # Debugging helpers
-
-# Tests integrity of some operations.
-# Used to test internal changes for consistency.
-# It helps me to identify incorrect optimizations.
-# unit_test()
-unit_test() {
-	local t op val ret comm retval=0
-
-	# Textual tests, compare output to expected output
-	# Tests are in the form "operation arguments correct_result #Description"
-	local TESTS=(
-		"rmultiply 1,1 1 #Identity"
-		"rmultiply 16/9,1 2 #Rounding" # 1.77 rounded 2
-		"rmultiply 4/3 1 #Rounding"    # 1.33 rounded 1
-		"rmultiply 1,16/9 2 #Commutative property"
-		"rmultiply 1.7 2 #Alternate syntax"
-
-		"ceilmultiply 1,1 1 #"
-		"ceilmultiply 4/3 2 #" # 1.33 rounded 2
-		"ceilmultiply 7,1/2 4 #" # 3.5 rounded 4
-		"ceilmultiply 7/2 4 #Alternative syntax"
-		"ceilmultiply 1/2,7 4 #Commutative property"
-
-		"pad 10 0 0000000000 #Padding"
-		"pad 1 20 20 #Unneeded padding"
-		"pad 5 23.3 023.3 #Floating point padding"
-
-		"guess_aspect 720 576 4/3 #DVD AR Guess"
-		"guess_aspect 1024 576 1024/576 #Unsupported Wide AR Guess"
-
-		"tolower ABC abc #lowercase conversion"
-
-		"pyth_th 4 3 5 #Integer pythagorean theorem"
-		"pyth_th 16 9 18.35755975068581929849 #FP pythagorean theorem"
-	)
-	
-	for t in "${TESTS[@]}" ; do
-		# Note the use of ! as separator, this is because # and / are used in
-		# many of the inputs
-		comm=$(sed 's!.* #!!g' <<<$t)
-		# Expected value
-		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
-		op=$(sed "s! $val #$comm\$!!g" <<<$t)
-		if [ -z "$comm" ]; then
-			comm=unnamed
-		fi
-		ret=$($op) || true
-
-		if [ "$ret" != "$val" ] && fptest "$ret" -ne "$val" ; then
-			error "Failed test ($comm): '$op $val'. Got result '$ret'."
-			let 'retval++,1' # The ,1 ensures let doesn't fail
-		else
-			inf "Passed test ($comm): '$op $val'."
-		fi
-	done
-
-	# Returned value tests, compare return to expected return
-	local TESTS=(
-		# Don't use anything with a RE meaning
-
-		# Floating point numeric "test"
-		"fptest 3 -eq 3 0 #FP test" 
-		"fptest 3.2 -gt 1 0 #FP test"
-		"fptest 1/2 -le 2/3 0 #FP test"
-		"fptest 6.34 -gt 6.34 1 #FP test"
-		"fptest 1>0 -eq 1 0 #FP -logical- test"
-
-		"is_number 3 0 #Numeric recognition"
-		"is_number '3' 1 #Quoted numeric recognition"
-		"is_number 3.3 1 #Non-numeric recognition"
-
-		"is_float 3.33 0 #Float recognition"
-		"is_float 3 0 #Float recognition"
-		"is_float 1/3 1 #Non-float recognition"
-
-		"is_fraction 1/1 0 #Fraction recognition"
-		"is_fraction 1 1 #non-fraction recognition"
-		"is_fraction 1.1 1 #Non-fraction recognition"
-	)
-	for t in "${TESTS[@]}"; do
-		comm=$(sed 's!.* #!!g' <<<$t)
-		# Expected value
-		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
-		op=$(sed "s! $val #$comm\$!!g" <<<$t)
-		if [ -z "$comm" ]; then
-			comm=unnamed
-		fi
-		ret=0
-		$op || {
-			ret=$?
-		}
-
-		if [ $val -eq $ret ]; then
-			inf "Passed test ($comm): '$op; returns $val'."
-		else
-			error "Failed test ($comm): '$op; returns $val'. Returned '$ret'"
-			let 'retval++,1'
-		fi
-	done
-
-	return $retval
-}
-
-# }}} # Debugging helpers
+# }}} # Help / Info
 
 #### Execution starts here ####
 
@@ -2077,4 +2096,4 @@ for arg do process "$arg" ; done
 
 # }}} # Command line parsing
 
-# vim:set ts=4 ai: #
+# vim:set ts=4 ai foldmethod=marker: #
