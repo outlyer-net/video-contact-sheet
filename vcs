@@ -28,6 +28,8 @@
 # I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1.
 # I also use internal references in the form [x1] (anchor -where to point-)
 # and [[x1]] (x-reference -point to what-).
+# [R0] getopt-parse.bash example, on Debian systems:
+#      /usr/share/doc/util-linux/examples/getopt-parse.bash.gz
 # [R1] Bash (and other shells) tips
 #      <http://wooledge.org/mywiki/BashFaq>
 # [R2] List of officially registered FOURCCs and WAVE Formats (aka wFormatTag)
@@ -81,15 +83,20 @@ declare -r VERSION="1.0.7b"
 #     codecs.
 #   * Added -E / --end_offset / $DEFAULT_END_OFFSET, used to eliminate some
 #     seconds from the end
+#   * SHOWSTOPPER: Extended mode + polaroid doesn't overlap
 #
 
 set -e
+
+# {{{ # TODO
 
 # TODO / FIXME:
 # * [[R1#22]] states that not all bc versions understand '<', more info required
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
 # * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace.
 #
+
+# }}} # TODO
 
 # {{{ # Constants
 
@@ -116,7 +123,7 @@ declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 # See $timecode_from
 declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
 # These can't be overriden, modify this line if you feel the need
-declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
+declare -r PROGRAM_SIGNATURE="Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
 # see $safe_rename_pattern
 declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 # see $extended_factor
@@ -215,7 +222,7 @@ declare extended_factor=0
 # should be done.
 # As an example: you want to set always the title to "My Title" and output
 # to jpeg: default_options="-T'My Title' -j"
-declare default_options=
+#declare default_options=
 # Verbosity level so far from the command line can only be muted (see -q)
 # it can be overridden, though
 declare -i verbosity=$V_ALL
@@ -242,8 +249,8 @@ declare stdout=/dev/null stderr=/dev/null
 declare interval=$DEFAULT_INTERVAL    # Interval of captures (=numsecs/numcaps)
 declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (=numsecs/interval)
 declare title=""
-declare -i fromtime=0                 # Starting second (see -f)
-declare -i totime=-1                  # Ending second (see -t)
+declare fromtime=0                    # Starting second (see -f)
+declare totime=-1                     # Ending second (see -t)
 declare -a initial_stamps=( )         # Manually added stamps (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
 declare -i cols=$DEFAULT_COLS         # Number of output columns
@@ -304,6 +311,9 @@ declare CSHEET_DELEGATE=csheet_montage
 # Gravity of the timestamp (will be override-able in the future)
 declare grav_timestamp=SouthEast
 
+# When set to 1 the signature won't contain the "Preview created by..." line
+declare -i anonymous_mode=0
+
 # }}} # Variables
 
 # {{{ # Configuration handling
@@ -331,7 +341,7 @@ declare -ra ALLOWED_OVERRIDES=(
 	'shoehorned'
 	'timecode_from'
 	'safe_rename_pattern'
-	'default_options'
+#	'default_options'
 	'extended_factor'
 	'verbosity'
 	'plain_messages'
@@ -837,18 +847,23 @@ randomize_look() {
 compute_timecodes() {
 	local st=0 end=${VID[$LEN]} tcfrom=$1 tcint=$2 tcnumcaps=$3 eo=0
 	# globals: fromtime, totime, timecode_from, TIMECODES, end_offset
-	if [ $st -lt $fromtime ]; then
+	if fptest $st -lt $fromtime ; then
 		st=$fromtime
 	fi
-	if [ $totime -gt 0 ] && [ $end -gt $totime ]; then
+	if fptest $totime -gt 0 && fptest $end -gt $totime ; then
 		end=$totime
 	fi
-	if [ $totime -le 0 ]; then # If no totime is set, use end_offset
+	if fptest $totime -le 0 ; then # If no totime is set, use end_offset
 		eo=$end_offset
 
-		if fptest 0 -ne "($end-$st-$eo)<0" ; then
-			error "End offset too high, use e.g. '-E0'."
-			return $EX_UNAVAILABLE
+		if fptest "($end-$eo-$st)" -le 0 ; then
+			if fptest "$eo" -gt 0 && fptest "$eo" -eq "$DEFAULT_END_OFFSET" ; then
+				warn "Default end offset was too high, ignoring it."
+				eo=0
+			else
+				error "End offset too high, use e.g. '-E0'."
+				return $EX_UNAVAILABLE
+			fi
 		fi
 	fi
 
@@ -877,6 +892,10 @@ compute_timecodes() {
 
 	local LTC=( ) stamp=$st
 	while fptest $stamp -le $end; do
+		if fptest $stamp -lt 0 ; then
+			error "Internal error, negative timestamp calculated!"
+			return $EX_SOFTWARE
+		fi
 		LTC+=( $stamp )
 		stamp=$(bc -q <<<"$stamp+$inc")
 	done
@@ -1489,14 +1508,18 @@ process() {
 
 	# Let's add meta inf and signature
 	inf "Adding header and footer..."
-	# Newer method, incremental construction of the heading:
-	# FIXME: Height guessing could be better...
 	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
 Format: $vcodec / $acodec
 FPS: ${VID[$FPS]}"
-	local signature="$user_signature $user
-$PROGRAM_SIGNATURE"
+	local signature
+	if [ $anonymous_mode -eq 0 ]; then
+		signature="$user_signature $user
+with $PROGRAM_SIGNATURE"
+	else
+		signature="Created with $PROGRAM_SIGNATURE"
+	fi
 	local headwidth=$(identify "$output" | cut -d' ' -f3 | cut -d'x' -f1)
+	# TODO: Use a better height calculation
 	local headheight=$(($pts_meta * 4 ))
 	local heading=$(new_temp_file .png)
 	# Add the title if any
@@ -1834,16 +1857,15 @@ load_config
 
 # {{{ # Command line parsing
 
-# Based on getopt-parse.bash example.
-# On debian systems see </usr/share/doc/util-linux/examples/getopt-parse.bash.gz>
-
-# TODO: use no name at all with -u noarg
+# TODO: Find how to do this correctly (this way the quoting of $@ gets messed):
 #eval set -- "${default_options} ${@}"
 ARGS="$@"
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO:I::k:W:E: \
+
+# [[R0]]
+TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::U::qAO:I::k:W:E: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
-"extended::,fullname,quiet,autoaspect,override:,mincho,funky:,end_offset:" \
+"extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,end_offset:" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -1877,12 +1899,25 @@ while true ; do
 			;;
 		-u|--username) user="$2" ; shift ;;
 		-U|--fullname)
-			user=$(grep ^$(id -un): /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
-			if [ -z "$user" ]; then
-				user=$(id -un)
-				error "No fullname found, falling back to default ($user)"
+			# -U accepts an optiona argument, 0, to make an anonymous signature
+			# --fullname accepts no argument
+			if [ "$2" ]; then # With argument, special handling
+				if [ "$2" != "0" ]; then
+					error "Use '-U0' to make an anonymous contact sheet or '-u \"My Name\"'"
+					error "    to sign as My Name. Got -U$2"
+					exit $EX_USAGE
+				fi
+				anonymous_mode=1
+				shift
+			else # No argument, default handling (try to guess real name)
+				user=$(grep ^$(id -un): /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
+				if [ -z "$user" ]; then
+					user=$(id -un)
+					error "No fullname found, falling back to default ($user)"
+				fi
 			fi
 			;;
+		--anonymous) anonymous_mode=1 ;; # Same as -U0
 		-T|--title) title="$2" ; shift ;;
 		-f|--from)
 			if ! fromtime=$(get_interval "$2") ; then
@@ -1892,11 +1927,10 @@ while true ; do
 			shift
 			;;
 		-E|--end_offset)
-			if ! totime=$(get_interval "$2") ; then
+			if ! end_offset=$(get_interval "$2") ; then
 				error "End offset must be a valid timecode. Got '$2'."
 				exit $EX_USAGE
 			fi
-			end_offset=$totime
 			shift
 			;;
 		-t|--to)
