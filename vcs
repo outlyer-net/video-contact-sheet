@@ -23,20 +23,83 @@
 #
 # Author: Toni Corvera <outlyer@outlyer.net>
 #
-
-declare -r VERSION="1.0.6b"
+# References:
+# Pages from I've taken snippets or wrote code based on them.
+# I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1.
+# I also use internal references in the form [x1] (anchor -where to point-)
+# and [[x1]] (x-reference -point to what-).
+# [R0] getopt-parse.bash example, on Debian systems:
+#      /usr/share/doc/util-linux/examples/getopt-parse.bash.gz
+# [R1] Bash (and other shells) tips
+#      <http://wooledge.org/mywiki/BashFaq>
+# [R2] List of officially registered FOURCCs and WAVE Formats (aka wFormatTag)
+#      <http://msdn2.microsoft.com/en-us/library/ms867195.aspx>
+# [R3] Unofficial list of FOURCCs
+#      <http://www.fourcc.org/>
+# [R4] A php module with a list of FOURCCs and wFormatTag's mappings
+#      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
+
+declare -r VERSION="1.0.7a"
+# {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# TODO: Support for ms timestamps (ffmpeg supports it e.g. 54.9 is ok and != 54)
-#
-# 1.0.6b: (2007-04-21) (Bugfix release)
-#    * BUGFIX: Use mktemp instead of tempfile (Thanks to 'o kapi')
-#    * Make sure mktemp is installed, just in case ;)
-#
+# 1.0.7a: (2007-05-12)
+#    * Print title *before* the highlights.
+#    * Added the forgotten -O and -c to the help text (oops!)
+#    * Experimental: Allow using non-latin alphabets by switching font. See -I.
+#       It only affects the filename! Also allow overriding the font to be used
+#       to print the filename ($font_filename). Right now only using a Mincho font,
+#       it can be overriding by overriding $FONT_MINCHO.
+#    * Make title font size independent of the timestamps size. And allow
+#       overriding the title font ($font_title), font size ($pts_title)
+#       and colours ($fg_title and $bg_title).
+#    * Allow overriding the previews' background ($bg_contact)
+#    * Added getopt, identify, sed, grep and egrep to the checked programs
+#    * BUGFIX: Corrected test of accepted characters for intervals
+#    * INTERNAL: New parsing code
+#    * FEATURE: Replaced hard by soft shadows
+#    * BUGFIX: Corrected console colour usage: Print the colours to the correct
+#       channel
+#    * Made tput (coloured console output) optional (AFAIK should be present in
+#       any sane system though).
+#    * FEATURE: Funky modes (more to come...): Polaroid, Film (rough, initial,
+#       version), Photoframe and Random colours/fonts. (see --help)
+#    * INTERNAL: Use /dev/shm as base tempdir if possible
+#    * BUGFIX: Fixed safe_rename(): Don't assume current dir, added '--' to mv
+#    * Added workaround for ffmpeg arguments order
+#    * Allow getting the output of ffmpeg/mplayer (with $stdout and $stderr)
+#    * INTERNAL: Renamed info() to inf() to eliminate ambiguities
+#    * INTERNAL: guess_aspect() doesn't operate globally
+#    * Reorganized help by alphabetical/rarity order
+#    * FEATURE: Full milliseconds support (actually, full decimal point seconds),
+#       timecode format extended to support e.g. 3m.24 (which means 00:03:00.240)
+#    * BUGFIX/FEATURE: The number of extended captures is rounded to match the
+#       standard columns (extended width matches standard)
+#    * Made FOURCCs list case sensitive (the list has grown enough that I no
+#       longer see a benefit in being ambigous)
+#    * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
+#       Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
+#       codecs.
+#    * Added -E / --end_offset / $end_offset, used to eliminate some
+#       seconds from the end
+#    * FEATURE: Anonymous mode (use --anonymous or -U0)
+# }}} # CHANGELOG
 
 set -e
+
+# {{{ # TODO
+
+# TODO / FIXME:
+# * [[R1#22]] states that not all bc versions understand '<', more info required
+# * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
+# * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace.
+#
+
+# }}} # TODO
+
+# {{{ # Constants
 
 # Configuration file, please, use this file to modify the behaviour of the
 # script. Using this allows overriding some variables (see below)
@@ -56,23 +119,33 @@ set -e
 # The variables that can be overriden are below the block of constants ahead.
 declare -r CFGFILE=~/.vcs.conf
 
-# Constants {{{
 # see $decoder
 declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 # See $timecode_from
 declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
 # These can't be overriden, modify this line if you feel the need
-declare -r PROGRAM_SIGNATURE="with Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
+declare -r PROGRAM_SIGNATURE="Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
 # see $safe_rename_pattern
 declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 # see $extended_factor
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $verbosity
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
+# see $font_filename and $FONT_MINCHO
+declare -ri FF_DEFAULT=5 FF_MINCHO=7
+# Indexes in $VID
+declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7
+# Exit codes, same numbers as /usr/include/sysexits.h
+declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
+           EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
+           EX_INTERRUPTED=79 # This one is not on sysexits.h
+# The context allows the creator to identify which contact sheet it is creating
+# (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
+declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
 # }}} # End of constants
 
-# Override-able variables {{{
+# {{{ # Override-able variables
 
 declare -i DEFAULT_INTERVAL=300
 declare -i DEFAULT_NUMCAPS=16
@@ -96,19 +169,35 @@ declare -i output_quality=92  # Output image quality (only affects the final
 # Colours, see convert -list color to get the list
 declare bg_heading=YellowGreen  # Background for meta info (size, codec...)
 declare bg_sign=SlateGray       # Background for signature
+declare bg_title=White          # Background for the title (see -T)
+declare bg_contact=White        # Background of the thumbnails
 declare fg_heading=black        # Font colour for meta info box
 declare fg_sign=black           # Font colour for signature
 declare fg_tstamps=white        # Font colour for timestamps
+declare fg_title=Black          # Font colour fot the title
 # Fonts, see convert -list type to get the list
-declare font_tstamps=courier    # Used for timestamps behind the thumbnails
-declare font_heading=helvetica  # Used for meta info box
+declare font_tstamps=courier    # Used for timestamps over the thumbnails
+declare font_heading=helvetica  # Used for the heading (meta info box)
 declare font_sign=$font_heading # Used for the signature box
+# Unlike other font_ variables this doesn't take a font name directly
+# but is restricted to the $FF_ values. This is to allow overrides
+# from the command line to be placed anywhere, i.e. in
+#  $ vcs -I file.avi -O 'FONT_MINCHO=whatever'
+# as the font is overridden is after requesting its use, it wouldn't be
+# affected 
+# The other font_ variables are only affected by overrides and not command
+# line options that's why this one is special.
+declare font_filename=$FF_DEFAULT # Used to print only the filename in the heading
+declare font_title=$font_heading # Used fot the title (see -T)
 # Font sizes, in points
-declare pts_tstamps=18          # Used for the timestamps
-declare pts_meta=16             # Used for the meta info box
-declare pts_sign=11             # Used for the signature
+declare -i pts_tstamps=18          # Used for the timestamps
+declare -i pts_meta=16             # Used for the meta info box
+declare -i pts_sign=11             # Used for the signature
+declare -i pts_title=36            # Used for the title (see -T)
 # See --shoehorn
 declare shoehorned=
+# See -E / $end_offset
+declare -i DEFAULT_END_OFFSET=60
 # This can only be changed in the configuration file
 # Change it to change the safe renanimg:
 # When writing the output file, the input name + output extension is
@@ -134,22 +223,37 @@ declare extended_factor=0
 # should be done.
 # As an example: you want to set always the title to "My Title" and output
 # to jpeg: default_options="-T'My Title' -j"
-declare default_options=
+#declare default_options=
 # Verbosity level so far from the command line can only be muted (see -q)
 # it can be overridden, though
 declare -i verbosity=$V_ALL
 # When set to 0 the status messages printed by vcs while running
 # are coloured if the terminal supports it. Set to 1 if this annoys you.
 declare -i plain_messages=0
+# Experimental in 1.0.7b:
+# Experiment to get international font support
+# I'll need to get some help here, so if you use anything beyond a latin
+# alphabet, please help me choosing the correct fonts
+# To my understanding Ming/Minchō fonts should cover most of Japanse,
+# Chinese and Korean
+# Apparently Kochi Mincho should include Hangul *and* Cyrillic... which would be
+# great :) Although it couldn't write my hangul test, and also the default font
+# (helvetica) in my system seems to include cyrillic too, or at least a subset of
+# it.
+declare FONT_MINCHO=/usr/share/fonts/truetype/kochi/kochi-mincho.ttf
+# Output of capturing programs is redirected here
+declare stdout=/dev/null stderr=/dev/null
 
 # }}} # End of override-able variables
 
+# {{{ # Variables
+
 # Options and other internal usage variables, no need to mess with this!
-declare -i interval=$DEFAULT_INTERVAL # Interval of captures (=numsecs/numcaps)
-declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (=numsecs/interval)
+declare interval=$DEFAULT_INTERVAL     # Interval of captures (=numsecs/numcaps)
+declare -i numcaps=$DEFAULT_NUMCAPS    # Number of captures (=numsecs/interval)
 declare title=""
-declare -i fromtime=0                 # Starting second (see -f)
-declare -i totime=-1                  # Ending second (see -t)
+declare fromtime=0                    # Starting second (see -f)
+declare totime=-1                     # Ending second (see -t)
 declare -a initial_stamps=( )         # Manually added stamps (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
 declare -i cols=$DEFAULT_COLS         # Number of output columns
@@ -165,15 +269,57 @@ declare VCSTEMPDIR=                   # Temporal directory, all temporal files
                                       # go there
 # This holds the output of mplayer -identify on the current video
 declare MPLAYER_CACHE=
-# This holds the parsed values of MPLAYER_CACHE...
+# This holds the parsed values of MPLAYER_CACHE, see also the Indexes in VID
+# (defined in the constants block)
 declare -a VID=
-# ...and these are the indexes in $VID
-declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7
 
-# Exit codes, same codes as /usr/include/sysexits.h
-declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
-           EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
-           EX_INTERRUPTED=79 # This one is not on sysexits.h
+# Workarounds:
+# Argument order in FFmpeg is important -ss before or after -i will make
+# the capture work or not depending on the file. See -Wo.
+# TODO: [x1].
+# Admittedly the workaraound is abit obscure: those variables will be added to
+# the ffmpeg arguments, before and after -i, replacing spaces by the timestamp.
+# e.g.: for second 50 '-ss ' will become '-ss 50' while '' will stay empty
+# By default -ss goes before -i.
+declare wa_ss_af="" wa_ss_be="-ss "
+# This number of seconds is *not* captured from the end of the video
+declare -i end_offset=$DEFAULT_END_OFFSET
+
+# Experimental in 1.0.7b: transformations/filters
+# Operations are decomposed into independent optional steps, this will allow
+# to add some intermediate steps (e.g. polaroid mode)
+# Filters in this context are functions.
+# There're two kinds of filters and a delegate:
+#  * individual filters are run over each vidcap
+#  * global filters are run over all vidcaps at once
+#  * The contact sheet creator delegates on some function to create the actual
+#    contact sheet
+#
+# Individual filters take the form:
+#  filt_name( vidcapfile, timestamp in seconds.milliseconds, width, height )
+# They're executed in order by filter_vidcap()
+declare -a FILTERS_IND=( 'filt_resize' 'filt_apply_stamp' )
+# Global filters take the form
+#  filtall_name( vidcapfile1, vidcapfile2, ... )
+# They're executed in order by filter_all_vidcaps
+declare -a FILTERS_CS=( )
+# The contact sheet creators take the form
+#  csheet_name( number of columns, context, width, height, vidcapfile1,
+#               vidcapfile2, ... ) : outputfile
+# Context is one of the CTX_* constants (see below)
+# The width and height are those of an individual capture
+# It is executed by create_contact_sheet()
+declare CSHEET_DELEGATE=csheet_montage
+
+# Gravity of the timestamp (will be override-able in the future)
+declare grav_timestamp=SouthEast
+
+# When set to 1 the signature won't contain the "Preview created by..." line
+declare -i anonymous_mode=0
+
+# }}} # Variables
+
+# {{{ # Configuration handling
 
 # These are the variables allowed to be overriden in the config file,
 # please.
@@ -198,11 +344,18 @@ declare -ra ALLOWED_OVERRIDES=(
 	'shoehorned'
 	'timecode_from'
 	'safe_rename_pattern'
-	'default_options'
+#	'default_options'
 	'extended_factor'
 	'verbosity'
 	'plain_messages'
+	'FONT_MINCHO'
+	'stdout'
+	'stderr'
+	'DEFAULT_END_OFFSET'
 )
+
+# This is only used to exit when -DD is used
+declare -i DEBUGGED=0 # It will be 1 after using -D
 
 # Loads the configuration files if present
 # load_config()
@@ -216,6 +369,11 @@ load_config() {
 			override "$line" "file $cfgfile" # Feeding it comments should be harmless
 		done <$cfgfile
 	done
+
+	# Override-able hack, this won't work with command line overrides, though
+	end_offset=$DEFAULT_END_OFFSET
+	interval=$DEFAULT_INTERVAL
+	numcaps=$DEAFULT_NUMCAPS
 }
 
 # Do an override
@@ -253,6 +411,8 @@ override() {
 	fi
 }
 
+# }}} # Configuration handling
+
 # {{{ # Convenience functions
 
 # Returns true if input is composed only of numbers
@@ -268,12 +428,19 @@ is_float() {
 	egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))$'<<<"$1"
 }
 
-# Returns true if input is a fraction
+# Returns true if input is a fraction (*strictly*, i.e. "1" is not a fraction)
 # Only accepts XX/YY
 # is_fraction($1 = input)
 is_fraction() {
 	egrep -q '^[0-9]+/[0-9]+$'<<<"$1"
 }
+
+# Makes a string lowercase
+# tolower($1 = string)
+tolower() {
+	tr '[A-Z]' '[a-z]' <<<"$1"
+}
+
 
 # Rounded product
 # multiplies parameters and prints the result, rounded to the closest int
@@ -283,10 +450,52 @@ is_fraction() {
 # rmultiply($1 = "operator1,operator2,...")
 rmultiply() {
 	local exp=$(sed 's/[ ,]/*/g'<<<"$@") # bc expression
-	local f=$(bc -lq<<<"$exp") # exact float value
+	#local f=$(bc -lq<<<"$exp") # exact float value
 	# division is integer by default (without -l) so it's the smae
 	# as rounding to the lower int
-	bc -q <<<"( $f + 0.5 ) / 1"
+	#bc -q <<<"( $f + 0.5 ) / 1"
+	bc -q <<<"scale=5; v=( ($exp) + 0.5 ) ; scale=0 ; v/1"
+}
+
+# Like rmultiply() but always rounded upwards
+ceilmultiply() {
+	local exp=$(sed 's/[ ,]/*/g'<<<"$@") # bc expression
+	local f=$(bc -lq<<<"$exp") # exact float value
+	bc -q <<<"( $f + 0.999999999 ) / 1"
+}
+
+# Round to a multiple
+# Rounds a number ($1) to a multiple of ($2)
+# rtomult($1 = number, $2 = divisor)
+rtomult() {
+	local n=$1 d=$2
+	local r=$(( $n % $d ))
+	if [ $r -ne 0 ]; then
+		let 'n += ( d - r )'
+	fi
+	echo $n
+}
+
+# numeric test eqivalent for floating point
+# fptest($1 = op1, $2 = operator, $3 = op2)
+fptest() {
+	local op=
+	case $2 in
+		-gt) op='>' ;;
+		-lt) op='<' ;;
+		-ge) op='>=' ;;
+		-le) op='<=' ;;
+		-eq) op='==' ;;
+		-ne) op='!=' ;;
+		*) error "Internal error" && return $EX_SOFTWARE
+	esac
+	[ '1' == $(bc -q <<<"$1 $op $3") ]
+}
+
+# Applies the Pythagorean Theorem
+# pyth_th($1 = cathetus1, $2 = cathetus2)
+pyth_th() {
+	bc -ql <<<"sqrt( $1^2 + $2^2)"
 }
 
 # Prints the width correspoding to the input height and the variable
@@ -307,78 +516,88 @@ compute_width() {
 get_interval() {
 	if is_number "$1" ; then echo $1 ; return 0 ; fi
 
-	local s=$(tr '[A-Z]' '[a-z]' <<<"$1")
+	local s=$(tolower "$1") t r
 
 	# Only allowed characters
-	if ! grep -q '[0-9smh]' <<<"$s"; then
+	if ! egrep -qi '^[0-9smh.]+$' <<<"$s"; then
 		return $EX_USAGE;
 	fi
 
-	# FIXME: Find some cleaner way
-	local i= c= num= sum=0
-	for i in $(seq 0 $(( ${#s} - 1)) ); do
-		c=${s:$i:1}
-		if is_number $c ; then
-			num+=$c
-		else
-			case $c in
-				h) num=$(($num * 3600)) ;;
-				m) num=$(($num * 60)) ;;
-				s) ;;
-				*)
-					return $EX_SOFTWARE
-				;;
-			esac
-			sum=$(($sum + $num))
-			num=
-		fi
-	done
+	# New parsing code: replaces units by a product
+	# and feeds the resulting string to bc
+	t=$s
+	t=$(sed -r 's/([0-9]+)h/ ( \1 * 3600 ) + /g' <<<$t)
+	t=$(sed -r 's/([0-9]+)m/ ( \1 * 60 ) + /g' <<<$t)
+	t=$(sed 's/s/ + /g' <<<$t)
+	t=$(sed -r 's/\.\.+/./g'<<<$t)
+	t=$(sed -r 's/(\.[0-9]+)/0\1 + /g' <<<$t)
+	t=$(sed -r 's/\+ ?$//g' <<<$t)
 
-	# If last element was a number, it's seconds and they weren't added
-	if is_number $c ; then
-		sum=$(( $sum + $num ))
+	r=$(bc -lq <<<$t 2>/dev/null) # bc parsing fails with correct return code
+	if [ -z "$r" ]; then
+		return $EX_USAGE
+	fi
+	# Negative interval
+	if [ "-" == ${r:0:1} ]; then
+		return $EX_USAGE
 	fi
 
-	echo $sum
-
-	return 0
+	echo $r
 }
 
 # Pads a string with zeroes on the left until it is at least
 # the indicated length
 # pad($1 = minimum length, $2 = string)
 pad() {
-	local len=$1
+	# printf "%0${1}d\n" "$2" # [[R1#18]] # Can't be used with non-numbers
 	local str=$2
-
-	while [ ${#str} -lt $len ]; do
-		str=0$str
+	while [ "${#str}" -lt $1 ]; do
+		str="0$str"
 	done
-
 	echo $str
+}
+
+# Get Image Width
+# imw($1 = file)
+imw() {
+	identify "$1" | cut -d' ' -f3 | cut -d'x' -f1
+}
+
+# Get Image Height
+# imh($1 = file)
+imh() {
+	identify "$1" | cut -d' ' -f3 | cut -d'x' -f2
 }
 
 # Prints a number of seconds in a more human readable form
 # e.g.: 3600 becomes 1:00:00
 # pretty_stamp($1 = seconds)
 pretty_stamp() {
-	if ! is_number "$1" ; then return $EX_USAGE ; fi
+	if ! is_float "$1" ; then return $EX_USAGE ; fi
 
 	local t=$1
-	local h=$(( $t / 3600 ))
-	t=$(( $t % 3600 ))
-	local m=$(( $t / 60 ))
-	t=$(( $t % 60 ))
-	local s=$t
+	#local h=$(( $t / 3600 ))
+	# bc's modulus seems to *require* not using the math lib (-l)
+	local h=$( bc -q <<<"$t / 3600")
+	t=$(bc -q <<<"$t % 3600")
+	local m=$( bc -q <<<"$t / 60")
+	t=$(bc -q <<<"$t % 60")
+	local s=$(cut -d'.' -f1 <<<$t)
+	local ms=$(cut -d'.' -f2 <<<$t)
 
 	local R=""
 
 	if [ $h -gt 0 ]; then
 		R+="$h:"
 	fi
-	R+=$(pad 2 "$m"):$(pad 2 $s)
+	# Right pad of decimal seconds
+	if [ ${#ms} -lt 2 ]; then
+		ms="${ms}0"
+	fi
+	R+=$(pad 2 "$m"):$(pad 2 $s).$ms
 
-	echo $R
+	# Trim (most) decimals
+	sed -r 's/\.([0-9][0-9]).*/.\1/'<<<$R
 }
 
 # Prints the size of a file in a human friendly form
@@ -414,14 +633,17 @@ get_pretty_size() {
 # And print the output name to stdout
 # See $safe_rename_pattern
 # safe_rename($1 = original file, $2 = target file)
+# XXX: Note it fails if target has no extension
 safe_rename() {
 	local from="$1"
 	local to="$2"
 
-	# Extension
-	local ext=$(sed -r 's/.*\.(.*)/\1/g' <<<"$to")
-	# Basename without extension
-	local b=$(basename "$2" ".$ext")
+	# Output extension
+	local ext=$(sed -r 's/.*\.(.*)/\1/' <<<$to)
+	# Input extension
+	local iext=$(sed -r 's/.*\.(.*)/\1/' <<<$to)
+	# Input filename without extension
+	local b=${to%.$iext}
 
 	# safe_rename_pattern is override-able, ensure it has a valid value:
 	if  ! grep -q '%e' <<<"$safe_rename_pattern" ||
@@ -432,14 +654,14 @@ safe_rename() {
 
 	local n=1
 	while [ -f "$to" ]; do # Only executes if $2 exists
-		to=$(sed "s/%b/$b/g" <<<"$safe_rename_pattern")
-		to=$(sed "s/%N/$n/g" <<<"$to")
-		to=$(sed "s/%e/$ext/g" <<<"$to")
+		to=$(sed "s#%b#$b#g" <<<"$safe_rename_pattern")
+		to=$(sed "s#%N#$n#g" <<<"$to")
+		to=$(sed "s#%e#$ext#g" <<<"$to")
 
 		let 'n++';
 	done
 
-	mv "$from" "$to"
+	mv -- "$from" "$to"
 	echo "$to"
 }
 
@@ -447,13 +669,15 @@ safe_rename() {
 # test_programs()
 test_programs() {
 	local retval=0 last=0
-	for prog in mplayer convert montage bc ffmpeg mktemp ; do
+	for prog in getopt mplayer convert montage identify bc \
+				ffmpeg mktemp sed grep egrep cut; do
 		type -pf "$prog" >/dev/null
 		if [ $? -ne 0 ] ; then
 			error "Required program $prog not found!"
 			let 'retval++'
 		fi
 	done
+	# TODO: [x2]
 
 	return $retval
 }
@@ -463,7 +687,7 @@ test_programs() {
 # cleanup()
 cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
-	info "Cleaning up..."
+	inf "Cleaning up..."
 	rm -rf ${TEMPSTUFF[*]}
 	TEMPSTUFF=( )
 }
@@ -489,8 +713,10 @@ error() {
 		# sgr0 is always used, this way if
 		# a) something prints inbetween messages it isn't affected
 		# b) if plain_messages is overridden colour stops after the override
-		echo "$1" >&2 ; tput sgr0
-	fi
+		echo "$1" ; tput sgr0
+	fi >&2
+	# It is important to redirect both tput and echo to stderr. Otherwise
+	# n=$(something) wouldn't be coloured
 }
 #
 # Print a non-fatal error or warning
@@ -500,24 +726,24 @@ warn() {
 		if [ $plain_messages -eq 0 ]; then
 			tput bold ; tput setaf 3;
 		fi
-		echo "$1" >&2 ; tput sgr0
-	fi
+		echo "$1" ; tput sgr0
+	fi >&2
 }
 #
 # Print an informational message
-# info($1 = text)
-info() {
+# inf($1 = text)
+inf() {
 	if [ $verbosity -ge $V_INFO ]; then
 		if [ $plain_messages -eq 0 ]; then
 			tput bold ; tput setaf 2;
 		fi
-		echo "$1" >&2 ; tput sgr0
-	fi
+		echo "$1" ; tput sgr0
+	fi >&2
 }
 #
-# Same as info but with no colour ever.
-# infoplain($1 = text)
-infoplain() {
+# Same as inf but with no colour ever.
+# infplain($1 = text)
+infplain() {
 	if [ $verbosity -ge $V_INFO ]; then
 		echo "$1" >&2
 	fi
@@ -530,7 +756,13 @@ infoplain() {
 # Creates a new temporary directory
 # create_temp_dir()
 create_temp_dir() {
-	VCSTEMPDIR=$(mktemp -d -t vcs.XXXXXX)
+	# Try to use /dev/shm if available, this provided a very small
+	# benefit on my system but me of help for huge files. Or maybe won't.
+	if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+		VCSTEMPDIR=$(mktemp -d -p /dev/shm vcs.XXXXXX)
+	else
+		VCSTEMPDIR=$(mktemp -d -t vcs.XXXXXX)
+	fi
 	if [ ! -d "$VCSTEMPDIR" ]; then
 		error "Error creating temporary directory"
 		return $EX_CANTCREAT
@@ -554,17 +786,95 @@ new_temp_file() {
 	echo "$r"
 }
 
+# Randomizes the colours and fonts. The result won't be of much use
+# in most cases but it might be a good way to discover some colour/font
+# or colour combination you like.
+# randomize_look()
+randomize_look() {
+
+	local mode=f lineno
+
+	if [ "f" == $mode ]; then # Random mode
+		# There're 5 rows of extra info printed
+		local ncolours=$(( $(convert -list color | wc -l) - 5 ))
+		randcolour() {
+		lineno=$(( 5 + ( $RANDOM % $ncolours ) ))
+		convert -list color | sed -n "${lineno}p" | cut -d' ' -f1 # [[R1#19]]
+		}
+	else # Pseudo-random mode, WIP!
+		randccomp() {
+			# colours are in the 0..65535 range, while RANDOM in 0..32767
+			echo $(( $RANDOM + $RANDOM + ($RANDOM % 1) ))
+		}
+		randcolour() {
+			echo "rgb($(randccomp),$(randccomp),$(randccomp))"
+		}
+	fi
+
+	local nfonts=$(( $(convert -list type | wc -l) - 5 ))
+	randfont() {
+		lineno=$(( 5 + ( $RANDOM % $nfonts )))
+		convert -list type | sed -n "${lineno}p" | cut -d' ' -f1 # [[R1#19]]
+	}
+
+	bg_heading=$(randcolour)
+	bg_sign=$(randcolour)
+	bg_title=$(randcolour)
+	bg_contact=$(randcolour)
+	fg_heading=$(randcolour)
+	fg_sign=$(randcolour)
+	fg_tstamps=$(randcolour)
+	fg_title=$(randcolour)
+	font_tstamps=$(randfont)
+	font_heading=$(randfont)
+	font_sign=$(randfont)
+	font_title=$(randfont)
+	inf "Randomization result:
+ Chosen backgrounds:
+   '$bg_heading' for the heading
+   '$bg_sign' for the signature
+   '$bg_title' for the title
+   '$bg_contact' for the contact sheet
+ Chosen font colours:
+   '$fg_heading' for the heading
+   '$fg_sign' for the signature
+   '$fg_title' for the title
+   '$fg_tstamps' for the timestamps,
+ Chosen fonts:
+   '$font_heading' for the heading
+   '$font_sign' for the signature
+   '$font_title' for the title
+   '$font_tstamps' for the timestamps"
+
+   unset -f randcolour randfound randccomp
+}
+
 # Add to $TIMECODES the timecodes at which a capture should be taken
 # from the current video
 # compute_timecodes($1 = timecode_from, $2 = interval, $3 = numcaps)
 compute_timecodes() {
-	local st=0 end=${VID[$LEN]} tcfrom=$1 tcint=$2 tcnumcaps=$3
-	# globals: fromtime, totime, timecode_from, TIMECODES
-	if [ $st -lt $fromtime ]; then
+	local st=0 end=${VID[$LEN]} tcfrom=$1 tcint=$2 tcnumcaps=$3 eo=0
+	# globals: fromtime, totime, timecode_from, TIMECODES, end_offset
+	if fptest $st -lt $fromtime ; then
 		st=$fromtime
 	fi
-	if [ $totime -gt 0 ] && [ $end -gt $totime ]; then
+	if fptest $totime -gt 0 && fptest $end -gt $totime ; then
 		end=$totime
+	fi
+	if fptest $totime -le 0 ; then # If no totime is set, use end_offset
+		eo=$end_offset
+
+		local runlen=$( bc <<<"$end - $st" )
+
+		if fptest "($end-$eo-$st)" -le 0 ; then
+			if fptest "$eo" -gt 0 && fptest "$eo" -eq "$DEFAULT_END_OFFSET" ; then
+				warn "Default end offset was too high, ignoring it."
+				eo=0
+			else
+				error "End offset too high, use e.g. '-E0'."
+				return $EX_UNAVAILABLE
+			fi
+		fi
 	fi
 
 	local inc=
@@ -574,55 +884,61 @@ compute_timecodes() {
 		# Numcaps mandates: timecodes are obtained dividing the length
 		# by the number of captures
 		if [ $tcnumcaps -eq 1 ]; then # Special case, just one capture, center it
-			inc=$(( ($end-$st) / 2 +  1))
+			inc=$( bc -lq <<< "scale=3; ($end-$st)/2 + 1" )
 		else
-			inc=$(( ($end-$st) / $tcnumcaps ))
+			#inc=$(( ($end-$st) / $tcnumcaps ))
+			# FIXME: The last second is avoided (-1) to get the correct caps number
+			inc=$( bc -lq <<< "scale=3; ($end-$eo-$st)/$tcnumcaps" )
 		fi
 	else
 		error "Internal error"
 		return $EX_SOFTWARE
 	fi
 
-	if [ $inc -gt ${VID[$LEN]} ]; then
+	if fptest $inc -gt ${VID[$LEN]}; then
 		error "Interval is longer than video length, skipping $f"
 		return $EX_USAGE
 	fi
 
-	local LTC=( ) stamp=
-	for stamp in $(seq $st $inc $end); do
+	local LTC=( ) stamp=$st
+	while fptest $stamp -le $(bc -q <<<"$end-$eo"); do
+		if fptest $stamp -lt 0 ; then
+			error "Internal error, negative timestamp calculated!"
+			return $EX_SOFTWARE
+		fi
 		LTC+=( $stamp )
+		stamp=$(bc -q <<<"$stamp+$inc")
 	done
 	unset LTC[0] # Discard initial cap (=$st)
-	TIMECODES=( ${TIMECODES[*]} ${LTC[*]} )
+	TIMECODES=( ${TIMECODES[@]} ${LTC[@]} )
 }
 
 # Tries to guess an aspect ratio comparing width and height to some
 # known values (e.g. VCD resolution turns into 4/3)
-# guess_aspect()
+# guess_aspect($1 = width, $2 = height)
 guess_aspect() {
 	# mplayer's ID_ASPECT seems to be always 0 ¿?
-	local w=${VID[$W]} h=${VID[$H]}
+	local w=$1 h=$2 ar
 	if [ $w -eq 352 ]; then # VCD / DVD @ VCD Res. / Half-D1 / CVD
 		if [ $h -eq 288 ] || [ $h -eq 240 ]; then
-			aspect_ratio=4/3
+			ar=4/3
 		elif [ $h -eq 576 ] || [ $h -eq 480 ]; then # Half-D1 / CVD
-			aspect_ratio=4/3
+			ar=4/3
 		fi
 	elif [ $w -eq 704 ] || [ $w -eq 720 ]; then # DVD / DVB
 		# Actually for 720x576/720x480 16/9 is as good a guess
 		if [ $h -eq 576 ] || [ $h -eq 480 ]; then
-			aspect_ratio=4/3
+			ar=4/3
 		fi
 	elif [ $w -eq 480 ]; then # SVCD
 		if [ $h -eq 576 ] || [ $h -eq 480 ]; then
-			aspect_ratio=4/3
+			ar=4/3
 		fi
 	else
 		warn "Couldn't guess aspect ratio."
-		aspect_ratio=$(bc -lq <<<"$w / $h")
+		ar="$w/$h" # Don't calculate it yet
 	fi
-	local AR=$(sed -r 's/(\.[0-9]{2}).*/\1/g'<<<$aspect_ratio)
-	info "Aspect ratio set to $AR"
+	echo $ar
 }
 
 # Capture a frame
@@ -633,13 +949,20 @@ capture() {
 	# globals: $shoehorned $decoder
 
 	if [ $decoder -eq $DEC_MPLAYER ]; then
-		mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			-frames 1 -ss $stamp $shoehorned "$f" >/dev/null 2>&1
+		{
+			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+			-frames 1 -ss $stamp $shoehorned "$f"
+		} >"$stdout" 2>"$stderr"
 	elif [ $decoder -eq $DEC_FFMPEG ]; then
-		# XXX: For some reason -ss before -i failed on my mkv sample
-		# while after -i it failed on my wmv9 sample ¿?
-		ffmpeg -y -ss $stamp -i "$f" -an -dframes 1 -vframes 1 -vcodec png \
-			-f rawvideo $shoehorned $VIDCAPFILE >/dev/null 2>&1
+		# XXX: It would be nice to show a message if it takes too long
+		{
+			# See wa_ss_* declarations at the start of the file for details
+			ffmpeg -y ${wa_ss_be/ / $stamp} -i "$f" ${wa_ss_af/ / $stamp} -an \
+				-dframes 1 -vframes 1 -vcodec png \
+				-f rawvideo $shoehorned $VIDCAPFILE
+			# Used to test bogus files (e.g. to test codec ids)
+			#convert -size 1x xc:black $VIDCAPFILE
+		} >"$stdout" 2>"$stderr"
 	else
 		error "Internal error!"
 		return $EX_SOFTWARE
@@ -656,25 +979,240 @@ capture() {
 	return 0
 }
 
+# Applies all individual vidcap filters
+# filter_vidcap($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filter_vidcap() {
+	# For performance purposes each filter simply prints a set of options
+	# to 'convert'. That's less flexible but enough right now for the current
+	# filters.
+	local cmdopts=
+	for filter in ${FILTERS_IND[@]}; do
+		cmdopts+=" $( $filter "$1" "$2" "$3" "$4" ) "
+	done
+	local t=$(new_temp_file .png)
+	eval "convert '$1' $cmdopts '$t'"
+	# If $t doesn't exist returns non-zero
+	[ -f "$t" ] && mv "$t" "$1"
+}
+
+# Applies all global vidcap filters
+#filter_all_vidcaps() {
+#	# TODO: Do something with "$@"
+#	true
+#}
+
+filt_resize() {
+	local f="$1" t=$2 w=$3 h=$4
+
+	# Note the '!', required to change the aspect ratio
+	echo " \( -geometry ${w}x${h}! \) "
+}
+
 # Draw a timestamp in the file
-# apply_stamp($1 = filename, $2 = timestamp, $3 = width, $4 = height)
-apply_stamp() {
+# filt_apply_stamp($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filt_apply_stamp() {
 	local filename=$1 timestamp=$2 width=$3 height=$4
 
-	local temp=$(new_temp_file ".png")
-	mv "$filename" "$temp"
-	# Add the timestamp to each vidcap, doing it here is much powerful/simple
-	# than with the next montage command
-	# Note the '!', it is necessary to apply aspect ratio change
-	convert -box '#000000aa' -geometry ${width}x${height}! \
-			-fill $fg_tstamps -pointsize $pts_tstamps -gravity SouthEast \
-			-stroke none -strokewidth 3 -annotate +5+5 " $(pretty_stamp $stamp) " \
-			"$temp" "$filename"
-	if [ ! -f "$filename" ]; then
-		error "Failed to add timestamp to capture"
-		mv "$temp" "$filename" # Leave things as before
-		return $EX_CANTCREAT
-	fi
+	echo -n " \( -box '#000000aa' -fill '$fg_tstamps' -pointsize '$pts_tstamps' "
+	echo -n "    -gravity '$grav_timestamp' -stroke none -strokewidth 3 -annotate +5+5 "
+	echo "    ' $(pretty_stamp $stamp) ' \) -flatten "
+}
+
+# Apply a Polaroid-like effect
+# Taken from <http://www.imagemagick.org/Usage/thumbnails/#polaroid>
+# filt_photoframe($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filt_photoframe() {
+#	local file="$1" ts=$2 w=$3 h=$4
+# Tweaking the size gives a nice effect too
+# w=$(( $w - ( $RANDOM % ( $w / 3 ) ) ))
+# TODO: Split softshadow in a filter
+	echo -n "-bordercolor white -border 6 -bordercolor grey60 -border 1 "
+	echo -n "-background black \( +clone -shadow 60x4+4+4 \) +swap "
+	echo "-background none -flatten -trim +repage"
+}
+
+# Applies a random rotation
+# Taken from <http://www.imagemagick.org/Usage/thumbnails/#polaroid>
+# filt_randrot($1 = filename, $2 = timestamp, $3 = width, $4 = height)
+filt_randrot() {
+	# Rotation angle [-18..18]
+	local angle=$(( ($RANDOM % 37) - 18 ))
+	echo "-background none -rotate $angle "
+}
+
+# This one requires much more work, the results are pretty rough, but ok as
+# a starting point / proof of concept
+filt_film() {
+	local file="$1" ts=$2 w=$3 h=$4
+	# Base reel dimensions
+	local rw=$(rmultiply $w,0.08) # 8% width
+	local rh=$(( $rw / 2 ))
+	# Ellipse center
+	local ecx=$(( $rw / 2 )) ecy=0
+	# Ellipse x, y radius
+	local erx=$(( (rw/2)*60/100 )) # 60% halt rect width
+	local ery=$(( $erx / 2))
+
+	local base_reel=$(new_temp_file .png) reel_strip=$(new_temp_file .png)
+
+	# Create the reel pattern...
+	convert -size ${rw}x${rh} 'xc:black' \
+		-fill white -draw "ellipse $ecx,$ecy $erx,$ery 0,360" -flatten \
+		\( +clone -flip \) -append \
+		-fuzz '40%' -transparent white \
+		"$base_reel"
+	# FIXME: Error handling
+
+	# Repeat it until the height is reached and crop to the exact height
+	local sh=$(imh "$base_reel") in=
+	local repeat=$( ceilmultiply $h/$sh)
+	while [ $repeat -gt 1 ]; do
+		in+=" '$base_reel' "
+		let 'repeat--'
+	done
+	eval convert "$base_reel" $in -append -crop $(imw "$base_reel")x${h}+0+0 \
+		"$reel_strip"
+
+	# As this options will be appended to the commandline we cannot
+	# order the arguments optimally (eg: reel.png image.png reel.png +append)
+	# A bit of trickery must be done flipping the image. Note also that the
+	# second strip will be appended flipped, which is intended.
+	echo -n "'$reel_strip' +append -flop '$reel_strip' +append -flop "
+}
+
+# Creates a contact sheet by calling the delegate
+# create_contact_sheet($1 = columns, $2 = context, $3 = width, $4 = height,
+#                      $5...$# = vidcaps) : output
+create_contact_sheet() {
+	$CSHEET_DELEGATE "$@"
+}
+
+# This is the standard contact sheet creator
+# csheet_montage($1 = columns, $2 = context, $3 = width, $4 = height,
+#                $5... = vidcaps) : output
+csheet_montage() {
+	local cols=$1 ctx=$2 width=$3 height=$4 output=$(new_temp_file .png)
+	shift 4
+	case $ctx in
+		$CTX_STD|$CTX_HL) hpad=10 vpad=5 ;;
+		$CTX_EXT) hpad=5 vpad=2 ;;
+		*) error "Internal error" && return $EX_SOFTWARE ;;
+	esac
+	# Using transparent seems to make -shadow futile
+	montage -background Transparent "$@" -geometry +$hpad+$vpad -tile "$cols"x "$output"
+	# This produces soft-shadows, which look much better than the montage ones
+	#
+	convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
+
+	# FIXME: Error handling
+	echo $output
+}
+
+# Polaroid contact sheet creator: it overlaps vidcaps with some randomness
+# csheet_overlap($1 = columns, $2 = context, $3 = width, $4 = height,
+#                 $5... = $vidcaps) : output
+csheet_overlap() {
+	local cols=$1 ctx=$2 width=$3 height=$4
+	# globals: $VID
+	shift 4
+
+	# TBD: Handle context
+
+	# Explanation of how this works:
+	# On the first loop we do what the "montage" command would do (arrange the
+	# images in a grid) but overlapping each image to the one on their left,
+	# creating the output row by row, each row in a file.
+	# On the second loop we append the rows, again overlapping each one to the
+	# one before (above) it.
+	# XXX: Compositing over huge images is quite slow, there's probably a
+	# better way to do it
+
+	# Offset bounds, this controls how much of each snap will be over the
+	# previous one. Note it is important to work over $width and not $VID[$W]
+	# to cover all possibilities (extended mode and -H change the vidcap size)
+	local maxoffset=$(( $width / 3 ))
+	local minoffset=$(( $width / 6 ))
+
+	# Holds the files that will form the full contact sheet
+	# each file is a row on the final composition
+	local -a rowfiles=( )
+
+	# Dimensions of the canvas for each row, it should be big enough
+	# to hold all snaps.
+	# My trigonometry is pretty rusty but considering we restrict the angle a lot
+	# I believe no image should ever be wider/taller than the diagonal (note the
+	# ceilmultiply is there to simply round the result)
+	local diagonal=$(ceilmultiply $(pyth_th $width $height) 1)
+	# XXX: The width, though isn't guaranteed (e.g. using filt_film it ends wider)
+	#      adding 3% to the diagonal *should* be enough to compensate
+	local canvasw=$(( ( $diagonal + $(rmultiply $diagonal,0.3) ) * $cols ))
+	local canvash=$(( $diagonal ))
+
+	# The number of rows required to hold all the snaps
+	local numrows=$(ceilmultiply ${#@},1/$cols) # rounded division
+
+	# Variables inside the loop
+	local col       # Current column
+	local rowfile   # Holds the row we're working on
+	local offset    # Random offset of the current snap [$minoffset..$maxoffset]
+	local accoffset # The absolute (horizontal) offset used on the next iteration
+	local cmdopts   # Holds the arguments passed to convert to compose the sheet
+	local w         # Width of the current snap
+	for row in $(seq 1 $numrows) ; do
+		col=0
+		rowfile=$(new_temp_file .png)
+		rowfiles+=( "$rowfile" )
+		accoffset=0
+		cmdopts= # This command is pretty time-consuming, let's make it in a row
+
+		# Base canvas
+		inf "Creating polaroid base canvas $row/$numrows..."
+		convert -size ${canvasw}x${canvash} xc:transparent "$rowfile"
+
+		# Step through vidcaps (col=[0..cols-1])
+		for col in $(seq 0 $(( $cols - 1 ))); do
+			# More cols than files in the last iteration (e.g. -n10 -c4)
+			if [ -z "$1" ]; then break; fi
+			w=$(imw "$1")
+
+			# Stick the vicap in the canvas
+			#convert -geometry +${accoffset}+0 "$rowfile" "$1" -composite "$rowfile"
+			cmdopts+=" -geometry +${accoffset}+0 '$1' -composite "
+
+			offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
+			let 'accoffset=accoffset + w - offset'
+			shift
+		done
+		inf "Composing polaroid row $row/$numrows..."
+		eval convert "'$rowfile'" "$cmdopts" -trim +repage "'$rowfile'" >&2
+	done
+
+	inf "Merging polaroid rows..."
+	output=$(new_temp_file .png)
+	# Standard composition
+	#convert -background Transparent "${rowfiles[@]}" -append polaroid.png
+	# Overlapped composition
+	convert -size ${canvasw}x$(( $canvash * $cols )) xc:transparent "$output"
+	cmdopts=
+	accoffset=0
+	local h
+	for row in "${rowfiles[@]}" ; do
+		w=$(imw "$row")
+		h=$(imh "$row")
+		minoffset=$(( $h / 8 ))
+		maxoffset=$(( $h / 4 ))
+		offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
+		# The row is also offset horizontally
+		cmdopts+=" -geometry +$(( $RANDOM % $maxoffset ))+$accoffset '$row' -composite "
+		let 'accoffset=accoffset + h - offset'
+	done
+	# After the trim the top corners are too near the heading, we add some space
+	# with -splce
+	eval convert -background transparent "$output" $cmdopts -trim +repage \
+		-bordercolor Transparent -splice 0x10 "$output" >&2
+
+	# FIXME: Error handling
+	echo $output
 }
 
 # Sorts timestamps and removes duplicates
@@ -698,7 +1236,7 @@ identify_video() {
 	VID[$W]=$(grep ID_VIDEO_WIDTH <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
 	VID[$H]=$(grep ID_VIDEO_HEIGHT <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
 	VID[$FPS]=$(grep ID_VIDEO_FPS <<<"$MPLAYER_CACHE" | cut -d'=' -f2)
-	VID[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2 | cut -d. -f1)
+	VID[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2)
 	# For some reason my (one track) samples have two ..._NCH, first one 0
 	VID[$CHANS]=$(grep ID_AUDIO_NCH <<<"$MPLAYER_CACHE"|cut -d'=' -f2|head -2|tail -1)
 
@@ -716,7 +1254,7 @@ identify_video() {
 	fi
 
 	# Check sanity of the most important values
-	is_number "${VID[$W]}" && is_number "${VID[$H]}" && is_number "${VID[$LEN]}"
+	is_number "${VID[$W]}" && is_number "${VID[$H]}" && is_float "${VID[$LEN]}"
 }
 
 # Main function.
@@ -731,7 +1269,7 @@ process() {
 		error "File \"$f\" doesn't exist"
 		return $EX_NOINPUT
 	fi
-	info "Processing $f..."
+	inf "Processing $f..."
 
 	identify_video "$f" || {
 		error "Found unsupported value while identifying video. Can't continue."
@@ -746,7 +1284,8 @@ process() {
 	if [ "0" == "$aspect_ratio" ]; then
 		aspect_ratio=$(bc -lq <<< "${VID[$W]} / ${VID[$H]}")
 	elif [ "-1" == "$aspect_ratio" ]; then
-		guess_aspect
+		aspect_ratio=$(guess_aspect ${VID[$W]} ${VID[$H]})
+		inf "Aspect ratio set to $(sed -r 's/(\.[0-9]{2}).*/\1/g'<<<$aspect_ratio)"
 	fi
 	local vidcap_width=$(compute_width $vidcap_height)
 
@@ -783,142 +1322,130 @@ process() {
 	TEMPSTUFF+=( $VIDCAPFILE )
 
 	# Highlighs
-	local hlfile="$VCSTEMPDIR/highlights.png" n=1 # Must be outside the if!
+	local hlfile n=1 # hlfile Must be outside the if!
 	if [ "$HLTIMECODES" ]; then
-		local hlmontage_command="montage -gravity SouthEast -texture xc:LightGoldenRod "
-		local hlcapfile=
-		local pretty=
+		local hlcapfile= pretty= capfiles=( )
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
-			if [ $stamp -gt $numsecs ]; then let 'n++' && continue ; fi
+			if fptest $stamp -gt $numsecs ; then let 'n++' && continue ; fi
 			pretty=$(pretty_stamp $stamp)
-			info "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
+			inf "Generating highlight #${n}/${#HLTIMECODES[*]} ($pretty)..."
 
 			capture "$f" $stamp || return $?
-			apply_stamp "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
-
+			filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || {
+				local r=$?
+				error "Failed to apply transformations to the capture."
+				return $r
+			}
+	
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 			mv "$VIDCAPFILE" "$hlcapfile"
-			hlmontage_command+=" \"$hlcapfile\""
+			capfiles+=( "$hlcapfile" )
 			let 'n++'
 		done
 
-		#if [ "$title" ]; then
-		#	hlmontage_command+=" -font $font_heading -fill $fg_heading -title '$title'"
-		#fi
-		info "Composing highlights contact sheet..."
-		eval "$hlmontage_command -geometry ${vidcap_width}x${vidcap_height}!+10+5 \
-		      -tile ${numcols}x -shadow \"$hlfile\""
-		unset hlcapfile hlmontage_command pretty
+		inf "Composing highlights contact sheet..."
+		hlfile=$( create_contact_sheet $numcols $CTX_HL $vidcap_width $vidcap_height "${capfiles[@]}" )
+		unset hlcapfile pretty n capfiles
 	fi
 	unset n
 
 	# Normal captures
 	# TODO: Don't reference $VIDCAPFILE
-	local capfile= pretty= n=1 montage_command=$base_montage_command
+	local capfile pretty n=1 capfiles=( )
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
-		# Note that it must be checked against numsecs and not endsec, to allow
-		# the user manually setting stamps beyond the boundaries
-		# This shouldn't occur automatically anymore with the new code.
-		if [ $stamp -gt $numsecs ]; then let 'n++' && continue; fi
-
-		info "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
+		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
 
 		capture "$f" $stamp || return $?
-		apply_stamp "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
+		filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height || return $?
+
+		# identified by capture number, padded to 6 characters
 		capfile=$(new_temp_file "-cap-$(pad 6 $n).png")
-		# move to tempdir/<frame num>.png, cap num is padded to 6 characters
 		mv "$VIDCAPFILE" "$capfile"
-		montage_command+=" \"$capfile\""
+		capfiles+=( "$capfile" )
 		let 'n++' # $n++
 	done
-	unset capfile pretty n
+	#filter_all_vidcaps "${capfiles[@]}"
 
-	# geometry affects the source images, not the target one!
-	# Note the file name could also be added by using the "-title" option, but I reserved
-	# it for used set titles
-	# FIXME: Title should go before the highlights
-	montage_command+=" -geometry ${vidcap_width}x${vidcap_height}+10+5 -tile ${numcols}x -shadow"
-	if [ "$title" ]; then
-		montage_command+=" -font $font_heading -fill $fg_heading -title '$title'"
-	fi
-	montage_command+=" \"$output\""
-
-	info "Composing standard contact sheet..."
-	eval $montage_command # eval is required to evaluate correctly the text in quotes!
-	unset montage_command
+	inf "Composing standard contact sheet..."
+	output=$(create_contact_sheet $numcols $CTX_STD $vidcap_width $vidcap_height "${capfiles[@]}")
+	unset capfile capfiles pretty n
 
 	# Extended mode
 	local extoutput=
 	if [ "$extended_factor" != 0 ]; then
-		# Number of captures. Always rounded to a multiplier of 2
-		# TODO: Round it to a multiplier of the number of columns
-		local hlnc=$(bc -q <<<"( (${#TIMECODES[*]} * $extended_factor) / 2 * 2)")
+		# Number of captures. Always rounded to a multiplier of *double* the
+		# number of columns (the extended caps are half width, this way they
+		# match approx with the standard caps width)
+		local hlnc=$(rtomult "$(( ${#TIMECODES[@]} * $extended_factor ))" $((2*$numcols)))
+
 		unset TIMECODES # required step to get the right count
-		TIMECODES=${initial_stamps[*]}
+		declare -a TIMECODES # Note the manual stamps aren't included anymore
 		compute_timecodes $TC_NUMCAPS "" $hlnc
 		unset hlnc
 
-		local n=1 w= h= capfile= pretty= montage_command=$base_montage_command
-		extoutput=$(new_temp_file "-extended.png")
-
+		local n=1 w= h= capfile= pretty= capfiles=( )
 		# The image size of the extra captures is 1/4
 		let 'w=vidcap_width/2, h=vidcap_height/2'
-
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
-			info "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
+			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
 			capture "$f" $stamp || return $?
-			apply_stamp "$VIDCAPFILE" $pretty $w $h || return $?
+			filter_vidcap "$VIDCAPFILE" $pretty $w $h || return $?
+
 			capfile=$(new_temp_file "-excap-$(pad 6 $n).png")
 			mv "$VIDCAPFILE" "$capfile"
-			montage_command+=" \"$capfile\""
+			capfiles+=( "$capfile" )
 			let 'n++'
 		done
-		montage_command+=" -geometry ${w}x${h}+5+2 -tile $(($numcols * 2))x -shadow"
-		info "Composing extended contact sheet..."
-		eval $montage_command "$extoutput"
-		unset montage_command w h capfile pretty n
-	fi
+		inf "Composing extended contact sheet..."
+		extoutput=$( create_contact_sheet $(($numcols * 2)) $CTX_EXT $w $h "${capfiles[@]}" )
 
-	# Codec "prettyfication"
-	# Official FourCCs: <http://msdn2.microsoft.com/en-us/library/ms867195.aspx>
-	# Unofficial list: <http://www.fourcc.org/>
-	# Another software with a list of fourccs -> name mappings:
-	# <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php?view=markup>
+		unset w h capfile pretty n
+	fi # Extended mode
+
+	# Video codec "prettyfication", see [[R2]], [[R3]], [[R4]]
 	local vcodec= acodec=
-	case $( tr '[A-Z]' '[a-z]' <<<${VID[$VCODEC]}) in
-		xvid) vcodec=Xvid ;;
-		dx50) vcodec="DivX 5" ;;
+	case "${VID[$VCODEC]}" in
 		0x10000001) vcodec="MPEG-1" ;;
 		0x10000002) vcodec="MPEG-2" ;;
 		0x00000000) vcodec="Raw RGB" ;; # How correct is this?
 		avc1) vcodec="MPEG-4 AVC" ;;
-		wmv1) vcodec="WMV7" ;;
-		wmv2) vcodec="WMV8" ;;
-		wmv3) vcodec="WMV9" ;;
-		fmp4) vcodec="FFmpeg" ;; # XXX: Would LAVC be a better name?
-		mp42) vcodec="MS MPEG-4 v2" ;;
-		mpg4) vcodec="MS MPEG-4 v1" ;;
-		mp43) vcodec="MS MPEG-4 v3" ;;
-		div3) vcodec="DivX ;) Low Motion" ;; # Technically same as mp43
-		i420) vcodec="Raw I420" ;; # XXX: 420 presumably stands by 4:2:0 ?
-		rv10) vcodec="RealVideo 1.0/5.0" ;;
-		rv20) vcodec="RealVideo G2" ;;
-		svq1) vcodec="Sorenson Video 1" ;;
-		svq3) vcodec="Sorenson Video 3" ;;
+		DIV3) vcodec="DivX ;-) Low-Motion" ;; # Technically same as mp43
+		DX50) vcodec="DivX 5" ;;
+		FMP4) vcodec="FFmpeg" ;; # XXX: Would LAVC be a better name?
+		I420) vcodec="Raw I420 Video" ;; # XXX: Officially I420 is Indeo 4 but it is mapped to raw ¿?
+		MJPG) vcodec="M-JPEG" ;; # XXX: Actually mJPG != MJPG
+		MPG4) vcodec="MS MPEG-4 V1" ;;
+		MP42) vcodec="MS MPEG-4 V2" ;;
+		MP43) vcodec="MS MPEG-4 V3" ;;
+		RV10) vcodec="RealVideo 1.0/5.0" ;;
+		RV20) vcodec="RealVideo G2" ;;
+		RV30) vcodec="RealVideo 8" ;;
+		RV40) vcodec="RealVideo 9/10" ;;
+		SVQ1) vcodec="Sorenson Video 1" ;;
+		SVQ3) vcodec="Sorenson Video 3" ;;
+		theo) vcodec="Ogg Theora" ;;
+		tscc) vcodec="TechSmith Screen Capture Codec" ;;
+		VP6[012]) vcodec="On2 Truemotion VP6" ;;
+		WMV1) vcodec="WMV7" ;;
+		WMV2) vcodec="WMV8" ;;
+		WMV3) vcodec="WMV9" ;;
+		WMVA) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Unsupported.
+		XVID) vcodec="Xvid" ;;
+
 		# These are known FourCCs that I haven't tested against so far
-		wmva) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Unsupported.
-		rv30) vcodec="RealVideo 8" ;;
-		rv40) vcodec="RealVideo 9/10" ;;
-		div4) vcodec="DivX ;) Fast Motion" ;;
-		divx) vcodec="DivX" ;; # OpenDivX / DivX 5(?)
-		iv50) vcodec="Indeo 5.0" ;;
-		mjpg) vcodec="M-JPEG" ;; # XXX: Actually mJPG != MJPG
+		DIV4) vcodec="DivX ;-) Fast-Motion" ;;
+		DIVX|divx) vcodec="DivX" ;; # OpenDivX / DivX 5(?) / Project Mayo
+		IV4[0-9]) vcodec="Indeo Video 4" ;;
+		IV50) vcodec="Indeo 5.0" ;;
+		VP3[01]) vcodec="On2 VP3" ;;
+		VP40) vcodec="On2 VP4" ;;
+		VP50) vcodec="On2 VP5" ;;
 		# Legacy(-er) codecs (haven't seen files in these formats in awhile)
-		iv32) vcodec="Indeo 3.2" ;;
-		msvc) vcodec="Microsoft Video 1" ;;
-		mrle) vcodec="Microsoft RLE" ;;
+		IV3[0-9]) vcodec="Indeo Video 3" ;;
+		MSVC) vcodec="Microsoft Video 1" ;;
+		MRLE) vcodec="Microsoft RLE" ;;
 		*) # If not recognized show FOURCC
 			vcodec=${VID[$VCODEC]}
 			;;
@@ -929,7 +1456,8 @@ process() {
 		vcodec+=" (h.264)"
 	fi
 
-	case $( tr '[A-Z]' '[a-z]' <<<${VID[$ACODEC]} ) in
+	# Audio codec "prettyfication", see [[R4]]
+	case $(tolower ${VID[$ACODEC]} ) in
 		85) acodec='MPEG Layer III (MP3)' ;;
 		80) acodec='MPEG Layer I/II (MP1/MP2)' ;; # Apparently they use the same tag
 		mp4a) acodec='MPEG-4 AAC' ;; # LC and HE, apparently
@@ -972,44 +1500,114 @@ process() {
 	fi
 
 
-	local meta="Filename: $(basename "$f")
-File size: $(get_pretty_size "$f")
-Length: $(pretty_stamp "${VID[$LEN]}")"
-	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
-Format: $vcodec / $acodec
-FPS: ${VID[$FPS]}"
-	local signature="$user_signature $user
-$PROGRAM_SIGNATURE"
-	unset acodec vcodec
-
 	if [ "$HLTIMECODES" ] || [ "$extended_factor" != "0" ]; then
-		info "Merging contact sheets..."
+		inf "Merging contact sheets..."
 	fi
 	# If there were highlights then mix them in
 	if [ "$HLTIMECODES" ]; then
 		#\( -geometry x2 xc:black -background black \) # This breaks it!
-		convert \( "$hlfile" -background LightGoldenRod \) \
+		convert \( -background LightGoldenRod "$hlfile" -flatten \) \
 			\( "$output" \) -append "$output"
 	fi
 	# Extended captures
 	if [ "$extended_factor" != 0 ]; then
 		convert "$output" "$extoutput" -append "$output"
 	fi
+	# Add the background
+	convert -background "$bg_contact" "$output" -flatten "$output"
 
-	info "Creating header and footer..."
-	# Now let's add meta info
-	# This one enlarges the image to add the text, and puts
-	# meta info in two columns
-	convert -font $font_heading -pointsize $pts_meta \
-		-background $bg_heading -fill $fg_heading -splice 0x$(( $pts_meta * 4 )) \
-		-gravity NorthWest -draw "text 10,10 '$meta'" \
-		-gravity NorthEast -draw "text 10,10 '$meta2'" \
-		"$output" "$output"
-	# Finishing touch, signature
-
-	convert -gravity South -font $font_sign -pointsize $pts_sign \
-		-background $bg_sign -splice 0x34+0-0 \
-		-fill $fg_sign -draw "text 10,3 '$signature'" "$output" "$output"
+	# Let's add meta inf and signature
+	inf "Adding header and footer..."
+	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
+Format: $vcodec / $acodec
+FPS: ${VID[$FPS]}"
+	local signature
+	if [ $anonymous_mode -eq 0 ]; then
+		signature="$user_signature $user
+with $PROGRAM_SIGNATURE"
+	else
+		signature="Created with $PROGRAM_SIGNATURE"
+	fi
+	local headwidth=$(identify "$output" | cut -d' ' -f3 | cut -d'x' -f1)
+	# TODO: Use a better height calculation
+	local headheight=$(($pts_meta * 4 ))
+	local heading=$(new_temp_file .png)
+	# Add the title if any
+	if [ "$title" ]; then
+		# TODO: Use a better height calculation
+		convert \
+			\( \
+				-size ${headwidth}x$(( $pts_title + ($pts_title/2) )) "xc:$bg_title" \
+				-font "$font_title" -pointsize "$pts_title" \
+				-background "$bg_title" -fill "$fg_title" \
+				-gravity Center -annotate 0 "$title" \
+			\) \
+			-flatten \
+			"$output" -append "$output"
+	fi
+	local fn_font=	# see $font_filename
+	case $font_filename in
+		$FF_DEFAULT) fn_font="$font_heading" ;;
+		$FF_MINCHO) fn_font="$FONT_MINCHO" ;;
+		*)
+			warn "\$font_filename was overridden with an incorrect value, using default."
+			fn_font="$font_heading"
+			;;
+	esac
+	# Talk about voodoo... feel the power of IM... let's try to explain what's this:
+	# It might technically be wrong but it seems to work as I think it should
+	# (hence the voodoo I was talking)
+	# Parentheses restrict options inside them to only affect what's inside too
+	# * Create a base canvas of the desired width and height 1. The width is tweaked
+	#   because using "label:" later makes the text too close to the border, that
+	#   will be compensated in the last step.
+	# * Create independent intermediate images with each row of information, the
+	#   filename row is split in two images to allow changing the font, and then
+	#   they're horizontally appended (and the font reset)
+	# * All rows are vertically appended and cropped to regain the width in case
+	#   the filename is too long
+	# * The appended rows are appended to the original canvas, the resulting image
+	#   contains the left row of information with the full heading width and
+	#   height, and this is the *new base canvas*
+	# * Draw over the new canvas the right row with annotate in one
+	#   operation, the offset compensates for the extra pixel from the original
+	#   base canvas. XXX: Using -annotate allows setting alignment but it breaks
+	#   vertical alignment with the other rows' labels.
+	# * Finally add the border that was missing from the initial width, we have
+	#   now the *complete header*
+	# * Add the contact sheet and append it to what we had.
+	# * Start a new image and annotate it with the signature, then append it too.
+	convert \
+		\( \
+			-size $(( ${headwidth} -18 ))x1 "xc:$bg_heading" +size \
+			-font "$font_heading" -pointsize "$pts_meta" \
+			-background "$bg_heading" -fill "$fg_heading" \
+			\( \
+				-gravity West \
+				\( label:"Filename:" \
+					-font "$fn_font" label:"$(basename "$f")" +append \
+				\) \
+				-font "$font_heading" \
+				label:"File size: $(get_pretty_size "$f")" \
+				label:"Length: $(cut -d'.' -f1 <<<$(pretty_stamp ${VID[$LEN]}))" \
+				-append -crop ${headwidth}x${headheight}+0+0 \
+			\) \
+			-append \
+			\( \
+				-size ${headwidth}x${headheight} \
+				-gravity East -annotate +0-1 "$meta2" \
+			\) \
+			-bordercolor "$bg_heading" -border 9 \
+		\) \
+		"$output" -append \
+		\( \
+			-size ${headwidth}x34 -gravity Center "xc:$bg_sign" \
+			-font "$font_sign" -pointsize "$pts_sign" \
+			-fill "$fg_sign" -annotate 0 "$signature" \
+		\) \
+		-append \
+		"$output"
+	unset signature meta2 headwidth headheight heading fn_font
 
 	if [ $output_format != "png" ]; then
 		local newout="$(dirname "$output")/$(basename "$output" .png).$output_format"
@@ -1021,14 +1619,125 @@ $PROGRAM_SIGNATURE"
 		error "Failed to write the output file!"
 		return $EX_CANTCREAT
 	}
-	info "Done. Output wrote to $output_name"
+	inf "Done. Output wrote to $output_name"
 
 	cleanup
 }
 
+# }}} # Core functionality
+
+# {{{ # Debugging helpers
+
+# Tests integrity of some operations.
+# Used to test internal changes for consistency.
+# It helps me to identify incorrect optimizations.
+# unit_test()
+unit_test() {
+	local t op val ret comm retval=0
+
+	# Textual tests, compare output to expected output
+	# Tests are in the form "operation arguments correct_result #Description"
+	local TESTS=(
+		"rmultiply 1,1 1 #Identity"
+		"rmultiply 16/9,1 2 #Rounding" # 1.77 rounded 2
+		"rmultiply 4/3 1 #Rounding"    # 1.33 rounded 1
+		"rmultiply 1,16/9 2 #Commutative property"
+		"rmultiply 1.7 2 #Alternate syntax"
+
+		"ceilmultiply 1,1 1 #"
+		"ceilmultiply 4/3 2 #" # 1.33 rounded 2
+		"ceilmultiply 7,1/2 4 #" # 3.5 rounded 4
+		"ceilmultiply 7/2 4 #Alternative syntax"
+		"ceilmultiply 1/2,7 4 #Commutative property"
+
+		"pad 10 0 0000000000 #Padding"
+		"pad 1 20 20 #Unneeded padding"
+		"pad 5 23.3 023.3 #Floating point padding"
+
+		"guess_aspect 720 576 4/3 #DVD AR Guess"
+		"guess_aspect 1024 576 1024/576 #Unsupported Wide AR Guess"
+
+		"tolower ABC abc #lowercase conversion"
+
+		"pyth_th 4 3 5 #Integer pythagorean theorem"
+		"pyth_th 16 9 18.35755975068581929849 #FP pythagorean theorem"
+	)
+	
+	for t in "${TESTS[@]}" ; do
+		# Note the use of ! as separator, this is because # and / are used in
+		# many of the inputs
+		comm=$(sed 's!.* #!!g' <<<$t)
+		# Expected value
+		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		if [ -z "$comm" ]; then
+			comm=unnamed
+		fi
+		ret=$($op) || true
+
+		if [ "$ret" != "$val" ] && fptest "$ret" -ne "$val" ; then
+			error "Failed test ($comm): '$op $val'. Got result '$ret'."
+			let 'retval++,1' # The ,1 ensures let doesn't fail
+		else
+			inf "Passed test ($comm): '$op $val'."
+		fi
+	done
+
+	# Returned value tests, compare return to expected return
+	local TESTS=(
+		# Don't use anything with a RE meaning
+
+		# Floating point numeric "test"
+		"fptest 3 -eq 3 0 #FP test" 
+		"fptest 3.2 -gt 1 0 #FP test"
+		"fptest 1/2 -le 2/3 0 #FP test"
+		"fptest 6.34 -gt 6.34 1 #FP test"
+		"fptest 1>0 -eq 1 0 #FP -logical- test"
+
+		"is_number 3 0 #Numeric recognition"
+		"is_number '3' 1 #Quoted numeric recognition"
+		"is_number 3.3 1 #Non-numeric recognition"
+
+		"is_float 3.33 0 #Float recognition"
+		"is_float 3 0 #Float recognition"
+		"is_float 1/3 1 #Non-float recognition"
+
+		"is_fraction 1/1 0 #Fraction recognition"
+		"is_fraction 1 1 #non-fraction recognition"
+		"is_fraction 1.1 1 #Non-fraction recognition"
+	)
+	for t in "${TESTS[@]}"; do
+		comm=$(sed 's!.* #!!g' <<<$t)
+		# Expected value
+		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		if [ -z "$comm" ]; then
+			comm=unnamed
+		fi
+		ret=0
+		$op || {
+			ret=$?
+		}
+
+		if [ $val -eq $ret ]; then
+			inf "Passed test ($comm): '$op; returns $val'."
+		else
+			error "Failed test ($comm): '$op; returns $val'. Returned '$ret'"
+			let 'retval++,1'
+		fi
+	done
+
+	return $retval
+}
+
+
+# }}} # Debugging helpers
+
+# {{{ # Help / Info
+
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
-	info "Video Contact Sheet *NIX v${VERSION}, (c) 2007 Toni Corvera" "sgr0"
+	inf "Video Contact Sheet *NIX v${VERSION}, (c) 2007 Toni Corvera" "sgr0"
 }
 
 # Prints the list of options to stdout
@@ -1047,40 +1756,77 @@ Options:
                         Use either -i or -n.
   -n|--numcaps <arg>    Set the number of captured images to arg. Use either
                         -i or -n.
-  -f|--from <arg>       Set starting time. No caps before this. Same format
-                        as -i.
-  -t|--to <arg>         Set ending time. No caps beyond this. Same format
-                        as -i.
-  -T|--title <arg>      Add a title above the vidcaps.
-  -u|--user <arg>       Set the username found in the signature to this.
-  -U|--fullname         Use user's full/real name (e.g. John Smith) as found in
-                        /etc/passwd.
-  -S|--stamp <arg>      Add the image found at the timestamp "arg". Same format
-                        as -i.
-  -l|--highlight <arg>  Add the image found at the timestamp "arg" as a
-                        highlight. Same format as -i.
-  -e[arg] | --extended=[arg]
-                        Enables extended mode and optionally sets the extended
-                        factor. By default it's $DEFAULT_EXT_FACTOR.
-  -m|--manual           Manual mode: Only timestamps indicated by the user are
-                        used (use in conjunction with -S), when using this
-                        -i and -n are ignored.
+  -c|--columns <arg>    Arrange the output in 'arg' columns.
   -H|--height <arg>     Set the output (individual thumbnail) height. Width is
                         derived accordingly. Note width cannot be manually set.
   -a|--aspect <aspect>  Aspect ration. Accepts floating point number or
                         fractions.
-  -A|--autoaspect       Try to guess aspect ratio from resolution.
+  -f|--from <arg>       Set starting time. No caps before this. Same format
+                        as -i.
+  -t|--to <arg>         Set ending time. No caps beyond this. Same format
+                        as -i.
+  -E|--end_offset <arg> This time is ignored, from the end of the video. Same
+                        format as -i. This value is not used when a explicit
+                        ending time is set. By default it is $DEFAULT_END_OFFSET.
+  -T|--title <arg>      Add a title above the vidcaps.
   -j|--jpeg             Output in jpeg (by default output is in png).
   -q|--quiet            Don't print progess messages just errors. Repeat to
                         mute completely even on error.
   -h|--help             Show this text.
+  -Wo                   Workaround: Change ffmpeg's arguments order, might
+                        work with some files that fail otherwise.
+  -A|--autoaspect       Try to guess aspect ratio from resolution.
+  -e[num] | --extended=[num]
+                        Enables extended mode and optionally sets the extended
+                        factor. -e is the same as -e$DEFAULT_EXT_FACTOR.
+  -l|--highlight <arg>  Add the image found at the timestamp "arg" as a
+                        highlight. Same format as -i.
+  -m|--manual           Manual mode: Only timestamps indicated by the user are
+                        used (use in conjunction with -S), when using this
+                        -i and -n are ignored.
+  -O|--override <arg>   Use it to override a variable (see the homepage for
+                        more details). Format accepted is 'variable=value' (can
+                        also be quoted -variable="some value"- and can take an
+                        internal variable too -variable="\$SOME_VAR"-).
+  -S|--stamp <arg>      Add the image found at the timestamp "arg". Same format
+                        as -i.
+
+  -u|--user <arg>       Set the username found in the signature to this.
+  -U|--fullname         Use user's full/real name (e.g. John Smith) as found in
+                        /etc/passwd.
+  -Ij|-Ik
+  --mincho              Use the kana/kanji/hiragana font (EXPERIMENTAL) might
+                        also work partially with Hangul and Cyrillic.
+  -k <arg>
+  --funky <arg>         Funky modes:
+                        These are toy output modes in which the contact sheet
+                        gets a more informal look.
+                        Order *IS IMPORTANT*. A bad order gets a bad result :P
+                        They're random in nature so using the same funky mode
+                        twice will usually lead to quite different results.
+                        Currently available "funky modes":
+                        "overlap":  Use '-ko' or '--funky overlap'
+                            Randomly overlap captures.
+                        "rotate":     Use '-kr' or '--funky rotate'
+                            Randomly rotate each image.
+                        "photoframe": Use '-kf' or '--funky photoframe'
+                            Adds a photo-like white frame to each image.
+                        "polaroid": Use '-kp' or '--funky polaroid'
+                            Combination of rotate, photoframe and overlap.
+                            Same as -kr -ko -kf.
+                        "film":     Use '-ki' or '--funky film'
+                            Imitates filmstrip look.
+                        "random":   Use '-kx' or '--funky random'
+                            Randomizes colours and fonts.
 
   Options used for debugging purposes or to tweak the internal workings:
   -M|--mplayer          Force the usage of mplayer.
   -F|--ffmpeg           Force the usage of ffmpeg.
   --shoehorn <arg>      Pass "arg" to mplayer/ffmpeg. You shouldn't need it.
-  -D                    Debug mode: Currently just prints the parsed
-                        commandline as the title and to stderr.
+  -D                    Debug mode. Used to test features/integrity. It:
+                          * Prints the input command line
+                          * Sets the title to reflect the command line
+                          * Does a basic test of consistency.
 
 Examples:
     Create a contact sheet with default values (vidcaps at intervals of
@@ -1100,9 +1846,17 @@ Examples:
 EOF
 }
 
-# }}} # Core functionality
+# }}} # Help / Info
 
 #### Execution starts here ####
+
+# If tput isn't found simply ignore tput commands
+# (no colour support)
+# Important to do it before any message can be thrown
+if ! type -pf tput >/dev/null ; then
+	tput() { cat >/dev/null <<<"$1"; }
+	warn "tput wasn't found. Coloured feedback disabled."
+fi
 
 # Execute exithdlr on exit
 trap exithdlr EXIT
@@ -1113,15 +1867,15 @@ load_config
 
 # {{{ # Command line parsing
 
-# Based on getopt-parse.bash example.
-# On debian systems see </usr/share/doc/util-linux/examples/getopt-parse.bash.gz>
-
-# TODO: use no name at all with -u noarg
+# TODO: Find how to do this correctly (this way the quoting of $@ gets messed):
 #eval set -- "${default_options} ${@}"
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::UqAO: \
+ARGS="$@"
+
+# [[R0]]
+TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::U::qAO:I::k:W:E: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
-"extended::,fullname,quiet,autoaspect,override:" \
+"extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,end_offset:" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -1130,10 +1884,10 @@ while true ; do
 	case "$1" in
 		-i|--interval)
 			if ! interval=$(get_interval "$2") ; then
-				error "Interval must be a (positive) number. Got '$2'."
+				error "Incorrect interval format. Got '$2'."
 				exit $EX_USAGE
 			fi
-			if [ "$interval" -le 0 ]; then
+			if [ "$interval" == "0" ]; then
 				error "Interval must be higher than 0, set to the default $DEFAULT_INTERVAL"
 				interval=$DEFAULT_INTERVAL
 			fi
@@ -1155,16 +1909,36 @@ while true ; do
 			;;
 		-u|--username) user="$2" ; shift ;;
 		-U|--fullname)
-			user=$(grep ^$(id -un): /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
-			if [ -z "$user" ]; then
-				user=$(id -un)
-				error "No fullname found, falling back to default ($user)"
+			# -U accepts an optiona argument, 0, to make an anonymous signature
+			# --fullname accepts no argument
+			if [ "$2" ]; then # With argument, special handling
+				if [ "$2" != "0" ]; then
+					error "Use '-U0' to make an anonymous contact sheet or '-u \"My Name\"'"
+					error "    to sign as My Name. Got -U$2"
+					exit $EX_USAGE
+				fi
+				anonymous_mode=1
+				shift
+			else # No argument, default handling (try to guess real name)
+				user=$(grep ^$(id -un): /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
+				if [ -z "$user" ]; then
+					user=$(id -un)
+					error "No fullname found, falling back to default ($user)"
+				fi
 			fi
 			;;
+		--anonymous) anonymous_mode=1 ;; # Same as -U0
 		-T|--title) title="$2" ; shift ;;
 		-f|--from)
 			if ! fromtime=$(get_interval "$2") ; then
 				error "Starting timestamp must be a valid timecode. Got '$2'."
+				exit $EX_USAGE
+			fi
+			shift
+			;;
+		-E|--end_offset)
+			if ! end_offset=$(get_interval "$2") ; then
+				error "End offset must be a valid timecode. Got '$2'."
 				exit $EX_USAGE
 			fi
 			shift
@@ -1231,7 +2005,6 @@ while true ; do
 			shift
 			;;
 		-m|--manual) manual_mode=1 ;;
-		-D) echo "Command line: $0 $*" && title="$0 $*" ; ;;
 		-e|--extended)
 			# Optional argument quirks: $2 is always present, set to '' if unused
 			# from the commandline it MUST be directly after the -e (-e2 not -e 2)
@@ -1251,6 +2024,23 @@ while true ; do
 			fi
 			shift
 			;;
+		--mincho) font_filename=$FF_MINCHO ;;
+		-I) # -I technically takes an optional argument (for future alternative
+			# fonts) although it is documented as a two-letter option
+			# Don't relay on using -I though, if I ever add a new alternative font
+			# I might not allow it anymore
+			if [ "$2" ] ; then
+				# If an argument is passed, test it is one of the known ones
+				case "$2" in
+					k|j) ;;
+					*) error "-I must be followed by j or k!" && exit $EX_USAGE ;;
+				esac
+			fi
+			# It isn't tested for existence because it could also be a font
+			# which convert would understand without giving the full path
+			font_filename=$FF_MINCHO;
+			shift
+			;;
 		-O|--override)
 			# Rough test
 			if ! egrep -q '[a-zA-Z_]+=[^;]*' <<<"$2"; then
@@ -1258,6 +2048,48 @@ while true ; do
 				exit $EX_USAGE
 			fi
 			override "$2" "command line"
+			shift
+			;;
+		-W) # Workaround mode, see wa_ss_* declarations at the start for details
+			if [ "$2" != "o" ]; then
+				error "Wrong argument. Use -Wo instead of -W$2."
+				exit $EX_USAGE
+			fi
+			wa_ss_af='-ss ' wa_ss_be=''
+			shift
+			;;
+		-k|--funky) # Funky modes
+			case $(tolower "$2") in
+				p|polaroid) # Same as overlap + rotate + photoframe
+					inf "Changed to polaroid funky mode."
+					FILTERS_IND+=( 'filt_photoframe' 'filt_randrot' )
+					CSHEET_DELEGATE='csheet_overlap'
+					# The timestamp must change location to be visible
+					grav_timestamp=NorthWest
+					;;
+				o|overlap) # Random overlap mode
+					CSHEET_DELEGATE='csheet_overlap'
+					grav_timestamp=NorthWest
+					;;
+				r|rotate) # Random rotation
+					FILTERS_IND+=( 'filt_randrot' )
+					;;
+				f|photoframe) # White photo frame
+					FILTERS_IND+=( 'filt_photoframe' )
+					;;
+				i|film)
+					inf "Enabled film mode."
+					FILTERS_IND+=( 'filt_film' )
+					;;
+				x|random) # Random colours/fonts
+					inf "Enabled random colours and fonts."
+					randomize_look
+					;;
+				*)
+					error "Unknown funky mode. Got '$2'."
+					exit $EX_USAGE
+					;;
+			esac
 			shift
 			;;
 		-q|--quiet)
@@ -1268,6 +2100,19 @@ while true ; do
 			else
 				verbosity=$V_NONE
 			fi
+			;;
+		-D) # Repeat to just test consistency
+			if [ $DEBUGGED -gt 0 ]; then exit ; fi
+			inf "Testing internal consistency..."
+			unit_test
+			if [ $? -eq 0 ]; then
+				warn "All tests passed"
+			else
+				error "Some tests failed!"
+			fi
+			DEBUGGED=1
+			warn "Command line: $0 $ARGS"
+			title="$(basename "$0") $ARGS"
 			;;
 		--) shift ; break ;;
 		*) error "Internal error! (remaining opts: $@)" ; exit $EX_SOFTWARE ;
@@ -1281,6 +2126,8 @@ if [ ! "$1" ]; then
 	exit $EX_USAGE
 fi
 
+# }}} # Command line parsing
+
 # Test requirements
 test_programs || exit $EX_UNAVAILABLE
 
@@ -1293,6 +2140,5 @@ fi
 set +e # Don't fail automatically
 for arg do process "$arg" ; done
 
-# }}} # Command line parsing
 
-# vim:set ts=4 ai: #
+# vim:set ts=4 ai foldmethod=marker: #
