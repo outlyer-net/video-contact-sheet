@@ -82,8 +82,9 @@ declare -r VERSION="1.0.7a"
 #    * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
 #       Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
 #       codecs.
-#    * Added -E / --end_offset / $DEFAULT_END_OFFSET, used to eliminate some
+#    * Added -E / --end_offset / $end_offset, used to eliminate some
 #       seconds from the end
+#    * FEATURE: Anonymous mode (use --anonymous or -U0)
 # }}} # CHANGELOG
 
 set -e
@@ -248,8 +249,8 @@ declare stdout=/dev/null stderr=/dev/null
 # {{{ # Variables
 
 # Options and other internal usage variables, no need to mess with this!
-declare interval=                     # Interval of captures (=numsecs/numcaps)
-declare -i numcaps=                   # Number of captures (=numsecs/interval)
+declare interval=$DEFAULT_INTERVAL     # Interval of captures (=numsecs/numcaps)
+declare -i numcaps=$DEFAULT_NUMCAPS    # Number of captures (=numsecs/interval)
 declare title=""
 declare fromtime=0                    # Starting second (see -f)
 declare totime=-1                     # Ending second (see -t)
@@ -282,7 +283,7 @@ declare -a VID=
 # By default -ss goes before -i.
 declare wa_ss_af="" wa_ss_be="-ss "
 # This number of seconds is *not* captured from the end of the video
-declare -i end_offset=
+declare -i end_offset=$DEFAULT_END_OFFSET
 
 # Experimental in 1.0.7b: transformations/filters
 # Operations are decomposed into independent optional steps, this will allow
@@ -368,6 +369,11 @@ load_config() {
 			override "$line" "file $cfgfile" # Feeding it comments should be harmless
 		done <$cfgfile
 	done
+
+	# Override-able hack, this won't work with command line overrides, though
+	end_offset=$DEFAULT_END_OFFSET
+	interval=$DEFAULT_INTERVAL
+	numcaps=$DEAFULT_NUMCAPS
 }
 
 # Do an override
@@ -895,7 +901,7 @@ compute_timecodes() {
 	fi
 
 	local LTC=( ) stamp=$st
-	while fptest $stamp -le $end; do
+	while fptest $stamp -le $(bc -q <<<"$end-$eo"); do
 		if fptest $stamp -lt 0 ; then
 			error "Internal error, negative timestamp calculated!"
 			return $EX_SOFTWARE
