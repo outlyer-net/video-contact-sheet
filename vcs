@@ -40,51 +40,51 @@
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
-declare -r VERSION="1.0.7b"
-#
+declare -r VERSION="1.0.7a"
+# {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.7b:
+# 1.0.7a: (2007-05-12)
 #    * Print title *before* the highlights.
 #    * Added the forgotten -O and -c to the help text (oops!)
 #    * Experimental: Allow using non-latin alphabets by switching font. See -I.
 #       It only affects the filename! Also allow overriding the font to be used
 #       to print the filename ($font_filename). Right now only using a Mincho font,
 #       it can be overriding by overriding $FONT_MINCHO.
-#   * Make title font size independent of the timestamps size. And allow
+#    * Make title font size independent of the timestamps size. And allow
 #       overriding the title font ($font_title), font size ($pts_title)
 #       and colours ($fg_title and $bg_title).
-#   * Allow overriding the previews' background ($bg_contact)
-#   * Added getopt, identify, sed, grep and egrep to the checked programs
-#   * BUGFIX: Corrected test of accepted characters for intervals
-#   * INTERNAL: New parsing code
-#   * FEATURE: Replaced hard by soft shadows
-#   * BUGFIX: Corrected colour usage: Print the colours to the correct channel
-#   * Made tput (coloured console output) optional (AFAIK should be present in
-#     any sane system though).
-#   * FEATURE: Funky modes (more to come...): Polaroid, Film (rough, initial,
-#     version), Photoframe and Random colours/fonts. (see --help)
-#   * INTERNAL: Use /dev/shm as base tempdir if possible
-#   * BUGFIX: Fixed safe_rename(): Don't assume current dir, added '--' to mv
-#   * Added workaround for ffmpeg arguments order
-#   * Allow getting the output of ffmpeg/mplayer (with $stdout and $stderr)
-#   * INTERNAL: Renamed info() to inf() to eliminate ambiguities
-#   * INTERNAL: guess_aspect() doesn't operate globally
-#   * Reorganized help by alphabetical/rarity order
-#   * FEATURE: Full milliseconds support (actually, full decimal seconds),
-#     timecode format extended to support e.g. 3m.24 (which means 00:03:00.240)
-#   * BUGFIX/FEATURE: The number of extended captures is rounded to match the
-#     standard columns (extended width matches standard)
-#   * Made FOURCCs list case sensitive (the list has grown enough that I no
-#     longer see a benefit in being ambigous)
-#   * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
-#     Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
-#     codecs.
-#   * Added -E / --end_offset / $DEFAULT_END_OFFSET, used to eliminate some
-#     seconds from the end
-#   * SHOWSTOPPER: Extended mode + polaroid doesn't overlap
-#
+#    * Allow overriding the previews' background ($bg_contact)
+#    * Added getopt, identify, sed, grep and egrep to the checked programs
+#    * BUGFIX: Corrected test of accepted characters for intervals
+#    * INTERNAL: New parsing code
+#    * FEATURE: Replaced hard by soft shadows
+#    * BUGFIX: Corrected console colour usage: Print the colours to the correct
+#       channel
+#    * Made tput (coloured console output) optional (AFAIK should be present in
+#       any sane system though).
+#    * FEATURE: Funky modes (more to come...): Polaroid, Film (rough, initial,
+#       version), Photoframe and Random colours/fonts. (see --help)
+#    * INTERNAL: Use /dev/shm as base tempdir if possible
+#    * BUGFIX: Fixed safe_rename(): Don't assume current dir, added '--' to mv
+#    * Added workaround for ffmpeg arguments order
+#    * Allow getting the output of ffmpeg/mplayer (with $stdout and $stderr)
+#    * INTERNAL: Renamed info() to inf() to eliminate ambiguities
+#    * INTERNAL: guess_aspect() doesn't operate globally
+#    * Reorganized help by alphabetical/rarity order
+#    * FEATURE: Full milliseconds support (actually, full decimal point seconds),
+#       timecode format extended to support e.g. 3m.24 (which means 00:03:00.240)
+#    * BUGFIX/FEATURE: The number of extended captures is rounded to match the
+#       standard columns (extended width matches standard)
+#    * Made FOURCCs list case sensitive (the list has grown enough that I no
+#       longer see a benefit in being ambigous)
+#    * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
+#       Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
+#       codecs.
+#    * Added -E / --end_offset / $DEFAULT_END_OFFSET, used to eliminate some
+#       seconds from the end
+# }}} # CHANGELOG
 
 set -e
 
@@ -235,8 +235,10 @@ declare -i plain_messages=0
 # alphabet, please help me choosing the correct fonts
 # To my understanding Ming/Minchō fonts should cover most of Japanse,
 # Chinese and Korean
-# Apparently Kochi Mincho includes Hangul *and* Cyrillic... which would be
-# great :)
+# Apparently Kochi Mincho should include Hangul *and* Cyrillic... which would be
+# great :) Although it couldn't write my hangul test, and also the default font
+# (helvetica) in my system seems to include cyrillic too, or at least a subset of
+# it.
 declare FONT_MINCHO=/usr/share/fonts/truetype/kochi/kochi-mincho.ttf
 # Output of capturing programs is redirected here
 declare stdout=/dev/null stderr=/dev/null
@@ -246,8 +248,8 @@ declare stdout=/dev/null stderr=/dev/null
 # {{{ # Variables
 
 # Options and other internal usage variables, no need to mess with this!
-declare interval=$DEFAULT_INTERVAL    # Interval of captures (=numsecs/numcaps)
-declare -i numcaps=$DEFAULT_NUMCAPS   # Number of captures (=numsecs/interval)
+declare interval=                     # Interval of captures (=numsecs/numcaps)
+declare -i numcaps=                   # Number of captures (=numsecs/interval)
 declare title=""
 declare fromtime=0                    # Starting second (see -f)
 declare totime=-1                     # Ending second (see -t)
@@ -280,7 +282,7 @@ declare -a VID=
 # By default -ss goes before -i.
 declare wa_ss_af="" wa_ss_be="-ss "
 # This number of seconds is *not* captured from the end of the video
-declare -i end_offset=$DEFAULT_END_OFFSET
+declare -i end_offset=
 
 # Experimental in 1.0.7b: transformations/filters
 # Operations are decomposed into independent optional steps, this will allow
@@ -855,6 +857,8 @@ compute_timecodes() {
 	fi
 	if fptest $totime -le 0 ; then # If no totime is set, use end_offset
 		eo=$end_offset
+
+		local runlen=$( bc <<<"$end - $st" )
 
 		if fptest "($end-$eo-$st)" -le 0 ; then
 			if fptest "$eo" -gt 0 && fptest "$eo" -eq "$DEFAULT_END_OFFSET" ; then
@@ -1786,7 +1790,7 @@ Options:
                         /etc/passwd.
   -Ij|-Ik
   --mincho              Use the kana/kanji/hiragana font (EXPERIMENTAL) might
-                        also work for Hangul and Cyrillic.
+                        also work partially with Hangul and Cyrillic.
   -k <arg>
   --funky <arg>         Funky modes:
                         These are toy output modes in which the contact sheet
@@ -2116,6 +2120,8 @@ if [ ! "$1" ]; then
 	exit $EX_USAGE
 fi
 
+# }}} # Command line parsing
+
 # Test requirements
 test_programs || exit $EX_UNAVAILABLE
 
@@ -2128,6 +2134,5 @@ fi
 set +e # Don't fail automatically
 for arg do process "$arg" ; done
 
-# }}} # Command line parsing
 
 # vim:set ts=4 ai foldmethod=marker: #
