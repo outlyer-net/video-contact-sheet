@@ -1,3 +1,7 @@
+1.0.8a: (2007-06-02) (Bugfix release)
+   * BUGFIX: User set number of columns wasn't being used if -n wasn't used
+       (Thanks to 'Homer S').
+
 1.0.7a: (2007-05-12)
    * Print title *before* the highlights.
    * Added the forgotten -O and -c to the help text (oops!)
