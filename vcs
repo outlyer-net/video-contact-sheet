@@ -40,51 +40,14 @@
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
-declare -r VERSION="1.0.7a"
+declare -r VERSION="1.0.8a"
 # {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.7a: (2007-05-12)
-#    * Print title *before* the highlights.
-#    * Added the forgotten -O and -c to the help text (oops!)
-#    * Experimental: Allow using non-latin alphabets by switching font. See -I.
-#       It only affects the filename! Also allow overriding the font to be used
-#       to print the filename ($font_filename). Right now only using a Mincho font,
-#       it can be overriding by overriding $FONT_MINCHO.
-#    * Make title font size independent of the timestamps size. And allow
-#       overriding the title font ($font_title), font size ($pts_title)
-#       and colours ($fg_title and $bg_title).
-#    * Allow overriding the previews' background ($bg_contact)
-#    * Added getopt, identify, sed, grep and egrep to the checked programs
-#    * BUGFIX: Corrected test of accepted characters for intervals
-#    * INTERNAL: New parsing code
-#    * FEATURE: Replaced hard by soft shadows
-#    * BUGFIX: Corrected console colour usage: Print the colours to the correct
-#       channel
-#    * Made tput (coloured console output) optional (AFAIK should be present in
-#       any sane system though).
-#    * FEATURE: Funky modes (more to come...): Polaroid, Film (rough, initial,
-#       version), Photoframe and Random colours/fonts. (see --help)
-#    * INTERNAL: Use /dev/shm as base tempdir if possible
-#    * BUGFIX: Fixed safe_rename(): Don't assume current dir, added '--' to mv
-#    * Added workaround for ffmpeg arguments order
-#    * Allow getting the output of ffmpeg/mplayer (with $stdout and $stderr)
-#    * INTERNAL: Renamed info() to inf() to eliminate ambiguities
-#    * INTERNAL: guess_aspect() doesn't operate globally
-#    * Reorganized help by alphabetical/rarity order
-#    * FEATURE: Full milliseconds support (actually, full decimal point seconds),
-#       timecode format extended to support e.g. 3m.24 (which means 00:03:00.240)
-#    * BUGFIX/FEATURE: The number of extended captures is rounded to match the
-#       standard columns (extended width matches standard)
-#    * Made FOURCCs list case sensitive (the list has grown enough that I no
-#       longer see a benefit in being ambigous)
-#    * Added codec ids for On2's VP3, VP4, VP5 and VP6, TechSmith Screen Capture
-#       Codec (Camtasia's) and Theora, expanded list of FOURCCs of Indeo's
-#       codecs.
-#    * Added -E / --end_offset / $end_offset, used to eliminate some
-#       seconds from the end
-#    * FEATURE: Anonymous mode (use --anonymous or -U0)
+# 1.0.8a: (2007-06-02)
+#    * BUGFIX: User set number of columns wasn't being used if -n wasn't used
+#        (Thanks to 'Homer S')
 # }}} # CHANGELOG
 
 set -e
@@ -1263,7 +1226,7 @@ identify_video() {
 process() {
 	local f=$1
 
-	local numcols=$cols
+	local numcols=
 
 	if [ ! -f "$f" ]; then
 		error "File \"$f\" doesn't exist"
@@ -1293,11 +1256,6 @@ process() {
 	
 	local nc=$numcaps
 
-	# Contact sheet minimum cols:
-	if [ $nc -lt $numcols ]; then
-		numcols=$nc
-	fi
-
 	create_temp_dir
 
 	# Compute the stamps (if in auto mode)...
@@ -1321,7 +1279,7 @@ process() {
 
 	TEMPSTUFF+=( $VIDCAPFILE )
 
-	# Highlighs
+	# Highlights
 	local hlfile n=1 # hlfile Must be outside the if!
 	if [ "$HLTIMECODES" ]; then
 		local hlcapfile= pretty= capfiles=( )
@@ -1343,9 +1301,16 @@ process() {
 			let 'n++'
 		done
 
+		let 'n--' # There's an extra inc
+		if [ "$n" -lt "$cols" ]; then
+			numcols=$n
+		else
+			numcols=$cols
+		fi
+
 		inf "Composing highlights contact sheet..."
 		hlfile=$( create_contact_sheet $numcols $CTX_HL $vidcap_width $vidcap_height "${capfiles[@]}" )
-		unset hlcapfile pretty n capfiles
+		unset hlcapfile pretty n capfiles numcols
 	fi
 	unset n
 
@@ -1367,9 +1332,16 @@ process() {
 	done
 	#filter_all_vidcaps "${capfiles[@]}"
 
+	let 'n--' # there's an extra inc
+	if [ "$n" -lt "$cols" ]; then
+		numcols=$n
+	else
+		numcols=$cols
+	fi
+
 	inf "Composing standard contact sheet..."
 	output=$(create_contact_sheet $numcols $CTX_STD $vidcap_width $vidcap_height "${capfiles[@]}")
-	unset capfile capfiles pretty n
+	unset capfile capfiles pretty n numcols
 
 	# Extended mode
 	local extoutput=
@@ -1398,8 +1370,16 @@ process() {
 			capfiles+=( "$capfile" )
 			let 'n++'
 		done
+
+		let 'n--' # There's an extra inc
+		if [ $n -lt $(( $cols * 2 )) ]; then
+			numcols=$n
+		else
+			numcols=$(( $cols * 2 ))
+		fi
+
 		inf "Composing extended contact sheet..."
-		extoutput=$( create_contact_sheet $(($numcols * 2)) $CTX_EXT $w $h "${capfiles[@]}" )
+		extoutput=$( create_contact_sheet $cols $CTX_EXT $w $h "${capfiles[@]}" )
 
 		unset w h capfile pretty n
 	fi # Extended mode
