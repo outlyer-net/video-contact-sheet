@@ -1,3 +1,7 @@
+1.0.9a: (2007-06-10) (-Brown bag- Bugfix release)
+   * BUGFIX: Fixed regression introduced in 1.0.8a: unsetting numcols
+       broke extended mode captures (Thanks to 'Aleksandar Urošević').
+
 1.0.8a: (2007-06-02) (Bugfix release)
    * BUGFIX: User set number of columns wasn't being used if -n wasn't used
        (Thanks to 'Homer S').

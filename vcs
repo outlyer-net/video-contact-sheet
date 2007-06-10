@@ -40,16 +40,14 @@
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
-declare -r VERSION="1.0.8a"
+declare -r VERSION="1.0.9a"
 # {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.8a: (2007-06-02)
-#    * BUGFIX: User set number of columns wasn't being used if -n wasn't used
-#        (Thanks to 'Homer S')
-#    * BUGFIX: Right side of heading wasn't using the user's font colour
-#        (Thanks to 'Dougn Redhammer').
+# 1.0.9a: (2007-06-10)
+#    * BUGFIX: Fixed regression introduced in 1.0.8a: unsetting numcols
+#        broke extended mode captures (Thanks to 'Aleksandar Urošević').
 # }}} # CHANGELOG
 
 set -e
@@ -1343,7 +1341,7 @@ process() {
 
 	inf "Composing standard contact sheet..."
 	output=$(create_contact_sheet $numcols $CTX_STD $vidcap_width $vidcap_height "${capfiles[@]}")
-	unset capfile capfiles pretty n numcols
+	unset capfile capfiles pretty n # must carry on to the extended caps: numcols
 
 	# Extended mode
 	local extoutput=
