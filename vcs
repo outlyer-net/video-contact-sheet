@@ -21,10 +21,10 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
-# Author: Toni Corvera <outlyer@outlyer.net>
+# Author: Toni Corvera <outlyer@gmail.com>
 #
 # References:
-# Pages from I've taken snippets or wrote code based on them.
+# Pages I've taken snippets from or wrote code based on them.
 # I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1.
 # I also use internal references in the form [x1] (anchor -where to point-)
 # and [[x1]] (x-reference -point to what-).
@@ -40,16 +40,20 @@
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
-declare -r VERSION="1.0.9a"
+declare -r VERSION="1.0.10"
 # {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.9a: (2007-06-10)
-#    * BUGFIX: Fixed regression introduced in 1.0.8a: unsetting numcols
-#        broke extended mode captures (Thanks to 'Aleksandar Urošević').
-#    * BUGFIX: Use the computed number of columns for extended mode
-#        (instead of the global one)
+# 1.0.10: (2007-11-08)
+#    * BUGFIX: Corrected aspect guessing bug: would fail if width
+#              was standard but height not
+#    * FEATURE: Allow explicitly disabling timestamps (-dt or
+#               --disable timestamps)
+#    * FEATURE: Allow explicitly disabling shadows (-ds or --disable shadows)
+#    * Added HD resolution guessed aspect ratio (defaults to 16/9)
+#    * OTHER: Changed e-mail address in the comments to gmail's, would probably
+#             get a quicker response.
 # }}} # CHANGELOG
 
 set -e
@@ -281,6 +285,9 @@ declare grav_timestamp=SouthEast
 
 # When set to 1 the signature won't contain the "Preview created by..." line
 declare -i anonymous_mode=0
+
+# See chseet_montage for more details
+declare -i DISABLE_SHADOWS=0
 
 # }}} # Variables
 
@@ -884,25 +891,44 @@ compute_timecodes() {
 guess_aspect() {
 	# mplayer's ID_ASPECT seems to be always 0 ¿?
 	local w=$1 h=$2 ar
-	if [ $w -eq 352 ]; then # VCD / DVD @ VCD Res. / Half-D1 / CVD
-		if [ $h -eq 288 ] || [ $h -eq 240 ]; then
-			ar=4/3
-		elif [ $h -eq 576 ] || [ $h -eq 480 ]; then # Half-D1 / CVD
-			ar=4/3
+
+	case "$w" in
+		352)
+			if [ $h -eq 288 ] || [ $h -eq 240 ]; then
+				# Ambiguous, could perfectly be 16/9
+				# VCD / DVD @ VCD Res. / Half-D1 / CVD
+				ar=4/3
+			elif [ $h -eq 576 ] || [ $h -eq 480 ]; then
+				# Ambiguous, could perfectly be 16/9
+				# Half-D1 / CVD
+				ar=4/3
+			fi
+			;;
+		704|720)
+			if [ $h -eq 576 ] || [ $h -eq 480 ]; then # DVD / DVB
+				# Ambiguous, could perfectly be 16/9
+				ar=4/3
+			fi
+			;;
+		480)
+			if [ $h -eq 576 ] || [ $h -eq 480 ]; then # SVCD
+				ar=4/3
+			fi
+			;;
+	esac
+
+	if [ -z "$ar" ]; then
+		if [ $h -eq 720 ] || [ $h -eq 1080 ]; then # HD
+			# TODO: Is there a standard for PAL yet?
+			ar=16/9
 		fi
-	elif [ $w -eq 704 ] || [ $w -eq 720 ]; then # DVD / DVB
-		# Actually for 720x576/720x480 16/9 is as good a guess
-		if [ $h -eq 576 ] || [ $h -eq 480 ]; then
-			ar=4/3
-		fi
-	elif [ $w -eq 480 ]; then # SVCD
-		if [ $h -eq 576 ] || [ $h -eq 480 ]; then
-			ar=4/3
-		fi
-	else
+	fi
+
+	if [ -z "$ar" ]; then
 		warn "Couldn't guess aspect ratio."
 		ar="$w/$h" # Don't calculate it yet
 	fi
+
 	echo $ar
 }
 
@@ -1065,9 +1091,14 @@ csheet_montage() {
 	esac
 	# Using transparent seems to make -shadow futile
 	montage -background Transparent "$@" -geometry +$hpad+$vpad -tile "$cols"x "$output"
-	# This produces soft-shadows, which look much better than the montage ones
-	#
-	convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
+
+	# This should actually be moved to a filter but with the current
+	# architecture I'm unable to come up with the correct convert options
+	if [ $DISABLE_SHADOWS -eq 0 ]; then
+		# This produces soft-shadows, which look much better than the montage ones
+		convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
+	fi
+	#convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
 
 	# FIXME: Error handling
 	echo $output
@@ -1757,6 +1788,10 @@ Options:
   -h|--help             Show this text.
   -Wo                   Workaround: Change ffmpeg's arguments order, might
                         work with some files that fail otherwise.
+  -d|--disable <arg>    Disable some default functionality.
+                        Features that can be disabled are:
+                        * timestamps: use -dt or --disable timestamps
+                        * shadows: use -ds or --disable shadows
   -A|--autoaspect       Try to guess aspect ratio from resolution.
   -e[num] | --extended=[num]
                         Enables extended mode and optionally sets the extended
@@ -1854,10 +1889,11 @@ load_config
 ARGS="$@"
 
 # [[R0]]
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::U::qAO:I::k:W:E: \
+TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::U::qAO:I::k:W:E:d: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
-"extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,end_offset:" \
+"extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
+"end_offset:,disable:" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -2069,6 +2105,30 @@ while true ; do
 					;;
 				*)
 					error "Unknown funky mode. Got '$2'."
+					exit $EX_USAGE
+					;;
+			esac
+			shift
+			;;
+		-d|--disable) # Disable default features
+			case $(tolower "$2") in
+				# timestamp (no final s) is undocumented but will stay
+				t|timestamps|timestamp)
+					inf "Timestamps disabled."
+					# TODO: Can array splicing be done in a saner way?
+					declare -a tmp=${FILTERS_IND[@]}
+					unset FILTERS_IND
+					FILTERS_IND=${tmp[@]/filt_apply_stamp/}
+					unset tmp
+					;;
+				s|shadows|shadow)
+					if [ $DISABLE_SHADOWS -eq 0 ]; then
+						inf "Shadows disabled."
+						DISABLE_SHADOWS=1
+					fi
+					;;
+				*)
+					error "Requested disabling unknown feature. Got '$2'."
 					exit $EX_USAGE
 					;;
 			esac
