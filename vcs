@@ -21,10 +21,10 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
-# Author: Toni Corvera <outlyer@outlyer.net>
+# Author: Toni Corvera <outlyer@gmail.com>
 #
 # References:
-# Pages from I've taken snippets or wrote code based on them.
+# Pages I've taken snippets from or wrote code based on them.
 # I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1.
 # I also use internal references in the form [x1] (anchor -where to point-)
 # and [[x1]] (x-reference -point to what-).
@@ -40,16 +40,16 @@
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
-declare -r VERSION="1.0.9a"
+declare -r VERSION="1.0.10"
 # {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.9a: (2007-06-10)
-#    * BUGFIX: Fixed regression introduced in 1.0.8a: unsetting numcols
-#        broke extended mode captures (Thanks to 'Aleksandar Urošević').
-#    * BUGFIX: Use the computed number of columns for extended mode
-#        (instead of the global one)
+# 1.0.10: (2007-11-08)
+#    * FEATURE: Allow explicitly disabling the timestamps (-dt or
+#               --disable timestamps)
+#    * OTHER: Changed e-mail address in the comments to gmail's, would probably
+#             get a quicker response.
 # }}} # CHANGELOG
 
 set -e
@@ -1757,6 +1757,10 @@ Options:
   -h|--help             Show this text.
   -Wo                   Workaround: Change ffmpeg's arguments order, might
                         work with some files that fail otherwise.
+  -d|--disable <arg>    Disable some default functionality.
+                        Features that can be disabled are:
+                        * timestamps: use -dt or --disable timestamps
+                        * shadows: use -ds or --disable shadows
   -A|--autoaspect       Try to guess aspect ratio from resolution.
   -e[num] | --extended=[num]
                         Enables extended mode and optionally sets the extended
@@ -1854,10 +1858,11 @@ load_config
 ARGS="$@"
 
 # [[R0]]
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::U::qAO:I::k:W:E: \
+TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:jhFMH:c:ma:l:De::U::qAO:I::k:W:E:d: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
-"extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,end_offset:" \
+"extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
+"end_offset:,disable:" \
        -n $0 -- "$@")
 
 eval set -- "$TEMP"
@@ -2069,6 +2074,25 @@ while true ; do
 					;;
 				*)
 					error "Unknown funky mode. Got '$2'."
+					exit $EX_USAGE
+					;;
+			esac
+			shift
+			;;
+		-d|--disable) # Disable default features
+			case $(tolower "$2") in
+				# timestamp (no final s) is undocumented but will stay
+				t|timestamps|timestamp)
+					inf "Timestamps disabled."
+					# TODO: Can array splicing be done in a saner way?
+					declare -a tmp=${FILTERS_IND[@]}
+					unset FILTERS_IND
+					FILTERS_IND=${tmp[@]/filt_apply_stamp/}
+					unset tmp
+					;;
+				# TODO: s|shadows|shadow
+				*)
+					error "Requested disabling unknown feature. Got '$2'."
 					exit $EX_USAGE
 					;;
 			esac
