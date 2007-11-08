@@ -1,3 +1,13 @@
+1.0.10: (2007-11-08)
+   * BUGFIX: Corrected aspect guessing bug: would fail if width was standard
+       but height not
+   * FEATURE: Allow explicitly disabling timestamps (-dt or --disable 
+       timestamps)
+   * FEATURE: Allow explicitly disabling shadows (-ds or --disable shadows)
+   * Added HD resolution guessed aspect ratio (defaults to 16/9)
+   * OTHER: Changed e-mail address in the comments to gmail's, would probably
+
+
 1.0.9a: (2007-06-10) (-Brown bag- Bugfix release)
    * BUGFIX: Fixed regression introduced in 1.0.8a: unsetting numcols
        broke extended mode captures (Thanks to 'Aleksandar Urošević').
