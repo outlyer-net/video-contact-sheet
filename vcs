@@ -286,7 +286,7 @@ declare grav_timestamp=SouthEast
 # When set to 1 the signature won't contain the "Preview created by..." line
 declare -i anonymous_mode=0
 
-# See chseet_montage for more details
+# See csheet_montage for more details
 declare -i DISABLE_SHADOWS=0
 
 # }}} # Variables
