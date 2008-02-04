@@ -5,7 +5,9 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007 Toni Corvera
+# Copyright (C) 2007-2008 Toni Corvera
+#   with patches from Phil Grundig and suggestions/corrections from
+#   many others (see homepage)
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -40,20 +42,14 @@
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
 #
 
-declare -r VERSION="1.0.10"
+declare -r VERSION="1.0.11"
 # {{{ # CHANGELOG
 # History (The full changelog was moved to a separate file and can be found
 # at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.10: (2007-11-08)
-#    * BUGFIX: Corrected aspect guessing bug: would fail if width
-#              was standard but height not
-#    * FEATURE: Allow explicitly disabling timestamps (-dt or
-#               --disable timestamps)
-#    * FEATURE: Allow explicitly disabling shadows (-ds or --disable shadows)
-#    * Added HD resolution guessed aspect ratio (defaults to 16/9)
-#    * OTHER: Changed e-mail address in the comments to gmail's, would probably
-#             get a quicker response.
+# 1.0.11: (?)
+#    * RETROCOMPATIBILITY: Older bash syntax for appending and initialising arrays
+#          (contributed by Phil Grundig)
 # }}} # CHANGELOG
 
 set -e
@@ -412,7 +408,6 @@ is_fraction() {
 tolower() {
 	tr '[A-Z]' '[a-z]' <<<"$1"
 }
-
 
 # Rounded product
 # multiplies parameters and prints the result, rounded to the closest int
