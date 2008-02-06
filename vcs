@@ -219,16 +219,16 @@ declare -i numcaps=$DEFAULT_NUMCAPS    # Number of captures (=numsecs/interval)
 declare title=""
 declare fromtime=0                    # Starting second (see -f)
 declare totime=-1                     # Ending second (see -t)
-declare -a initial_stamps=( )         # Manually added stamps (see -S)
+declare -a initial_stamps             # Manually added stamps (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
 declare -i cols=$DEFAULT_COLS         # Number of output columns
 declare -i manual_mode=0 # if 1, only command line timestamps will be used
 declare aspect_ratio=0                # If 0 no transformations done (see -a)
                                       # If -1 try to guess (see -A)
 
-declare -a TEMPSTUFF=( )              # Temporal files
-declare -a TIMECODES=( )              # Timestamps of the video captures
-declare -a HLTIMECODES=( )            # Timestamps of the highlights (see -l)
+declare -a TEMPSTUFF                  # Temporal files
+declare -a TIMECODES                  # Timestamps of the video captures
+declare -a HLTIMECODES                # Timestamps of the highlights (see -l)
 
 declare VCSTEMPDIR=                   # Temporal directory, all temporal files
                                       # go there
@@ -267,7 +267,7 @@ declare -a FILTERS_IND=( 'filt_resize' 'filt_apply_stamp' )
 # Global filters take the form
 #  filtall_name( vidcapfile1, vidcapfile2, ... )
 # They're executed in order by filter_all_vidcaps
-declare -a FILTERS_CS=( )
+declare -a FILTERS_CS
 # The contact sheet creators take the form
 #  csheet_name( number of columns, context, width, height, vidcapfile1,
 #               vidcapfile2, ... ) : outputfile
@@ -656,7 +656,7 @@ cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
 	inf "Cleaning up..."
 	rm -rf ${TEMPSTUFF[*]}
-	TEMPSTUFF=( )
+	unset TEMPSTUFF ; declare -a TEMPSTUFF
 }
 
 # Exit callback. This function is executed on exit (correct, failed or
@@ -867,7 +867,8 @@ compute_timecodes() {
 		return $EX_USAGE
 	fi
 
-	local LTC=( ) stamp=$st
+	local stamp=$st
+    local -a LTC
 	while fptest $stamp -le $(bc -q <<<"$end-$eo"); do
 		if fptest $stamp -lt 0 ; then
 			error "Internal error, negative timestamp calculated!"
@@ -973,7 +974,7 @@ filter_vidcap() {
 	# filters.
 	local cmdopts=
 	for filter in ${FILTERS_IND[@]}; do
-		cmdopts+=" $( $filter "$1" "$2" "$3" "$4" ) "
+		cmdopts="$cmdopts $( $filter "$1" "$2" "$3" "$4" ) "
 	done
 	local t=$(new_temp_file .png)
 	eval "convert '$1' $cmdopts '$t'"
@@ -1126,7 +1127,7 @@ csheet_overlap() {
 
 	# Holds the files that will form the full contact sheet
 	# each file is a row on the final composition
-	local -a rowfiles=( )
+	local -a rowfiles
 
 	# Dimensions of the canvas for each row, it should be big enough
 	# to hold all snaps.
@@ -1168,7 +1169,7 @@ csheet_overlap() {
 
 			# Stick the vicap in the canvas
 			#convert -geometry +${accoffset}+0 "$rowfile" "$1" -composite "$rowfile"
-			cmdopts+=" -geometry +${accoffset}+0 '$1' -composite "
+			cmdopts="$cmdopts -geometry +${accoffset}+0 '$1' -composite "
 
 			offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
 			let 'accoffset=accoffset + w - offset'
@@ -1194,7 +1195,7 @@ csheet_overlap() {
 		maxoffset=$(( $h / 4 ))
 		offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
 		# The row is also offset horizontally
-		cmdopts+=" -geometry +$(( $RANDOM % $maxoffset ))+$accoffset '$row' -composite "
+		cmdopts="$cmdopts -geometry +$(( $RANDOM % $maxoffset ))+$accoffset '$row' -composite "
 		let 'accoffset=accoffset + h - offset'
 	done
 	# After the trim the top corners are too near the heading, we add some space
@@ -1310,7 +1311,8 @@ process() {
 	# Highlights
 	local hlfile n=1 # hlfile Must be outside the if!
 	if [ "$HLTIMECODES" ]; then
-		local hlcapfile= pretty= capfiles=( )
+		local hlcapfile= pretty=
+		local -a capfiles
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
 			if fptest $stamp -gt $numsecs ; then let 'n++' && continue ; fi
 			pretty=$(pretty_stamp $stamp)
@@ -1344,7 +1346,8 @@ process() {
 
 	# Normal captures
 	# TODO: Don't reference $VIDCAPFILE
-	local capfile pretty n=1 capfiles=( )
+	local capfile pretty n=1
+	unset capfiles ; local -a capfiles
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
 		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
@@ -1384,7 +1387,8 @@ process() {
 		compute_timecodes $TC_NUMCAPS "" $hlnc
 		unset hlnc
 
-		local n=1 w= h= capfile= pretty= capfiles=( )
+		local n=1 w= h= capfile= pretty=
+		unset capfiles ; local -a capfiles
 		# The image size of the extra captures is 1/4
 		let 'w=vidcap_width/2, h=vidcap_height/2'
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
