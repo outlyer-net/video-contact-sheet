@@ -5,7 +5,7 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007-2008 Toni Corvera
+# Copyright (C) 2007, 2008 Toni Corvera
 #   with patches from Phil Grundig and suggestions/corrections from
 #   many others (see homepage)
 #
@@ -44,12 +44,15 @@
 
 declare -r VERSION="1.0.11"
 # {{{ # CHANGELOG
-# History (The full changelog was moved to a separate file and can be found
-# at <http://p.outlyer.net/vcs/files/CHANGELOG>).
+# History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.11: (?)
+# 1.0.11: (?) the Grundig release :)
 #    * RETROCOMPATIBILITY: Older bash syntax for appending and initialising arrays
 #          (contributed by Phil Grundig)
+#    * COMPATIBILITY: Support alternative du syntax for compatibility with busybox
+#          (based on Phil Grundig's contribution)
+#    * COSMETIC: Don't print milliseconds when using mplayer as capturer (they're not
+#          really meaningful then) (suggested by Phil Grundig)
 # }}} # CHANGELOG
 
 set -e
@@ -555,13 +558,19 @@ pretty_stamp() {
 	local R=""
 
 	if [ $h -gt 0 ]; then
-		R+="$h:"
+		R="$h:"
+		# Unreproducible bug reported by wdef: Minutes printed as hours
+		# fixed with "else R="00:""
 	fi
-	# Right pad of decimal seconds
-	if [ ${#ms} -lt 2 ]; then
-		ms="${ms}0"
+	R="$R$(pad 2 "$m"):$(pad 2 $s)"
+	# Milliseconds, only supported by ffmpeg, not printed otherwise
+	if [ $decoder -eq $DEC_FFMPEG ]; then
+		# Right pad of decimal seconds
+		if [ ${#ms} -lt 2 ]; then
+			ms="${ms}0"
+		fi
+		R="$R.$ms"
 	fi
-	R+=$(pad 2 "$m"):$(pad 2 $s).$ms
 
 	# Trim (most) decimals
 	sed -r 's/\.([0-9][0-9]).*/.\1/'<<<$R
@@ -574,7 +583,7 @@ pretty_stamp() {
 get_pretty_size() {
 	local f="$1"
 
-	local bytes=$(du -DL --bytes "$f" | cut -f1)
+	local bytes=$(get_file_size "$f")
 	local size=""
 
 	if [ "$bytes" -gt $(( 1024**3 )) ]; then
@@ -630,6 +639,23 @@ safe_rename() {
 
 	mv -- "$from" "$to"
 	echo "$to"
+}
+
+# Gets the file size in bytes
+# get_file_size($1 = filename)
+# du can provide bytes or kilobytes depending on the version used. The difference
+# can be notorius...
+# At least the busybox implementation is a real world du in usage that doesn't allow
+# using --bytes. Note that using "ls -H" is not an option either for the same reason.
+get_file_size() {
+	# First, try the extended du arguments:
+	local bytes
+	bytes=$(du -L --bytes "$1" 2>/dev/null) || {
+		echo $(( 1024 * $(du -Lk "$1" | cut -f1) ))
+		return
+	}
+	# Getting to here means the first du worked correctly
+	cut -f1 <<<"$bytes"
 }
 
 # Tests the presence of all required programs
@@ -1771,8 +1797,8 @@ Options:
   -c|--columns <arg>    Arrange the output in 'arg' columns.
   -H|--height <arg>     Set the output (individual thumbnail) height. Width is
                         derived accordingly. Note width cannot be manually set.
-  -a|--aspect <aspect>  Aspect ration. Accepts floating point number or
-                        fractions.
+  -a|--aspect <aspect>  Aspect ratio. Accepts a floating point number or a
+                        fraction.
   -f|--from <arg>       Set starting time. No caps before this. Same format
                         as -i.
   -t|--to <arg>         Set ending time. No caps beyond this. Same format
