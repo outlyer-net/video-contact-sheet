@@ -1365,7 +1365,6 @@ process() {
 	create_temp_dir
 
 	unset TIMECODES
-	unset HLTIMECODES
 	# Compute the stamps (if in auto mode)...
 	TIMECODES=${initial_stamps[*]}
 	if [ $manual_mode -ne 1 ]; then
