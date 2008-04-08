@@ -40,6 +40,8 @@
 #      <http://www.fourcc.org/>
 # [R4] A php module with a list of FOURCCs and wFormatTag's mappings
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
+# [M1] "[MEncoder-users] Thumbnail creation"
+#      <http://lists.mplayerhq.hu/pipermail/mencoder-users/2006-August/003843.html>
 #
 
 declare -r VERSION="1.0.11"
@@ -51,12 +53,16 @@ declare -r VERSION="1.0.11"
 #          fail when setting the default timecode derivation to number of
 #          captures instead of interval (i.e. when including timecode_from=8 in
 #          the config file) (thanks to Chris Hills for the bug report)
+#    * WORKAROUND: Fix for all-equal captures (seems to be a known problem
+#          with mplayer [M1]) (contributed by Phil Grundig)
 #    * RETROCOMPATIBILITY: Older bash syntax for appending and initialising
 #          arrays (contributed by Phil Grundig)
 #    * COMPATIBILITY: Support alternative du syntax for compatibility with
 #          busybox (based on Phil Grundig's contribution)
 #    * COSMETIC: Don't print milliseconds when using mplayer as capturer
 #          (they're not really meaningful then) (suggested by Phil Grundig)
+#    * COSMETIC: Align the extended set captures (-e) and the standard set
+#          (bug pointed by Chris Hills). Seems to fail at some (smaller?) sizes
 #    * DEBUGGING: Added optional function call trace (by setting variable DEBUG
 #          to 1)
 # }}} # CHANGELOG
@@ -117,6 +123,9 @@ declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
 # (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
 declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
+# This is the horizontal padding added to each capture. Changing it might break
+# extended set's alignement so keep this in mind if you tinker with it
+declare -ri HPAD=8
 # }}} # End of constants
 
 # {{{ # Override-able variables
@@ -331,6 +340,7 @@ declare -ra ALLOWED_OVERRIDES=(
 	'stdout'
 	'stderr'
 	'DEFAULT_END_OFFSET'
+	'DEBUG'
 )
 
 # This is only used to exit when -DD is used
@@ -752,15 +762,10 @@ infplain() {
 
 #
 # trace($1 = function name = $FUNCNAME, function arguments...)
-if [ "$DEBUG" -eq "1" ]; then
-	trace() {
-		echo "[TRACE]: $@" >&2
-	}
-else
-	trace() {
-		return
-	}
-fi
+trace() {
+	if [ "$DEBUG" -ne "1" ]; then return; fi
+	echo "[TRACE]: $@" >&2
+}
 
 # }}} # Convenience functions
 
@@ -984,14 +989,16 @@ guess_aspect() {
 capture() {
 	trace $FUNCNAME $@
 	local f=$1 stamp=$2
-	local VIDCAPFILE=00000001.png
+	local VIDCAPFILE=00000005.png
 	# globals: $shoehorned $decoder
 
 	if [ $decoder -eq $DEC_MPLAYER ]; then
 		{
+		# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
 			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			-frames 1 -ss $stamp $shoehorned "$f"
+			-frames 5 -ss $stamp $shoehorned "$f"
 		} >"$stdout" 2>"$stderr"
+		rm -f 0000000{1,2,3,4}.png # Remove the first four
 	elif [ $decoder -eq $DEC_FFMPEG ]; then
 		# XXX: It would be nice to show a message if it takes too long
 		{
@@ -1140,11 +1147,10 @@ csheet_montage() {
 	trace $FUNCNAME $@
 	local cols=$1 ctx=$2 width=$3 height=$4 output=$(new_temp_file .png)
 	shift 4
-	case $ctx in
-		$CTX_STD|$CTX_HL) hpad=10 vpad=5 ;;
-		$CTX_EXT) hpad=5 vpad=2 ;;
-		*) error "Internal error" && return $EX_SOFTWARE ;;
-	esac
+	# Padding is no longer dependant upong context since alignment of the
+	# captures was far trickier then
+	local hpad=$HPAD vpad=4
+
 	# Using transparent seems to make -shadow futile
 	montage -background Transparent "$@" -geometry +$hpad+$vpad -tile "$cols"x "$output"
 
@@ -1362,12 +1368,21 @@ process() {
 	local base_montage_command="montage -font $font_tstamps -pointsize $pts_tstamps \
 	                       -gravity SouthEast -fill white "
 	local output=$(new_temp_file '-preview.png')
-	local VIDCAPFILE=00000001.png
+	local VIDCAPFILE=00000005.png
 
 	# If the temporal vidcap already exists, abort
 	if [ -f $VIDCAPFILE ]; then
-		error "Temporal vidcap file ($VIDCAPFILE) exists, remove it before running!."
+		error "File 0000000$f.png exists and would be overwritten, move it out before running."
 		return $EX_CANTCREAT
+	fi
+	# mplayer will re-write also 00000001.png-00000004.png
+	if [ $decoder -eq $DEC_MPLAYER ]; then
+		for f_ in 1 2 3 4; do
+			if [ -f "0000000${f_}.png" ]; then
+				error "File 0000000${f_}.png exists and would be overwritten, move it out before running."
+				return $EX_CANTCREAT
+			fi
+		done
 	fi
 
 	TEMPSTUFF+=( $VIDCAPFILE )
@@ -1453,8 +1468,8 @@ process() {
 
 		local n=1 w= h= capfile= pretty=
 		unset capfiles ; local -a capfiles
-		# The image size of the extra captures is 1/4
-		let 'w=vidcap_width/2, h=vidcap_height/2'
+		# The image size of the extra captures is 1/4, adjusted to compensante the padding
+		let 'w=vidcap_width/2-HPAD, h=vidcap_height*w/vidcap_width'
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
