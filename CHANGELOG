@@ -1,3 +1,26 @@
+1.0.11: (2008-04-08)
+   * BUGFIX: (brown bag bug) Corrected typo in variable name that made vcs
+      fail when setting the default timecode derivation to number of
+      captures instead of interval (i.e. when including timecode_from=8 in
+      the config file) (thanks to Chris Hills for the bug report)
+   * WORKAROUND: Fix for all-equal captures (seems to be a known problem
+      with mplayer [M1]) (contributed by Phil Grundig)
+   * RETROCOMPATIBILITY: Older bash syntax for appending and initialising
+     arrays (contributed by Phil Grundig)
+   * COMPATIBILITY: Support alternative du syntax for compatibility with
+      busybox (based on Phil Grundig's contribution)
+   * COSMETIC: Don't print milliseconds when using mplayer as capturer
+      (they're not really meaningful then) (suggested by Phil Grundig)
+   * COSMETIC: Align the extended set captures (-e) and the standard set
+      (bug pointed by Chris Hills). Seems to fail at some (smaller?)
+      sizes.
+      "Funky" modes aren't correctly aligned yet.
+   * DEBUGGING: Added optional function call trace (by setting variable DEBUG
+      to 1)
+   * Added FOURCC for VC-1
+   * COSMETIC: Fixed captures recount with multiple files (prompted by a
+      bugreport from Dougn Redhammer)
+
 1.0.10: (2007-11-08)
    * BUGFIX: Corrected aspect guessing bug: would fail if width was standard
        but height not
