@@ -5,7 +5,9 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007 Toni Corvera
+# Copyright (C) 2007, 2008 Toni Corvera
+#   with patches from Phil Grundig and suggestions/corrections from
+#   many others (see homepage)
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -38,22 +40,38 @@
 #      <http://www.fourcc.org/>
 # [R4] A php module with a list of FOURCCs and wFormatTag's mappings
 #      <http://webcvs.freedesktop.org/clipart/experimental/rejon/getid3/getid3/module.audio-video.riff.php>
+# [M1] "[MEncoder-users] Thumbnail creation"
+#      <http://lists.mplayerhq.hu/pipermail/mencoder-users/2006-August/003843.html>
+# [VC1] VC-1 and derived codecs information
+#      <http://wiki.multimedia.cx/index.php?title=VC-1>
 #
 
-declare -r VERSION="1.0.10"
+declare -r VERSION="1.0.11"
 # {{{ # CHANGELOG
-# History (The full changelog was moved to a separate file and can be found
-# at <http://p.outlyer.net/vcs/files/CHANGELOG>).
+# History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.10: (2007-11-08)
-#    * BUGFIX: Corrected aspect guessing bug: would fail if width
-#              was standard but height not
-#    * FEATURE: Allow explicitly disabling timestamps (-dt or
-#               --disable timestamps)
-#    * FEATURE: Allow explicitly disabling shadows (-ds or --disable shadows)
-#    * Added HD resolution guessed aspect ratio (defaults to 16/9)
-#    * OTHER: Changed e-mail address in the comments to gmail's, would probably
-#             get a quicker response.
+# 1.0.11: (2008-04-08)
+#    * BUGFIX: (brown bag bug) Corrected typo in variable name that made vcs
+#          fail when setting the default timecode derivation to number of
+#          captures instead of interval (i.e. when including timecode_from=8 in
+#          the config file) (thanks to Chris Hills for the bug report)
+#    * WORKAROUND: Fix for all-equal captures (seems to be a known problem
+#          with mplayer [M1]) (contributed by Phil Grundig)
+#    * RETROCOMPATIBILITY: Older bash syntax for appending and initialising
+#          arrays (contributed by Phil Grundig)
+#    * COMPATIBILITY: Support alternative du syntax for compatibility with
+#          busybox (based on Phil Grundig's contribution)
+#    * COSMETIC: Don't print milliseconds when using mplayer as capturer
+#          (they're not really meaningful then) (suggested by Phil Grundig)
+#    * COSMETIC: Align the extended set captures (-e) and the standard set
+#          (bug pointed by Chris Hills). Seems to fail at some (smaller?)
+#          sizes.
+#          "Funky" modes aren't correctly aligned yet.
+#    * DEBUGGING: Added optional function call trace (by setting variable DEBUG
+#          to 1)
+#    * Added FOURCC for VC-1
+#    * COSMETIC: Fixed captures recount with multiple files (prompted by a
+#          bugreport from Dougn Redhammer)
 # }}} # CHANGELOG
 
 set -e
@@ -112,10 +130,15 @@ declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
 # (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
 declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 
+# This is the horizontal padding added to each capture. Changing it might break
+# extended set's alignement so keep this in mind if you tinker with it
+declare -ri HPAD=8
 # }}} # End of constants
 
 # {{{ # Override-able variables
 
+# Set to 1 to print function calls
+declare -i DEBUG=0
 declare -i DEFAULT_INTERVAL=300
 declare -i DEFAULT_NUMCAPS=16
 declare -i DEFAULT_COLS=2
@@ -223,16 +246,16 @@ declare -i numcaps=$DEFAULT_NUMCAPS    # Number of captures (=numsecs/interval)
 declare title=""
 declare fromtime=0                    # Starting second (see -f)
 declare totime=-1                     # Ending second (see -t)
-declare -a initial_stamps=( )         # Manually added stamps (see -S)
+declare -a initial_stamps             # Manually added stamps (see -S)
 declare -i th_height= # Height of the thumbnails, by default use same as input
 declare -i cols=$DEFAULT_COLS         # Number of output columns
 declare -i manual_mode=0 # if 1, only command line timestamps will be used
 declare aspect_ratio=0                # If 0 no transformations done (see -a)
                                       # If -1 try to guess (see -A)
 
-declare -a TEMPSTUFF=( )              # Temporal files
-declare -a TIMECODES=( )              # Timestamps of the video captures
-declare -a HLTIMECODES=( )            # Timestamps of the highlights (see -l)
+declare -a TEMPSTUFF                  # Temporal files
+declare -a TIMECODES                  # Timestamps of the video captures
+declare -a HLTIMECODES                # Timestamps of the highlights (see -l)
 
 declare VCSTEMPDIR=                   # Temporal directory, all temporal files
                                       # go there
@@ -271,7 +294,7 @@ declare -a FILTERS_IND=( 'filt_resize' 'filt_apply_stamp' )
 # Global filters take the form
 #  filtall_name( vidcapfile1, vidcapfile2, ... )
 # They're executed in order by filter_all_vidcaps
-declare -a FILTERS_CS=( )
+declare -a FILTERS_CS
 # The contact sheet creators take the form
 #  csheet_name( number of columns, context, width, height, vidcapfile1,
 #               vidcapfile2, ... ) : outputfile
@@ -286,7 +309,7 @@ declare grav_timestamp=SouthEast
 # When set to 1 the signature won't contain the "Preview created by..." line
 declare -i anonymous_mode=0
 
-# See chseet_montage for more details
+# See csheet_montage for more details
 declare -i DISABLE_SHADOWS=0
 
 # }}} # Variables
@@ -324,6 +347,7 @@ declare -ra ALLOWED_OVERRIDES=(
 	'stdout'
 	'stderr'
 	'DEFAULT_END_OFFSET'
+	'DEBUG'
 )
 
 # This is only used to exit when -DD is used
@@ -345,7 +369,7 @@ load_config() {
 	# Override-able hack, this won't work with command line overrides, though
 	end_offset=$DEFAULT_END_OFFSET
 	interval=$DEFAULT_INTERVAL
-	numcaps=$DEAFULT_NUMCAPS
+	numcaps=$DEFAULT_NUMCAPS
 }
 
 # Do an override
@@ -412,7 +436,6 @@ is_fraction() {
 tolower() {
 	tr '[A-Z]' '[a-z]' <<<"$1"
 }
-
 
 # Rounded product
 # multiplies parameters and prints the result, rounded to the closest int
@@ -560,13 +583,19 @@ pretty_stamp() {
 	local R=""
 
 	if [ $h -gt 0 ]; then
-		R+="$h:"
+		R="$h:"
+		# Unreproducible bug reported by wdef: Minutes printed as hours
+		# fixed with "else R="00:""
 	fi
-	# Right pad of decimal seconds
-	if [ ${#ms} -lt 2 ]; then
-		ms="${ms}0"
+	R="$R$(pad 2 "$m"):$(pad 2 $s)"
+	# Milliseconds, only supported by ffmpeg, not printed otherwise
+	if [ $decoder -eq $DEC_FFMPEG ]; then
+		# Right pad of decimal seconds
+		if [ ${#ms} -lt 2 ]; then
+			ms="${ms}0"
+		fi
+		R="$R.$ms"
 	fi
-	R+=$(pad 2 "$m"):$(pad 2 $s).$ms
 
 	# Trim (most) decimals
 	sed -r 's/\.([0-9][0-9]).*/.\1/'<<<$R
@@ -579,7 +608,7 @@ pretty_stamp() {
 get_pretty_size() {
 	local f="$1"
 
-	local bytes=$(du -DL --bytes "$f" | cut -f1)
+	local bytes=$(get_file_size "$f")
 	local size=""
 
 	if [ "$bytes" -gt $(( 1024**3 )) ]; then
@@ -637,6 +666,23 @@ safe_rename() {
 	echo "$to"
 }
 
+# Gets the file size in bytes
+# get_file_size($1 = filename)
+# du can provide bytes or kilobytes depending on the version used. The difference
+# can be notorius...
+# At least the busybox implementation is a real world du in usage that doesn't allow
+# using --bytes. Note that using "ls -H" is not an option either for the same reason.
+get_file_size() {
+	# First, try the extended du arguments:
+	local bytes
+	bytes=$(du -L --bytes "$1" 2>/dev/null) || {
+		echo $(( 1024 * $(du -Lk "$1" | cut -f1) ))
+		return
+	}
+	# Getting to here means the first du worked correctly
+	cut -f1 <<<"$bytes"
+}
+
 # Tests the presence of all required programs
 # test_programs()
 test_programs() {
@@ -661,7 +707,7 @@ cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
 	inf "Cleaning up..."
 	rm -rf ${TEMPSTUFF[*]}
-	TEMPSTUFF=( )
+	unset TEMPSTUFF ; declare -a TEMPSTUFF
 }
 
 # Exit callback. This function is executed on exit (correct, failed or
@@ -721,6 +767,13 @@ infplain() {
 	fi
 }
 
+#
+# trace($1 = function name = $FUNCNAME, function arguments...)
+trace() {
+	if [ "$DEBUG" -ne "1" ]; then return; fi
+	echo "[TRACE]: $@" >&2
+}
+
 # }}} # Convenience functions
 
 # {{{ # Core functionality
@@ -728,6 +781,7 @@ infplain() {
 # Creates a new temporary directory
 # create_temp_dir()
 create_temp_dir() {
+	trace $FUNCNAME $@
 	# Try to use /dev/shm if available, this provided a very small
 	# benefit on my system but me of help for huge files. Or maybe won't.
 	if [ -d /dev/shm ] && [ -w /dev/shm ]; then
@@ -745,6 +799,7 @@ create_temp_dir() {
 # Create a new temporal file and print its filename
 # new_temp_file($1 = suffix)
 new_temp_file() {
+	trace $FUNCNAME $@
 	local r=$(mktemp -p "$VCSTEMPDIR" "vcs-XXXXXX")
 	if [ ! -f "$r" ]; then
 		error "Failed to create temporary file"
@@ -763,7 +818,7 @@ new_temp_file() {
 # or colour combination you like.
 # randomize_look()
 randomize_look() {
-
+	trace $FUNCNAME $@
 	local mode=f lineno
 
 	if [ "f" == $mode ]; then # Random mode
@@ -825,6 +880,8 @@ randomize_look() {
 # from the current video
 # compute_timecodes($1 = timecode_from, $2 = interval, $3 = numcaps)
 compute_timecodes() {
+	trace $FUNCNAME $@
+
 	local st=0 end=${VID[$LEN]} tcfrom=$1 tcint=$2 tcnumcaps=$3 eo=0
 	# globals: fromtime, totime, timecode_from, TIMECODES, end_offset
 	if fptest $st -lt $fromtime ; then
@@ -872,7 +929,8 @@ compute_timecodes() {
 		return $EX_USAGE
 	fi
 
-	local LTC=( ) stamp=$st
+	local stamp=$st
+    local -a LTC
 	while fptest $stamp -le $(bc -q <<<"$end-$eo"); do
 		if fptest $stamp -lt 0 ; then
 			error "Internal error, negative timestamp calculated!"
@@ -889,6 +947,7 @@ compute_timecodes() {
 # known values (e.g. VCD resolution turns into 4/3)
 # guess_aspect($1 = width, $2 = height)
 guess_aspect() {
+	trace $FUNCNAME $@
 	# mplayer's ID_ASPECT seems to be always 0 ¿?
 	local w=$1 h=$2 ar
 
@@ -935,15 +994,18 @@ guess_aspect() {
 # Capture a frame
 # capture($1 = filename, $2 = second)
 capture() {
+	trace $FUNCNAME $@
 	local f=$1 stamp=$2
-	local VIDCAPFILE=00000001.png
+	local VIDCAPFILE=00000005.png
 	# globals: $shoehorned $decoder
 
 	if [ $decoder -eq $DEC_MPLAYER ]; then
 		{
+		# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
 			mplayer -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			-frames 1 -ss $stamp $shoehorned "$f"
+			-frames 5 -ss $stamp $shoehorned "$f"
 		} >"$stdout" 2>"$stderr"
+		rm -f 0000000{1,2,3,4}.png # Remove the first four
 	elif [ $decoder -eq $DEC_FFMPEG ]; then
 		# XXX: It would be nice to show a message if it takes too long
 		{
@@ -973,12 +1035,13 @@ capture() {
 # Applies all individual vidcap filters
 # filter_vidcap($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filter_vidcap() {
+	trace $FUNCNAME $@
 	# For performance purposes each filter simply prints a set of options
 	# to 'convert'. That's less flexible but enough right now for the current
 	# filters.
 	local cmdopts=
 	for filter in ${FILTERS_IND[@]}; do
-		cmdopts+=" $( $filter "$1" "$2" "$3" "$4" ) "
+		cmdopts="$cmdopts $( $filter "$1" "$2" "$3" "$4" ) "
 	done
 	local t=$(new_temp_file .png)
 	eval "convert '$1' $cmdopts '$t'"
@@ -993,6 +1056,7 @@ filter_vidcap() {
 #}
 
 filt_resize() {
+	trace $FUNCNAME $@
 	local f="$1" t=$2 w=$3 h=$4
 
 	# Note the '!', required to change the aspect ratio
@@ -1002,6 +1066,7 @@ filt_resize() {
 # Draw a timestamp in the file
 # filt_apply_stamp($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filt_apply_stamp() {
+	trace $FUNCNAME $@
 	local filename=$1 timestamp=$2 width=$3 height=$4
 
 	echo -n " \( -box '#000000aa' -fill '$fg_tstamps' -pointsize '$pts_tstamps' "
@@ -1013,6 +1078,7 @@ filt_apply_stamp() {
 # Taken from <http://www.imagemagick.org/Usage/thumbnails/#polaroid>
 # filt_photoframe($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filt_photoframe() {
+	trace $FUNCNAME $@
 #	local file="$1" ts=$2 w=$3 h=$4
 # Tweaking the size gives a nice effect too
 # w=$(( $w - ( $RANDOM % ( $w / 3 ) ) ))
@@ -1026,6 +1092,7 @@ filt_photoframe() {
 # Taken from <http://www.imagemagick.org/Usage/thumbnails/#polaroid>
 # filt_randrot($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filt_randrot() {
+	trace $FUNCNAME $@
 	# Rotation angle [-18..18]
 	local angle=$(( ($RANDOM % 37) - 18 ))
 	echo "-background none -rotate $angle "
@@ -1034,6 +1101,7 @@ filt_randrot() {
 # This one requires much more work, the results are pretty rough, but ok as
 # a starting point / proof of concept
 filt_film() {
+	trace $FUNCNAME $@
 	local file="$1" ts=$2 w=$3 h=$4
 	# Base reel dimensions
 	local rw=$(rmultiply $w,0.08) # 8% width
@@ -1075,6 +1143,7 @@ filt_film() {
 # create_contact_sheet($1 = columns, $2 = context, $3 = width, $4 = height,
 #                      $5...$# = vidcaps) : output
 create_contact_sheet() {
+	trace $FUNCNAME $@
 	$CSHEET_DELEGATE "$@"
 }
 
@@ -1082,13 +1151,13 @@ create_contact_sheet() {
 # csheet_montage($1 = columns, $2 = context, $3 = width, $4 = height,
 #                $5... = vidcaps) : output
 csheet_montage() {
+	trace $FUNCNAME $@
 	local cols=$1 ctx=$2 width=$3 height=$4 output=$(new_temp_file .png)
 	shift 4
-	case $ctx in
-		$CTX_STD|$CTX_HL) hpad=10 vpad=5 ;;
-		$CTX_EXT) hpad=5 vpad=2 ;;
-		*) error "Internal error" && return $EX_SOFTWARE ;;
-	esac
+	# Padding is no longer dependant upong context since alignment of the
+	# captures was far trickier then
+	local hpad=$HPAD vpad=4
+
 	# Using transparent seems to make -shadow futile
 	montage -background Transparent "$@" -geometry +$hpad+$vpad -tile "$cols"x "$output"
 
@@ -1108,6 +1177,7 @@ csheet_montage() {
 # csheet_overlap($1 = columns, $2 = context, $3 = width, $4 = height,
 #                 $5... = $vidcaps) : output
 csheet_overlap() {
+	trace $FUNCNAME $@
 	local cols=$1 ctx=$2 width=$3 height=$4
 	# globals: $VID
 	shift 4
@@ -1131,7 +1201,7 @@ csheet_overlap() {
 
 	# Holds the files that will form the full contact sheet
 	# each file is a row on the final composition
-	local -a rowfiles=( )
+	local -a rowfiles
 
 	# Dimensions of the canvas for each row, it should be big enough
 	# to hold all snaps.
@@ -1173,7 +1243,7 @@ csheet_overlap() {
 
 			# Stick the vicap in the canvas
 			#convert -geometry +${accoffset}+0 "$rowfile" "$1" -composite "$rowfile"
-			cmdopts+=" -geometry +${accoffset}+0 '$1' -composite "
+			cmdopts="$cmdopts -geometry +${accoffset}+0 '$1' -composite "
 
 			offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
 			let 'accoffset=accoffset + w - offset'
@@ -1199,7 +1269,7 @@ csheet_overlap() {
 		maxoffset=$(( $h / 4 ))
 		offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
 		# The row is also offset horizontally
-		cmdopts+=" -geometry +$(( $RANDOM % $maxoffset ))+$accoffset '$row' -composite "
+		cmdopts="$cmdopts -geometry +$(( $RANDOM % $maxoffset ))+$accoffset '$row' -composite "
 		let 'accoffset=accoffset + h - offset'
 	done
 	# After the trim the top corners are too near the heading, we add some space
@@ -1214,6 +1284,7 @@ csheet_overlap() {
 # Sorts timestamps and removes duplicates
 # clean_timestamps($1 = space separated timestamps)
 clean_timestamps() {
+	trace $FUNCNAME $@
 	# Note AFAIK sort only sorts lines, that's why y replace spaces by newlines
 	local s=$1
 	sed 's/ /\n/g'<<<"$s" | sort -n | uniq
@@ -1222,6 +1293,7 @@ clean_timestamps() {
 # Fills the $MPLAYER_CACHE and $VID variables with the video data
 # identify_video($1 = file)
 identify_video() {
+	trace $FUNCNAME $@
 	local f=$1
 	# Meta data extraction
 	# Note to self: Don't change the -vc as it would affect $vdec
@@ -1257,6 +1329,7 @@ identify_video() {
 # Creates the contact sheet.
 # process($1 = file)
 process() {
+	trace $FUNCNAME $@
 	local f=$1
 
 	local numcols=
@@ -1291,6 +1364,8 @@ process() {
 
 	create_temp_dir
 
+	unset TIMECODES
+	unset HLTIMECODES
 	# Compute the stamps (if in auto mode)...
 	TIMECODES=${initial_stamps[*]}
 	if [ $manual_mode -ne 1 ]; then
@@ -1302,12 +1377,21 @@ process() {
 	local base_montage_command="montage -font $font_tstamps -pointsize $pts_tstamps \
 	                       -gravity SouthEast -fill white "
 	local output=$(new_temp_file '-preview.png')
-	local VIDCAPFILE=00000001.png
+	local VIDCAPFILE=00000005.png
 
 	# If the temporal vidcap already exists, abort
 	if [ -f $VIDCAPFILE ]; then
-		error "Temporal vidcap file ($VIDCAPFILE) exists, remove it before running!."
+		error "File 0000000$f.png exists and would be overwritten, move it out before running."
 		return $EX_CANTCREAT
+	fi
+	# mplayer will re-write also 00000001.png-00000004.png
+	if [ $decoder -eq $DEC_MPLAYER ]; then
+		for f_ in 1 2 3 4; do
+			if [ -f "0000000${f_}.png" ]; then
+				error "File 0000000${f_}.png exists and would be overwritten, move it out before running."
+				return $EX_CANTCREAT
+			fi
+		done
 	fi
 
 	TEMPSTUFF+=( $VIDCAPFILE )
@@ -1315,7 +1399,8 @@ process() {
 	# Highlights
 	local hlfile n=1 # hlfile Must be outside the if!
 	if [ "$HLTIMECODES" ]; then
-		local hlcapfile= pretty= capfiles=( )
+		local hlcapfile= pretty=
+		local -a capfiles
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
 			if fptest $stamp -gt $numsecs ; then let 'n++' && continue ; fi
 			pretty=$(pretty_stamp $stamp)
@@ -1349,7 +1434,8 @@ process() {
 
 	# Normal captures
 	# TODO: Don't reference $VIDCAPFILE
-	local capfile pretty n=1 capfiles=( )
+	local capfile pretty n=1
+	unset capfiles ; local -a capfiles
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
 		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
@@ -1385,13 +1471,14 @@ process() {
 		local hlnc=$(rtomult "$(( ${#TIMECODES[@]} * $extended_factor ))" $((2*$numcols)))
 
 		unset TIMECODES # required step to get the right count
-		declare -a TIMECODES # Note the manual stamps aren't included anymore
+		declare -a TIMECODES # Note the manual stamps are not included anymore
 		compute_timecodes $TC_NUMCAPS "" $hlnc
 		unset hlnc
 
-		local n=1 w= h= capfile= pretty= capfiles=( )
-		# The image size of the extra captures is 1/4
-		let 'w=vidcap_width/2, h=vidcap_height/2'
+		local n=1 w= h= capfile= pretty=
+		unset capfiles ; local -a capfiles
+		# The image size of the extra captures is 1/4, adjusted to compensante the padding
+		let 'w=vidcap_width/2-HPAD, h=vidcap_height*w/vidcap_width'
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
@@ -1444,10 +1531,11 @@ process() {
 		WMV1) vcodec="WMV7" ;;
 		WMV2) vcodec="WMV8" ;;
 		WMV3) vcodec="WMV9" ;;
-		WMVA) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Unsupported.
+		WMVA) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Deprecated by Microsoft.
 		XVID) vcodec="Xvid" ;;
 
 		# These are known FourCCs that I haven't tested against so far
+		WVC1) vcodec="VC-1" ;;
 		DIV4) vcodec="DivX ;-) Fast-Motion" ;;
 		DIVX|divx) vcodec="DivX" ;; # OpenDivX / DivX 5(?) / Project Mayo
 		IV4[0-9]) vcodec="Indeo Video 4" ;;
@@ -1772,8 +1860,8 @@ Options:
   -c|--columns <arg>    Arrange the output in 'arg' columns.
   -H|--height <arg>     Set the output (individual thumbnail) height. Width is
                         derived accordingly. Note width cannot be manually set.
-  -a|--aspect <aspect>  Aspect ration. Accepts floating point number or
-                        fractions.
+  -a|--aspect <aspect>  Aspect ratio. Accepts a floating point number or a
+                        fraction.
   -f|--from <arg>       Set starting time. No caps before this. Same format
                         as -i.
   -t|--to <arg>         Set ending time. No caps beyond this. Same format
