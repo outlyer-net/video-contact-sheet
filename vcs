@@ -2242,6 +2242,7 @@ while true ; do
 			;;
 		-D) # Repeat to just test consistency
 			if [ $DEBUGGED -gt 0 ]; then exit ; fi
+			DEBUG=1
 			inf "Testing internal consistency..."
 			unit_test
 			if [ $? -eq 0 ]; then
