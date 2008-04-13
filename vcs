@@ -26,7 +26,8 @@
 # Author: Toni Corvera <outlyer@gmail.com>
 #
 # References:
-# Pages I've taken snippets from or wrote code based on them.
+# Mainly pages I've taken snippets from or wrote code based on them; or pages
+#     containing reference/technical data
 # I refer to them in comments as e.g. [[R1]]. [[R1#3]] Means section 3 in R1.
 # I also use internal references in the form [x1] (anchor -where to point-)
 # and [[x1]] (x-reference -point to what-).
@@ -46,32 +47,17 @@
 #      <http://wiki.multimedia.cx/index.php?title=VC-1>
 #
 
-declare -r VERSION="1.0.11"
+declare -r VERSION="1.0.12"
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.11: (2008-04-08)
-#    * BUGFIX: (brown bag bug) Corrected typo in variable name that made vcs
-#          fail when setting the default timecode derivation to number of
-#          captures instead of interval (i.e. when including timecode_from=8 in
-#          the config file) (thanks to Chris Hills for the bug report)
-#    * WORKAROUND: Fix for all-equal captures (seems to be a known problem
-#          with mplayer [M1]) (contributed by Phil Grundig)
-#    * RETROCOMPATIBILITY: Older bash syntax for appending and initialising
-#          arrays (contributed by Phil Grundig)
-#    * COMPATIBILITY: Support alternative du syntax for compatibility with
-#          busybox (based on Phil Grundig's contribution)
-#    * COSMETIC: Don't print milliseconds when using mplayer as capturer
-#          (they're not really meaningful then) (suggested by Phil Grundig)
-#    * COSMETIC: Align the extended set captures (-e) and the standard set
-#          (bug pointed by Chris Hills). Seems to fail at some (smaller?)
-#          sizes.
-#          "Funky" modes aren't correctly aligned yet.
-#    * DEBUGGING: Added optional function call trace (by setting variable DEBUG
-#          to 1)
-#    * Added FOURCC for VC-1
-#    * COSMETIC: Fixed captures recount with multiple files (prompted by a
-#          bugreport from Dougn Redhammer)
+# 1.0.12: (2008-0?-??)
+#    * BUGFIX/COSMETIC: Corrected 0ms timestamps
+#    * COSMETIC: Re-added the (disabled for long) black border after highlights
+#    * BUGFIX/COSMETIC: Corrected the count of captures in manual-only mode (-m)
+#    * FEATURE: Added a minimun length to use the end offset
+#    * BUGFIX: Fixed the regression on highlights from the last version (extra
+#        padding was being added my IM automatically)
 # }}} # CHANGELOG
 
 set -e
@@ -190,6 +176,8 @@ declare -i pts_title=36            # Used for the title (see -T)
 declare shoehorned=
 # See -E / $end_offset
 declare -i DEFAULT_END_OFFSET=60
+# If the video is less than this length, end offset won't be used at all 
+declare MIN_LENGTH_FOR_END_OFFSET=19m30s
 # This can only be changed in the configuration file
 # Change it to change the safe renanimg:
 # When writing the output file, the input name + output extension is
@@ -347,6 +335,7 @@ declare -ra ALLOWED_OVERRIDES=(
 	'stdout'
 	'stderr'
 	'DEFAULT_END_OFFSET'
+	'MIN_LENGTH_FOR_END_OFFSET'
 	'DEBUG'
 )
 
@@ -555,13 +544,13 @@ pad() {
 # Get Image Width
 # imw($1 = file)
 imw() {
-	identify "$1" | cut -d' ' -f3 | cut -d'x' -f1
+	identify -format '%w' "$1"
 }
 
 # Get Image Height
 # imh($1 = file)
 imh() {
-	identify "$1" | cut -d' ' -f3 | cut -d'x' -f2
+	identify -format '%h' "$1"
 }
 
 # Prints a number of seconds in a more human readable form
@@ -571,14 +560,22 @@ pretty_stamp() {
 	if ! is_float "$1" ; then return $EX_USAGE ; fi
 
 	local t=$1
+
 	#local h=$(( $t / 3600 ))
 	# bc's modulus seems to *require* not using the math lib (-l)
 	local h=$( bc -q <<<"$t / 3600")
 	t=$(bc -q <<<"$t % 3600")
 	local m=$( bc -q <<<"$t / 60")
 	t=$(bc -q <<<"$t % 60")
-	local s=$(cut -d'.' -f1 <<<$t)
-	local ms=$(cut -d'.' -f2 <<<$t)
+	local s ms
+	if grep -q '\.' <<<"$t" ; then
+		# Have ms
+		s=$(cut -d'.' -f1 <<<$t)
+		ms=$(cut -d'.' -f2 <<<$t)
+	else
+		s=$t
+		ms=0
+	fi
 
 	local R=""
 
@@ -895,9 +892,13 @@ compute_timecodes() {
 
 		local runlen=$( bc <<<"$end - $st" )
 
-		if fptest "($end-$eo-$st)" -le 0 ; then
+		if fptest "$runlen" -lt $(get_interval "$MIN_LENGTH_FOR_END_OFFSET") ; then
+			# Min length to use end offset not met, it won't be used
+			inf "End offset won't be used, video too short."
+			eo=0
+		elif fptest "($end-$eo-$st)" -le 0 ; then
 			if fptest "$eo" -gt 0 && fptest "$eo" -eq "$DEFAULT_END_OFFSET" ; then
-				warn "Default end offset was too high, ignoring it."
+				warn "Default end offset was too high for the video, ignoring it."
 				eo=0
 			else
 				error "End offset too high, use e.g. '-E0'."
@@ -930,7 +931,7 @@ compute_timecodes() {
 	fi
 
 	local stamp=$st
-    local -a LTC
+	local -a LTC
 	while fptest $stamp -le $(bc -q <<<"$end-$eo"); do
 		if fptest $stamp -lt 0 ; then
 			error "Internal error, negative timestamp calculated!"
@@ -1167,7 +1168,6 @@ csheet_montage() {
 		# This produces soft-shadows, which look much better than the montage ones
 		convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
 	fi
-	#convert \( -shadow 50x2+10+10 "$output" \) "$output" -composite "$output"
 
 	# FIXME: Error handling
 	echo $output
@@ -1366,8 +1366,13 @@ process() {
 
 	unset TIMECODES
 	# Compute the stamps (if in auto mode)...
-	TIMECODES=${initial_stamps[*]}
-	if [ $manual_mode -ne 1 ]; then
+	if [ $manual_mode -eq 1 ]; then
+		# Note TIMECODES must be set as an array to get the correct count in
+		# manual mode; in automatic mode it will be set correctly inside
+		# compute_timecodes()
+		TIMECODES=( ${initial_stamps[@]} )
+	else
+		TIMECODES=${initial_stamps[@]}
 		compute_timecodes $timecode_from $interval $numcaps || {
 			return $?
 		}
@@ -1605,9 +1610,14 @@ process() {
 	fi
 	# If there were highlights then mix them in
 	if [ "$HLTIMECODES" ]; then
-		#\( -geometry x2 xc:black -background black \) # This breaks it!
-		convert \( -background LightGoldenRod "$hlfile" -flatten \) \
-			\( "$output" \) -append "$output"
+		# For some reason adding the background also adds padding with:
+		# convert \( -background LightGoldenRod "$hlfile" -flatten \) \
+		# 	\( "$output" \) -append "$output"
+		# replacing it with a "-composite" operation apparently works
+		local geometry=$(identify -format '%wx%h' "$hlfile")
+		convert \( -size "$geometry" xc:LightGoldenRod "$hlfile" -composite \) \
+			\( -size "$(cut -d'x' -f1<<<$geometry)"x1 xc:black \) \
+			"$output" -append "$output"
 	fi
 	# Extended captures
 	if [ "$extended_factor" != 0 ]; then
@@ -1628,7 +1638,7 @@ with $PROGRAM_SIGNATURE"
 	else
 		signature="Created with $PROGRAM_SIGNATURE"
 	fi
-	local headwidth=$(identify "$output" | cut -d' ' -f3 | cut -d'x' -f1)
+	local headwidth=$(imw "$output")
 	# TODO: Use a better height calculation
 	local headheight=$(($pts_meta * 4 ))
 	local heading=$(new_temp_file .png)
