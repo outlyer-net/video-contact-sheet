@@ -6,6 +6,9 @@
     * BUGFIX: Fixed the regression on highlights from the last version (extra
        padding was being added my IM automatically)
     * INTERNAL: Simplified use of IM's identify
+    * BUGFIX: Fixed parsing of manual timestamps including milliseconds
+       (when seconds didn't include the s character they were accidentally
+       multiplied by 10!)
 
 1.0.11: (2008-04-08)
    * BUGFIX: (brown bag bug) Corrected typo in variable name that made vcs
