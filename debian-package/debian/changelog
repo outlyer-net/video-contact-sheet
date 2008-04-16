@@ -1,3 +1,10 @@
+vcs (1.0.12-upstream.0) experimental; urgency=low
+
+  * New version.
+  * Added suffix to version number.
+
+ -- Toni Corvera <outlyer@gmail.com>  Wed, 16 Apr 2008 17:59:46 +0200
+
 vcs (1.0.11) experimental; urgency=low
 
   * First package released.

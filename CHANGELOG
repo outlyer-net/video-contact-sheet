@@ -1,3 +1,12 @@
+1.0.12: (2008-04-16)
+    * BUGFIX/COSMETIC: Corrected 0ms timestamps
+    * COSMETIC: Re-added the (disabled for long) black border after highlights
+    * BUGFIX/COSMETIC: Corrected the count of captures in manual-only mode (-m)
+    * FEATURE: Added a minimun length to use the end offset
+    * BUGFIX: Fixed the regression on highlights from the last version (extra
+       padding was being added my IM automatically)
+    * INTERNAL: Simplified use of IM's identify
+
 1.0.11: (2008-04-08)
    * BUGFIX: (brown bag bug) Corrected typo in variable name that made vcs
       fail when setting the default timecode derivation to number of
