@@ -51,7 +51,7 @@ declare -r VERSION="1.0.12"
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.12: (2008-0?-??)
+# 1.0.12: (2008-04-16)
 #    * BUGFIX/COSMETIC: Corrected 0ms timestamps
 #    * COSMETIC: Re-added the (disabled for long) black border after highlights
 #    * BUGFIX/COSMETIC: Corrected the count of captures in manual-only mode (-m)
@@ -59,6 +59,9 @@ declare -r VERSION="1.0.12"
 #    * BUGFIX: Fixed the regression on highlights from the last version (extra
 #       padding was being added my IM automatically)
 #    * INTERNAL: Simplified use of IM's identify
+#    * BUGFIX: Fixed parsing of manual timestamps including milliseconds
+#       (when seconds didn't include the s character they were accidentally
+#       multiplied by 10!)
 # }}} # CHANGELOG
 
 set -e
@@ -474,7 +477,7 @@ fptest() {
 		-ne) op='!=' ;;
 		*) error "Internal error" && return $EX_SOFTWARE
 	esac
-	[ '1' == $(bc -q <<<"$1 $op $3") ]
+	[ '1' == "$(bc -q <<<"$1 $op $3")" ]
 }
 
 # Applies the Pythagorean Theorem
@@ -499,6 +502,7 @@ compute_width() {
 # I don't see reason to make it more anal, though.
 # get_interval($1 = interval)
 get_interval() {
+	trace $FUNCNAME $@
 	if is_number "$1" ; then echo $1 ; return 0 ; fi
 
 	local s=$(tolower "$1") t r
@@ -514,8 +518,9 @@ get_interval() {
 	t=$(sed -r 's/([0-9]+)h/ ( \1 * 3600 ) + /g' <<<$t)
 	t=$(sed -r 's/([0-9]+)m/ ( \1 * 60 ) + /g' <<<$t)
 	t=$(sed 's/s/ + /g' <<<$t)
+	t=$(sed -r 's/([0-9])\./\1 + ./g' <<<"$t") # seconds followed by ms, with no "S"
 	t=$(sed -r 's/\.\.+/./g'<<<$t)
-	t=$(sed -r 's/(\.[0-9]+)/0\1 + /g' <<<$t)
+	t=$(sed -r 's/\.([0-9]+)/0.\1 + /g' <<<$t)
 	t=$(sed -r 's/\+ ?$//g' <<<$t)
 
 	r=$(bc -lq <<<$t 2>/dev/null) # bc parsing fails with correct return code
@@ -1772,6 +1777,13 @@ unit_test() {
 
 		"pyth_th 4 3 5 #Integer pythagorean theorem"
 		"pyth_th 16 9 18.35755975068581929849 #FP pythagorean theorem"
+
+		"get_interval 2h 7200 #Hours parsing"
+		"get_interval 2m 120 #Minutes parsing"
+		"get_interval 30s 30 #Seconds parsing"
+		"get_interval .30 .30 #Milliseconds parsing"
+		# Extended syntax
+		"get_interval 30m30m1h 7200 #Repeated minutes parsing"
 	)
 	
 	for t in "${TESTS[@]}" ; do
