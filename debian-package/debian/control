@@ -7,7 +7,7 @@ Standards-Version: 3.7.2
 
 Package: vcs
 Architecture: all
-Depends: bc, bash, grep, imagemagick (>= 6.0), mktemp, mplayer, ffmpeg
+Depends: bc, bash, grep, imagemagick (>= 6.0), mktemp, mplayer, ffmpeg, gsfonts
 Description: vcs is a script that creates a contact sheet (preview) from videos
  Video Contact Sheet *NIX (vcs for short) is a script that creates a contact
  sheet (preview) from videos by taking still captures distributed over the
