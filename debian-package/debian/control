@@ -4,14 +4,14 @@ Priority: extra
 Maintainer: Toni Corvera <outlyer@gmail.com>
 Build-Depends: debhelper (>= 5)
 Standards-Version: 3.7.2
+Homepage: http://p.outlyer.net/vcs/
 
 Package: vcs
 Architecture: all
 Depends: bc, bash, grep, imagemagick (>= 6.0), mktemp, mplayer, ffmpeg, gsfonts
+Recommends: lsdvd
 Description: vcs is a script that creates a contact sheet (preview) from videos
  Video Contact Sheet *NIX (vcs for short) is a script that creates a contact
  sheet (preview) from videos by taking still captures distributed over the
  length of the video. The output image contains useful information on the video
  such as codecs, file size, screen size, frame rate, and length.
- .
- Upstream homepage <http://p.outlyer.net/vcs/>.
