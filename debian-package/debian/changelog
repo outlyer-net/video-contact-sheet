@@ -1,3 +1,12 @@
+vcs (1.0.99-upstream.0) experimental; urgency=low
+
+  * New version.
+  * debian/control:
+       - Added lsdvd as recommendation (required for dvd support)
+       - Using 'Homepage:'
+
+ -- Toni Corvera <outlyer@gmail.com>  Wed, 11 Mar 2009 22:50:25 +0100
+
 vcs (1.0.12-upstream.1) experimental; urgency=low
 
   * debian/control: Added missing requirement (gsfonts)

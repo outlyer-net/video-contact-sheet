@@ -1,3 +1,22 @@
+1.0.99: (2009-03-11) ("1.1.0 RC")
+    * FEATURE: Experimental support for DVDs (-V)
+    * FEATURE: Added JPEG 2000 output format (-j2)
+    * BUGFIX: Fixed "polaroid" mode (previously unreproducible bug, guess it's
+       a matter of ImageMagick versions)
+    * BUGFIX/COSMETIC: Re-added the missed space before filename
+    * FEATURE: Added JPEG 2000 output format (-j2)
+    * FEATURE/COSMETIC: Polaroid mode now produces a polaroid-like frame, the
+       older version is now renamed as simply 'photos'
+       New "funky" modes: newer polaroid, photos (older polaroid),
+       polaroidframe.
+    * Overrideable variables: DISABLE_SHADOWS and DISABLE_TIMESTAMPS (set to 1
+       to disable)
+    * BUGFIX/COSMETIC: Reworked alignment and padding
+    * BUGFIX: Fixed polaroid/rotate bug where all images overlapped on the same
+       position (reported by Aleksandar Urošević, formerly unreproducible)
+    * Better detection of video/audio features by falling back to ffmpeg when
+      appropriate
+
 1.0.12: (2008-04-16)
     * BUGFIX/COSMETIC: Corrected 0ms timestamps
     * COSMETIC: Re-added the (disabled for long) black border after highlights
