@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # $Rev$ $Date$
 #
@@ -47,9 +47,23 @@
 #      <http://wiki.multimedia.cx/index.php?title=VC-1>
 #
 
-declare -r VERSION="1.0.99" # ("1.1.0 RC")
+declare -r VERSION="1.0.99b" # ("1.1.0 RC2")
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
+#
+# 1.0.99b: (Focus on FreeBSD support)
+#    * FEATURE: FreeBSD (7.1-RELEASE) support
+#    * COMPATIBILITY:
+#          - Call bash through env
+#          - Ensure we're using the correct getopt version
+#          - Try to use POSIX sed options when appropriate
+#          - Replaced incompatible sed constructs
+#          - Use mktemp's common GNU/BSD(/POSIX?) syntax
+#          - Use jot instead of seq if not on GNU
+#    * BUGFIX: Don't fail if tput is unable to change colours
+#    * BUGFIX: Check for requirements before anything else
+#    * INTERNAL: Cache tput output
+#    * COSMETIC: Removed line overflow in help message
 #
 # 1.0.99: (2009-3-11)
 #    * FEATURE: Experimental support for DVDs (-V)
@@ -71,9 +85,13 @@ declare -r VERSION="1.0.99" # ("1.1.0 RC")
 # }}} # CHANGELOG
 
 set -e
+#set -x
+# This changes the way some commands are used. Feel free to modify
+# the value to see vcs die miserably :P
+declare -i IS_GNU=1
+grep -qi gnu <<<"$OSTYPE" || IS_GNU=0
 
 # {{{ # TODO
-
 # TODO / FIXME:
 # * [[R1#22]] states that not all bc versions understand '<', more info required
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
@@ -81,8 +99,32 @@ set -e
 # * Better DVD support (e.g. real detection of aspect ratio)
 # * Use ffmpeg's detected length if shorter than mplayer's
 #
-
 # }}} # TODO
+
+# {{{ # Semi-constants
+# The can be overridden from the environment
+# e.g. running 'GETOPT=/usr/local/bin/getopt vcs [options]'
+# will set $GETOPT accordingly
+
+#
+if [ -z "$GETOPT" ]; then
+	# Getopt is expected to be Linux's (the one found in util-linux)
+	# See <http://p.outlyer.net/vcs#getopt> for details for other OSes
+	# Nte getopt can't be allowed to be overridden (since overrides require
+	# getopt) <-- FIXME: better split command-line overrides from config overrides
+	declare GETOPT=getopt
+	# e.g. FreeBSD port (misc/getopt):
+	#declare GETOPT=/usr/local/bin/getopt
+	if [ $IS_GNU -eq 1 ]; then # $OSTYPE is bash builtin
+		for dir in /usr/local/bin /usr/bin /bin ; do
+			if [ -x "$dir/getopt" ]; then
+				GETOPT="$dir/getopt"
+				break;
+			fi
+		done
+	fi
+fi
+# }}} # End of Semi-constants
 
 # {{{ # Constants
 
@@ -133,10 +175,22 @@ declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 # When shadows are enabled, 5 is substracted from this value in csheet_montage
 # so keep this in mind!
 declare -ri HPAD=8
+
+# Extended regular expressions are triggered by different options
+# depending on the OS
+# seq is not installed by default in e.g. FreeBSD (when installed, from
+# port/package coreutils, it's named gseq); jot, OTOH is apparently standard.
+# $SEQ will be tested for existence, no matter its value.
+if [ $IS_GNU -eq 1 ]; then
+	declare -r ERESED='sed -r'
+	declare -r SEQ='seq'
+else
+	declare -r ERESED='sed -E'
+	declare -r SEQ='jot'
+fi
 # }}} # End of constants
 
 # {{{ # Override-able variables
-
 # Set to 1 to print function calls
 declare -i DEBUG=0
 declare -i DEFAULT_INTERVAL=300
@@ -272,6 +326,10 @@ declare FFMPEG_CACHE=
 # (defined in the constants block)
 declare -a VID=
 
+# These variables will hold the output of tput, used
+# to colourise feedback
+declare prefix_err= prefix_inf= prefix_warn= suffix_fback=
+
 # Workarounds:
 # Argument order in FFmpeg is important -ss before or after -i will make
 # the capture work or not depending on the file. See -Wo.
@@ -403,8 +461,8 @@ override() {
 		return
 	fi
 
-	local varname=$(sed -r 's/^[[:space:]]*([a-zA-Z0-9_]*)=.*/\1/'<<<"$o")
-	local varval=$(sed -r 's/[^=]*=(.*)/\1/'<<<"$o")
+	local varname=$($ERESED 's/^[[:space:]]*([a-zA-Z0-9_]*)=.*/\1/'<<<"$o")
+	local varval=$($ERESED 's/[^=]*=(.*)/\1/'<<<"$o")
 	# FIXME: Security!
 	local curvarval=
 	eval curvarval='$'"$varname"
@@ -497,6 +555,15 @@ fptest() {
 	[ '1' == "$(bc -q <<<"$1 $op $3")" ]
 }
 
+# converts spaces to newlines in a x-platform way
+# stonl($1 = string)
+stonl() {
+	# Not pretty, but seems to be standard ('\n' works in GNU
+	# but not in e.g. FreeBSD)
+	sed 's/ /\
+/g' <<<"$1"
+}
+
 # Applies the Pythagorean Theorem
 # pyth_th($1 = cathetus1, $2 = cathetus2)
 pyth_th() {
@@ -532,13 +599,13 @@ get_interval() {
 	# New parsing code: replaces units by a product
 	# and feeds the resulting string to bc
 	t=$s
-	t=$(sed -r 's/([0-9]+)h/ ( \1 * 3600 ) + /g' <<<$t)
-	t=$(sed -r 's/([0-9]+)m/ ( \1 * 60 ) + /g' <<<$t)
+	t=$($ERESED 's/([0-9]+)h/ ( \1 * 3600 ) + /g' <<<$t)
+	t=$($ERESED 's/([0-9]+)m/ ( \1 * 60 ) + /g' <<<$t)
 	t=$(sed 's/s/ + /g' <<<$t)
-	t=$(sed -r 's/([0-9])\./\1 + ./g' <<<"$t") # seconds followed by ms, with no "S"
-	t=$(sed -r 's/\.\.+/./g'<<<$t)
-	t=$(sed -r 's/\.([0-9]+)/0.\1 + /g' <<<$t)
-	t=$(sed -r 's/\+ ?$//g' <<<$t)
+	t=$($ERESED 's/([0-9])\./\1 + ./g' <<<"$t") # seconds followed by ms, with no "S"
+	t=$($ERESED 's/\.\.+/./g'<<<$t)
+	t=$($ERESED 's/\.([0-9]+)/0.\1 + /g' <<<$t)
+	t=$($ERESED 's/\+ ?$//g' <<<$t)
 
 	r=$(bc -lq <<<$t 2>/dev/null) # bc parsing fails with correct return code
 	if [ -z "$r" ]; then
@@ -618,7 +685,7 @@ pretty_stamp() {
 	fi
 
 	# Trim (most) decimals
-	sed -r 's/\.([0-9][0-9]).*/.\1/'<<<$R
+	$ERESED 's/\.([0-9][0-9]).*/.\1/'<<<$R
 }
 
 # Prints a given size in human friendly form
@@ -666,9 +733,9 @@ safe_rename() {
 	local to="$2"
 
 	# Output extension
-	local ext=$(sed -r 's/.*\.(.*)/\1/' <<<$to)
+	local ext=$($ERESED 's/.*\.(.*)/\1/' <<<$to)
 	# Input extension
-	local iext=$(sed -r 's/.*\.(.*)/\1/' <<<$to)
+	local iext=$($ERESED 's/.*\.(.*)/\1/' <<<$to)
 	# Input filename without extension
 	local b=${to%.$iext}
 
@@ -736,8 +803,21 @@ get_blockdev_size() {
 # test_programs()
 test_programs() {
 	local retval=0 last=0
-	for prog in getopt mplayer convert montage identify bc \
-				ffmpeg mktemp sed grep egrep cut; do
+	# getopt requires some special treatment...
+	if ! type -pf "$GETOPT" ; then
+		error "Required program getopt not found!"
+		let retval++
+	else
+		# getopt exists, but is it the enhanced, util-linux, version?
+		"$GETOPT" -T
+		local gor=$?
+		if [ $gor -ne 4 ]; then
+			error "The installed version of getopt is not supported, can't continue :("
+			let 'retval++'
+		fi
+	fi >/dev/null
+	for prog in mplayer convert montage identify bc \
+				ffmpeg mktemp sed grep egrep cut $SEQ ; do
 		type -pf "$prog" >/dev/null
 		if [ $? -ne 0 ] ; then
 			error "Required program $prog not found!"
@@ -774,13 +854,11 @@ exithdlr() {
 # error($1 = text)
 error() {
 	if [ $verbosity -ge $V_ERROR ]; then
-		if [ $plain_messages -eq 0 ]; then
-			tput bold ; tput setaf 1;
-		fi
+		[ $plain_messages -eq 0 ] && echo -n $prefix_err
 		# sgr0 is always used, this way if
 		# a) something prints inbetween messages it isn't affected
 		# b) if plain_messages is overridden colour stops after the override
-		echo "$1" ; tput sgr0
+		echo "$1$suffix_fback"
 	fi >&2
 	# It is important to redirect both tput and echo to stderr. Otherwise
 	# n=$(something) wouldn't be coloured
@@ -790,10 +868,8 @@ error() {
 # warning($1 = text)
 warn() {
 	if [ $verbosity -ge $V_WARN ]; then
-		if [ $plain_messages -eq 0 ]; then
-			tput bold ; tput setaf 3;
-		fi
-		echo "$1" ; tput sgr0
+		[ $plain_messages -eq 0 ] && echo -n $prefix_warn
+		echo "$1$suffix_fback"
 	fi >&2
 }
 #
@@ -801,10 +877,8 @@ warn() {
 # inf($1 = text)
 inf() {
 	if [ $verbosity -ge $V_INFO ]; then
-		if [ $plain_messages -eq 0 ]; then
-			tput bold ; tput setaf 2;
-		fi
-		echo "$1" ; tput sgr0
+		[ $plain_messages -eq 0 ] &&  echo -n $prefix_inf
+		echo "$1$suffix_fback"
 	fi >&2
 }
 #
@@ -835,6 +909,42 @@ has_filter() {
 	return 1
 }
 
+#
+# Initialises the variables affecting coloured feedback
+init_feedback() {
+	# If tput isn't found simply ignore tput commands
+	# (no colour support)
+	if ! type -pf tput >/dev/null ; then
+		# XXX: Are nested functions supported by older versions?
+		tput() { cat >/dev/null <<<"$1"; }
+	elif ! tput bold ||		# If tput can't tinker with the color, no need to continue
+	   ! tput setaf 0 >/dev/null ||
+	   ! tput sgr0 ;
+	then
+		prefix_err= prefix_inf= prefix_warn=
+		suffix_fback=
+	else # tput doesn't fail to change colors
+		prefix_err=$(tput bold; tput setaf 1)
+		prefix_warn=$(tput bold; tput setaf 3)
+		prefix_inf=$(tput bold; tput setaf 2)
+		suffix_fback=$(tput sgr0)
+	fi
+}
+
+#
+# seq wrapper/replacement
+# seq($1 = from, $2 = to)
+seqw() {
+	if [ "$SEQ" == "seq" ]; then
+		seq $1 $2
+	elif [ "$SEQ" == "jot" ]; then
+		jot $(( 1 + $2 - $1 )) $1
+	else
+		error "$SEQ is not supported, please change the value of \$SED"
+		return $EX_SOFTWARE
+	fi
+}
+
 # }}} # Convenience functions
 
 # {{{ # Core functionality
@@ -845,10 +955,13 @@ create_temp_dir() {
 	trace $FUNCNAME $@
 	# Try to use /dev/shm if available, this provided a very small
 	# benefit on my system but me of help for huge files. Or maybe won't.
+	# Passing a full path template is more x-platform than using
+	# -t / -p
 	if [ -d /dev/shm ] && [ -w /dev/shm ]; then
-		VCSTEMPDIR=$(mktemp -d -p /dev/shm vcs.XXXXXX)
+		VCSTEMPDIR=$(mktemp -d /dev/shm/vcs.XXXXXX)
 	else
-		VCSTEMPDIR=$(mktemp -d -t vcs.XXXXXX)
+		[ "$TMPDIR" ] || TMPDIR="/tmp"
+		VCSTEMPDIR=$(env TMPDIR="$TMPDIR" mktemp -d "$TMPDIR/vcs.XXXXXX")
 	fi
 	if [ ! -d "$VCSTEMPDIR" ]; then
 		error "Error creating temporary directory"
@@ -861,7 +974,7 @@ create_temp_dir() {
 # new_temp_file($1 = suffix)
 new_temp_file() {
 	trace $FUNCNAME $@
-	local r=$(mktemp -p "$VCSTEMPDIR" "vcs-XXXXXX")
+	local r=$(env TMPDIR="$VCSTEMPDIR" mktemp "$VCSTEMPDIR/vcs-XXXXXX")
 	if [ ! -f "$r" ]; then
 		error "Failed to create temporary file"
 		return $EX_CANTCREAT
@@ -1354,7 +1467,7 @@ csheet_overlap() {
 	local accoffset # The absolute (horizontal) offset used on the next iteration
 	local cmdopts   # Holds the arguments passed to convert to compose the sheet
 	local w         # Width of the current snap
-	for row in $(seq 1 $numrows) ; do
+	for row in $(seqw 1 $numrows) ; do
 		col=0
 		rowfile=$(new_temp_file .png)
 		rowfiles+=( "$rowfile" )
@@ -1364,7 +1477,7 @@ csheet_overlap() {
 		# Base canvas # Integrated in the row creation since 1.0.99
 
 		# Step through vidcaps (col=[0..cols-1])
-		for col in $(seq 0 $(( $cols - 1 ))); do
+		for col in $(seqw 0 $(( $cols - 1 ))); do
 			# More cols than files in the last iteration (e.g. -n10 -c4)
 			if [ -z "$1" ]; then break; fi
 			w=$(imw "$1")
@@ -1412,9 +1525,9 @@ csheet_overlap() {
 # clean_timestamps($1 = space separated timestamps)
 clean_timestamps() {
 	trace $FUNCNAME $@
-	# Note AFAIK sort only sorts lines, that's why y replace spaces by newlines
+	# Note AFAIK sort only sorts lines, that's why I replace spaces by newlines
 	local s=$1
-	sed 's/ /\n/g'<<<"$s" | sort -n | uniq
+	stonl "$s" | sort -n | uniq
 }
 
 # Fills the $MPLAYER_CACHE and $VID variables with the video data
@@ -1486,7 +1599,6 @@ identify_video() {
 			fi
 #		fi
 	fi
-
 
 	# Check sanity of the most important values
 	is_number "${VID[$W]}" && is_number "${VID[$H]}" && is_float "${VID[$LEN]}"
@@ -1625,7 +1737,7 @@ process() {
 		aspect_ratio=$(bc -lq <<< "${VID[$W]} / ${VID[$H]}")
 	elif [ "-1" == "$aspect_ratio" ]; then
 		aspect_ratio=$(guess_aspect ${VID[$W]} ${VID[$H]})
-		inf "Aspect ratio set to $(sed -r 's/(\.[0-9]{2}).*/\1/g'<<<$aspect_ratio)"
+		inf "Aspect ratio set to $($ERESED 's/(\.[0-9]{2}).*/\1/g'<<<$aspect_ratio)"
 	fi
 	local vidcap_width=$(compute_width $vidcap_height)
 
@@ -2067,13 +2179,16 @@ with $PROGRAM_SIGNATURE"
 # Tests integrity of some operations.
 # Used to test internal changes for consistency.
 # It helps me to identify incorrect optimizations.
-# unit_test()
+# unit_test(). Running with -D triggers this.
 unit_test() {
 	local t op val ret comm retval=0
 
 	# Textual tests, compare output to expected output
 	# Tests are in the form "operation arguments correct_result #Description"
 	local TESTS=(
+		# TODO: UNIX vs GNU
+		#"stonl ..."
+
 		"rmultiply 1,1 1 #Identity"
 		"rmultiply 16/9,1 2 #Rounding" # 1.77 rounded 2
 		"rmultiply 4/3 1 #Rounding"    # 1.33 rounded 1
@@ -2111,7 +2226,7 @@ unit_test() {
 		# many of the inputs
 		comm=$(sed 's!.* #!!g' <<<$t)
 		# Expected value
-		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		val=$($ERESED "s!.* (.*) #$comm\$!\1!g"<<<$t)
 		op=$(sed "s! $val #$comm\$!!g" <<<$t)
 		if [ -z "$comm" ]; then
 			comm=unnamed
@@ -2152,7 +2267,7 @@ unit_test() {
 	for t in "${TESTS[@]}"; do
 		comm=$(sed 's!.* #!!g' <<<$t)
 		# Expected value
-		val=$(sed -r "s!.* (.*) #$comm\$!\1!g"<<<$t)
+		val=$($ERESED "s!.* (.*) #$comm\$!\1!g"<<<$t)
 		op=$(sed "s! $val #$comm\$!!g" <<<$t)
 		if [ -z "$comm" ]; then
 			comm=unnamed
@@ -2267,7 +2382,8 @@ Options:
                         "photoframe": Use '-kf' or '--funky photoframe'
                             Adds a photo-like white frame to each image.
                         "polaroidframe": Use '-kL' or '--funky polaroidframe'
-                            Adds a polaroid picture-like white frame to each image.
+                            Adds a polaroid picture-like white frame to each
+                            image.
                         "photos": Use '-kc' or '--funky photos'
                             Combination of rotate, photoframe and overlap.
                             Same as -kp -kr -ko.
@@ -2310,13 +2426,8 @@ EOF
 
 #### Execution starts here ####
 
-# If tput isn't found simply ignore tput commands
-# (no colour support)
-# Important to do it before any message can be thrown
-if ! type -pf tput >/dev/null ; then
-	tput() { cat >/dev/null <<<"$1"; }
-	warn "tput wasn't found. Coloured feedback disabled."
-fi
+# Important to do this before any message can be thrown
+init_feedback
 
 # Execute exithdlr on exit
 trap exithdlr EXIT
@@ -2325,6 +2436,10 @@ show_vcs_info
 
 load_config
 
+# Test requirements. Important, must check before looking at the
+# command line (since getopt is used for the task)
+test_programs || exit $EX_UNAVAILABLE
+
 # {{{ # Command line parsing
 
 # TODO: Find how to do this correctly (this way the quoting of $@ gets messed):
@@ -2332,13 +2447,12 @@ load_config
 ARGS="$@"
 
 # [[R0]]
-TEMP=$(getopt -s bash -o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I::k:W:E:d:V: \
+TEMP=$("$GETOPT" -s bash -o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I::k:W:E:d:V: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg::,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
 "extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
 "end_offset:,disable:,dvd:" \
        -n $0 -- "$@")
-
 eval set -- "$TEMP"
 
 while true ; do
@@ -2655,16 +2769,14 @@ if [ ! "$1" ]; then
 elif [ "$2" ]; then
 	multiple_input_files=1
 fi
-
 # }}} # Command line parsing
 
 # The coherence check ensures the processed options are
 # not incoherent/incompatible with the input files or with
 # other given options
-coherence_check
-
-# Test requirements
-test_programs || exit $EX_UNAVAILABLE
+coherence_check || {
+	exit $?
+}
 
 set +e # Don't fail automatically
 for arg do process "$arg" ; done
