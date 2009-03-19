@@ -49,13 +49,17 @@
 #      <http://www.nevdull.com/2007/09/24/gnu-seqs-cousin-on-freebsd-is-jot/>
 # [FNL] Re: Replacing spaces with newlines using awk: msg#00064
 #      <http://osdir.com/ml/editors.sed.user/2004-07/msg00064.html>
+# [FD1] File Descriptors in Bourne shell (sh,ksh,bash). 
+#      <http://mixedvolume.blogspot.com/2004/12/file-descriptors-in-bourne-shell.html>
+# [FD2] Redirection [[Bash Hackers Wiki]
+#      <http://bash-hackers.org/wiki/doku.php/syntax/redirection>
 #
 
 declare -r VERSION="1.0.100" # ("1.1.0 RC2")
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.99b: (Focus on FreeBSD support)
+# 1.0.100: (Focus on FreeBSD support -and hopefully POSIX compatibility-)
 #    * FEATURE: FreeBSD (7.1-RELEASE) support
 #    * COMPATIBILITY:
 #          - Call bash through env
@@ -67,6 +71,9 @@ declare -r VERSION="1.0.100" # ("1.1.0 RC2")
 #    * BUGFIX: Don't fail if tput is unable to change colours
 #    * BUGFIX: Check for requirements before anything else
 #    * INTERNAL: Cache tput output
+#    * FEARTURE: Added -R / --randomsource. Mainly useful for debugging,
+#          also to repeat a set of results
+#    * Corrected info message in photos mode
 #
 # }}} # CHANGELOG
 
@@ -336,6 +343,12 @@ declare -i anonymous_mode=0
 declare -i DISABLE_SHADOWS=0
 declare -i DISABLE_TIMESTAMPS=0
 
+# Sets which function is used to obtain random numbers
+# valid values are bashrand and filerand
+# Setting it manually will break it, calling with -R changes this
+# to filerand
+declare RANDFUNCTION=bashrand
+
 # }}} # Variables
 
 # {{{ # Configuration handling
@@ -522,6 +535,60 @@ stonl() {
 	# but not in e.g. FreeBSD)
 	sed 's/ /\
 /g' <<<"$1"
+}
+
+# bash version of ord() [[ORD]]
+# prints the ASCII value of a character
+ord() {
+	printf '%d' "'$1"
+}
+
+# Wrapper around $RANDOM, not called directly, wrapped again in rand().
+# See filerand() and rand() for an explanation.
+bashrand() {
+	echo $RANDOM
+}
+
+# Prepares for "filerand()" calls
+# File descriptor 7 is used to keep a file open, from which data is read
+# and then transformed into a number.
+# init_filerand($1 = filename)
+init_filerand() { # [[FD1]], [[FD2]]
+	test -r "$1"
+	exec 7<"$1"
+	# closed in exithdlr
+}
+
+# Produce a (not-really-)random number from a file not called directly,
+# wrapped in rand()
+# Note that once the file end is reached, the random values will always
+# be the same (hash_string result for an empty string)
+filerand() {
+	local b=
+	# "read 5 bytes from file descriptor 7 and put them in $b"
+	read -n5 -u7 b
+	hash_string "$b"
+}
+
+# produce a random number
+# $RANDFUNCTION defines wich one to use (bashrand or filerand)
+# for some reason setting RANDOM wasn't enough to make random values
+# predicatable, so this is used to allow predictability on demand
+rand() {
+	$RANDFUNCTION
+}
+
+# produces a numeric value from a string
+hash_string() {
+	local HASH_LIMIT=65536
+	local v="$1"
+	local -i hv=15031
+	local c=
+	for i in $(seqw 0 $(( ${#v}-1 ))); do
+		c=$( ord ${v:$i:1} )
+		hv=$(( ( ( $hv << 1 ) + $c ) % $HASH_LIMIT ))
+	done
+	echo $hv
 }
 
 # Applies the Pythagorean Theorem
@@ -742,21 +809,35 @@ get_blockdev_size() {
 	# way to do it portably.
 	# Alternatives:
 	# * fdisk -s (no need for privileged access, read-only)
-	#         Prints the number of blocks. In Linux they're always 1024 AFAICT,
-	#         but I'm not sure about other unices (the -in disk- block size for
-	#         DVDs is 2048).
+	#         Prints the number of blocks (only in GNU's version?, FreeBSD's
+	#         doesn't, so probably POSIX in general doesn't either).
+	#         In Linux blocks are always 1024 AFAICT, but I'm not sure about
+	#         other unices (the -in disk- block size for DVDs is 2048).
 	# * hal
 	#         hal-find-by-property --key block.device --string <(REAL)DEVICE>
 	#         hal-get-property --udi <DEVICEID> --key volume.disc.capacity
 	#         Gets byte size but HAL is far from standard (only Linux
-	#         and FreeBSD have it AFAIK)
+	#         and FreeBSD have it AFAIK. DBUS, on which it relies, wasn't
+	#         enabled byb default on my FreeBSD install).
+	#         FreeBSD has no block devices either.
 	# * sysfs
 	#         cat /sys/block/<(KERNEL)DEVICE>/size
 	#         Size is given in sectors (512 blocks). Linux only. *BSD has
 	#         sysctl of which I've no clue.
 	local dev="$1"
-	local numblocks=$(/sbin/fdisk -s "$dev")
-	get_pretty_size $(( 1024 * $numblocks ))
+	# Only GNU systems with block devices are compatible with the current code
+	if [ ! -b "$1" ] || grep -q gnu <<<"$OSTYPE" ; then
+		echo "?"
+		return
+	fi
+
+	local numblocks=$(/sbin/fdisk -s "$dev" 2>"$stderr")
+	# FIXME: When fdisk is replaced by a better alternative this should go away
+	if is_number "$numblocks" ; then
+		get_pretty_size $(( 1024 * $numblocks ))
+	else
+		echo "?"
+	fi
 }
 
 # Tests the presence of all required programs
@@ -765,11 +846,10 @@ test_programs() {
 	local retval=0 last=0
 	for prog in mplayer convert montage identify bc \
 				ffmpeg mktemp sed grep egrep cut $SEQ ; do
-		type -pf "$prog" >/dev/null
-		if [ $? -ne 0 ] ; then
+		if ! type -pf "$prog" ; then
 			error "Required program $prog not found!"
 			let 'retval++'
-		fi
+		fi >/dev/null
 	done
 	# TODO: [x2]
 
@@ -827,7 +907,7 @@ choose_seqw() {
 	else
 		error "Either seq or jot are required"
 		return $EX_UNAVAILABLE
-	fi
+	fi >/dev/null
 }
 
 # Remove any temporal files
@@ -844,6 +924,10 @@ cleanup() {
 # interrupted)
 # exithdlr()
 exithdlr() {
+	# I don't think that's really required anyway
+	if [ "$RANDFUNCTION" == "filerand" ]; then
+		7<&-	# Close FD 7
+	fi
 	cleanup
 }
 
@@ -941,7 +1025,7 @@ seqw() {
 	elif [ "$SEQ" == "jot" ]; then
 		jot $(( 1 + $2 - $1 )) $1
 	else
-		error "$SEQ is not supported, please change the value of \$SED"
+		error "'$SEQ' is not supported, please change the value of \$SEQ"
 		return $EX_SOFTWARE
 	fi
 }
@@ -1000,13 +1084,13 @@ randomize_look() {
 		# There're 5 rows of extra info printed
 		local ncolours=$(( $(convert -list color | wc -l) - 5 ))
 		randcolour() {
-		lineno=$(( 5 + ( $RANDOM % $ncolours ) ))
+		lineno=$(( 5 + ( $(rand) % $ncolours ) ))
 		convert -list color | sed -n "${lineno}p" | cut -d' ' -f1 # [[R1#19]]
 		}
 	else # Pseudo-random mode, WIP!
 		randccomp() {
 			# colours are in the 0..65535 range, while RANDOM in 0..32767
-			echo $(( $RANDOM + $RANDOM + ($RANDOM % 1) ))
+			echo $(( $(rand) + $(rand) + ($(rand) % 1) ))
 		}
 		randcolour() {
 			echo "rgb($(randccomp),$(randccomp),$(randccomp))"
@@ -1015,7 +1099,7 @@ randomize_look() {
 
 	local nfonts=$(( $(convert -list type | wc -l) - 5 ))
 	randfont() {
-		lineno=$(( 5 + ( $RANDOM % $nfonts )))
+		lineno=$(( 5 + ( $(rand) % $nfonts )))
 		convert -list type | sed -n "${lineno}p" | cut -d' ' -f1 # [[R1#19]]
 	}
 
@@ -1334,7 +1418,7 @@ filt_polaroid() {
 filt_randrot() {
 	trace $FUNCNAME $@
 	# Rotation angle [-18..18]
-	local angle=$(( ($RANDOM % 37) - 18 ))
+	local angle=$(( ($(rand) % 37) - 18 ))
 	echo "-background none -rotate $angle "
 }
 
@@ -1486,7 +1570,7 @@ csheet_overlap() {
 			# Stick the vicap in the canvas
 			cmdopts="$cmdopts '$1' -geometry +${accoffset}+0 -composite "
 
-			offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
+			offset=$(( $minoffset + ( $(rand) % $maxoffset ) ))
 			let 'accoffset=accoffset + w - offset'
 			shift
 		done
@@ -1505,9 +1589,9 @@ csheet_overlap() {
 		h=$(imh "$row")
 		minoffset=$(( $h / 8 ))
 		maxoffset=$(( $h / 4 ))
-		offset=$(( $minoffset + ( $RANDOM % $maxoffset ) ))
+		offset=$(( $minoffset + ( $(rand) % $maxoffset ) ))
 		# The row is also offset horizontally
-		cmdopts="$cmdopts '$row' -geometry +$(( $RANDOM % $maxoffset ))+$accoffset -composite "
+		cmdopts="$cmdopts '$row' -geometry +$(( $(rand) % $maxoffset ))+$accoffset -composite "
 		let 'accoffset=accoffset + h - offset'
 	done
 	# After the trim the image will be touching the outer borders and the heading and footer,
@@ -1692,6 +1776,13 @@ process() {
 		f="$DVD_FILE"
 		local dvdn="$f"
 		if [ -b "$dvdn" ]; then
+			dvdn="DVD"
+		elif [ -c "$dvdn" ]; then
+			if grep -q bsd <<<"$OSTYPE"; then
+				inf "Warning: DVD support is even more experimental in *BSD"
+			else
+				warn "DVD device is a character device"
+			fi
 			dvdn="DVD"
 		elif [ ! -f "$dvdn" ]; then
 			error "File \"$dvdn\" doesn't exist"
@@ -2110,7 +2201,7 @@ with $PROGRAM_SIGNATURE"
 	local filesize_value=
 	if [ $DVD_MODE -eq 1 ]; then
 		local is_dev=0
-		test -b "$DVD_FILE" && is_dev=1
+		( test -b "$DVD_FILE" || test -c "$DVD_FILE" ) && is_dev=1
 		local dvd_label=$(lsdvd "$DVD_FILE" | grep -o 'Disc Title: .*' | cut -d' ' -f3-)
 		# lsdvd is guaranteed to be installed if DVD mode is enabled
 		if [ $is_dev -eq 1 ]; then # This is a real DVD, not an iso
@@ -2395,6 +2486,12 @@ Options:
                             Imitates filmstrip look.
                         "random":   Use '-kx' or '--funky random'
                             Randomizes colours and fonts.
+  -R <file>
+  --randomsource <file> Use the provided file to obtain \"random\" values.
+                        Setting this makes otherwise random output (e.g. the
+                        polaroid mode) to behave in a more predictable way:
+                        repeated runs will produce the same output.
+                        Files too small might block the script in some systems.
 
   Options used for debugging purposes or to tweak the internal workings:
   -M|--mplayer          Force the usage of mplayer.
@@ -2457,11 +2554,11 @@ load_config
 ARGS="$@"
 
 # [[R0]]
-TEMP=$("$GETOPT" -s bash -o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I::k:W:E:d:V: \
+TEMP=$("$GETOPT" -s bash -o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I::k:W:E:d:V:R: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg::,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
 "extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
-"end_offset:,disable:,dvd:" \
+"end_offset:,disable:,dvd:,randomsource:" \
        -n $0 -- "$@")
 eval set -- "$TEMP"
 
@@ -2676,7 +2773,7 @@ while true ; do
 					pts_tstamps=$(( $pts_tstamps * 3 / 2 ))
 					;;
 				c|photos) # Same as overlap + rotate + photoframe, this is the older polaroid
-					inf "Changed to polaroid funky mode."
+					inf "Changed to photos funky mode."
 					FILTERS_IND+=( 'filt_photoframe' 'filt_randrot' )
 					CSHEET_DELEGATE='csheet_overlap'
 					# The timestamp must change location to be visible most of the time
@@ -2712,6 +2809,16 @@ while true ; do
 					exit $EX_USAGE
 					;;
 			esac
+			shift
+			;;
+		-R|--randomsource)
+			if [ ! -r "$2" ]; then
+				error "Can't use '$2' as a random source, a readable file is required."
+				exit $EX_USAGE
+			fi
+			init_filerand "$2"
+			RANDFUNCTION=filerand
+			inf "Using '$2' as source of semi-random values"
 			shift
 			;;
 		-d|--disable) # Disable default features
