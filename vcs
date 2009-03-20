@@ -2491,7 +2491,6 @@ Options:
                         Setting this makes otherwise random output (e.g. the
                         polaroid mode) to behave in a more predictable way:
                         repeated runs will produce the same output.
-                        Files too small might block the script in some systems.
 
   Options used for debugging purposes or to tweak the internal workings:
   -M|--mplayer          Force the usage of mplayer.
