@@ -55,7 +55,7 @@
 #      <http://bash-hackers.org/wiki/doku.php/syntax/redirection>
 #
 
-declare -r VERSION="1.0.100" # ("1.1.0 RC2")
+declare -r VERSION="1.0.100a" # ("1.1.0 RC2")
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
@@ -71,12 +71,10 @@ declare -r VERSION="1.0.100" # ("1.1.0 RC2")
 #    * BUGFIX: Don't fail if tput is unable to change colours
 #    * BUGFIX: Check for requirements before anything else
 #    * INTERNAL: Cache tput output
-#    * FEATURE: Added -R / --randomseed. Mainly useful for debugging,
+#    * FEATURE: Added -R / --randomsource. Mainly useful for debugging,
 #          also to repeat a set of results and compare outputs on different
 #          systems
 #    * Corrected info message in photos mode
-#    * INTERNAL: Added "--undocumented set_awk" (with -R and gawk produces
-#          the same output in different systems. Nawk doesn't though)
 #
 # }}} # CHANGELOG
 
@@ -348,14 +346,10 @@ declare -i DISABLE_SHADOWS=0
 declare -i DISABLE_TIMESTAMPS=0
 
 # Sets which function is used to obtain random numbers valid values are
-# bashrand and awkrand.
-# Setting it manually will break it, calling with -R changes this to awkrand.
-# See awkrand for an explanation
+# bashrand and filerand.
+# Setting it manually will break it, calling with -R changes this to filerand.
+# See rand() for an explanation
 declare RANDFUNCTION=bashrand
-declare -i AWKRANDSEED=$RANDOM
-
-# awk executable. For testing purposes it can be replaced, not configurable.
-declare AWK=awk
 
 # }}} # Variables
 
@@ -557,22 +551,35 @@ bashrand() {
 	echo $RANDOM
 }
 
-# Wrapper around a one-liner awk program producing a random number.
-# See rand() for an explanation.
-# Note bashrand() and awkrand() have different max. values.
-awkrand() {
-	# AWK is mandatory as per SUS, so I guess checking for it is not required
-	# Note rand()*1e6 is ok for gawk but will produce values too close in
-	# nawk.
-	$AWK "BEGIN { srand($AWKRANDSEED); print int((rand()*1e9)%65536); }"
-	let 'AWKRANDSEED++'
+# Prepares for "filerand()" calls
+# File descriptor 7 is used to keep a file open, from which data is read
+# and then transformed into a number.
+# init_filerand($1 = filename)
+init_filerand() { # [[FD1]], [[FD2]]
+	test -r "$1"
+	exec 7<"$1"
+	# closed in exithdlr
+}
+
+# Produce a (not-really-)random number from a file, not called directly wrapped
+# in rand()
+# Note that once the file end is reached, the random values will always
+# be the same (hash_string result for an empty string)
+filerand() {
+	local b=
+	# "read 5 bytes from file descriptor 7 and put them in $b"
+	read -n5 -u7 b
+	hash_string "$b"
 }
 
 # Produce a random number
-# $RANDFUNCTION defines wich one to use (bashrand or awkrand).
-# The need for this is that for some reason setting RANDOM wasn't enough to
-# make random values predicatable, so this is used to allow predictability
-# on demand (argument -R)
+# $RANDFUNCTION defines wich one to use (bashrand or filerand).
+# Since functions using random values are most often run in subshells
+# setting $RANDOM to a given seed has not the desired effect.
+# filerand() is used to that effect; it keeps a file open from which bytes
+# are read and not-so-random values generated; since file descriptors are
+# inherited, subshells will "advance" the random sequence.
+# Argument -R enables the filerand() function
 rand() {
 	$RANDFUNCTION
 }
@@ -583,10 +590,12 @@ hash_string() {
 	local v="$1"
 	local -i hv=15031
 	local c=
-	for i in $(seqw 0 $(( ${#v}-1 ))); do
-		c=$( ord ${v:$i:1} )
-		hv=$(( ( ( $hv << 1 ) + $c ) % $HASH_LIMIT ))
-	done
+	if [ "$v" ]; then # seqw 0 0 would be catastrophic if SEQ==jot
+		for i in $(seqw 0 $(( ${#v}-1 ))); do
+			c=$( ord ${v:$i:1} )
+			hv=$(( ( ( $hv << 1 ) + $c ) % $HASH_LIMIT ))
+		done
+	fi
 	echo $hv
 }
 
@@ -1361,22 +1370,6 @@ filt_apply_stamp() {
 # Apply a framed photo-like effect
 # Taken from <http://www.imagemagick.org/Usage/thumbnails/#polaroid>
 # filt_photoframe($1 = filename, $2 = timestamp, $3 = width, $4 = height)
-filt_photoframe0() {
-	trace $FUNCNAME $@
-#	local file="$1" ts=$2 w=$3 h=$4
-# Tweaking the size gives a nice effect too
-# w=$(( $w - ( $RANDOM % ( $w / 3 ) ) ))
-# TODO: Split softshadow in a filter
-	# The border is relative to the input size (since 1.0.99), with a maximum of 6
-	# Should probably be bigger for really big frames
-	# Note that only images below 21600px (e.g. 160x120) go below a 6px border
-	local border=$(( ($3*$4) / 3600 ))
-	[ $border -lt 7 ] || border=6
-	echo -n "-bordercolor white -border $border -bordercolor grey60 -border 1 "
-	echo -n "-background black \( +clone -shadow 60x4+4+4 \) +swap "
-	echo "-background none -flatten -trim +repage"
-}
-
 filt_photoframe() {
 	trace $FUNCNAME $@
 #	local file="$1" ts=$2 w=$3 h=$4
@@ -2485,12 +2478,12 @@ Options:
                             Imitates filmstrip look.
                         "random":   Use '-kx' or '--funky random'
                             Randomizes colours and fonts.
-  -R <number>
-  --randomseed <number> Use the provided number as a random seed: random values
-                        won't be random any more, so two runs with the same
-                        seed and same arguments will produce the same output in
-                        modes using randomisation (e.g. the "photos" and
-                        "polaroid" modes).
+  -R <file>
+  --randomsource <file> Use the provided file as a source for random "values":
+                        they won't be random anymore, so two runs with the same
+                        source and same arguments will produce the same output
+                        in modes which use using randomisation (e.g. the
+                        "photos" and "polaroid" modes).
 
   Options used for debugging purposes or to tweak the internal workings:
   -M|--mplayer          Force the usage of mplayer.
@@ -2557,7 +2550,7 @@ TEMP=$("$GETOPT" -s bash -o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I::k:W:E:d:V
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg::,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
 "extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
-"end_offset:,disable:,dvd:,randomseed:,undocumented:" \
+"end_offset:,disable:,dvd:,randomsource:,undocumented:" \
        -n $0 -- "$@")
 eval set -- "$TEMP"
 
@@ -2810,18 +2803,14 @@ while true ; do
 			esac
 			shift
 			;;
-		-R|--randomseed)
-			if ! is_number "$2"; then
-				# Non-numeric values ARE allowed as seed
-				hash_=$(hash_string "$2")
-				AWKRANDSEED=$hash_
-				inf "Using '$2' (=$hash_) as seed of semi-random values"
-				unset hash_
-			else
-				AWKRANDSEED="$2"
-				inf "Using '$2' as seed of semi-random values"
+		-R|--randomsource)
+			if [ ! -r "$2" ]; then
+				error "Random source file '$2' can't be read"
+				exit $EX_USAGE
 			fi
-			RANDFUNCTION=awkrand
+			init_filerand "$2"
+			inf "Using '$2' as source of semi-random values"
+			RANDFUNCTION=filerand
 			shift
 			;;
 		-d|--disable) # Disable default features
@@ -2875,7 +2864,8 @@ while true ; do
 			# change between versions, break easily and do no safety checks.
 			# In short, don't look at them unless told to do so :P
 			case "$2" in
-				set_awk=*) AWK="$(cut -d'=' -f2<<<"$2")" ; warn "[U] AWK=$AWK" ;;
+				# AWK was used for a little while in a WiP version
+				#set_awk=*) AWK="$(cut -d'=' -f2<<<"$2")" ; warn "[U] AWK=$AWK" ;;
 				*) false ;;
 			esac
 			shift
