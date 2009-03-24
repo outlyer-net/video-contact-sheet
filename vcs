@@ -59,7 +59,7 @@ declare -r VERSION="1.0.100" # ("1.1.0 RC2")
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.100: (Focus on FreeBSD support -and hopefully POSIX compatibility-)
+# 1.0.100: (Focus on FreeBSD support -and hopefully better POSIX compatibility-)
 #    * FEATURE: FreeBSD (7.1-RELEASE) support
 #    * COMPATIBILITY:
 #          - Call bash through env
@@ -71,9 +71,12 @@ declare -r VERSION="1.0.100" # ("1.1.0 RC2")
 #    * BUGFIX: Don't fail if tput is unable to change colours
 #    * BUGFIX: Check for requirements before anything else
 #    * INTERNAL: Cache tput output
-#    * FEARTURE: Added -R / --randomsource. Mainly useful for debugging,
-#          also to repeat a set of results
+#    * FEATURE: Added -R / --randomseed. Mainly useful for debugging,
+#          also to repeat a set of results and compare outputs on different
+#          systems
 #    * Corrected info message in photos mode
+#    * INTERNAL: Added "--undocumented set_awk" (with -R and gawk produces
+#          the same output in different systems. Nawk doesn't though)
 #
 # }}} # CHANGELOG
 
@@ -148,6 +151,7 @@ declare -ri HPAD=8
 # programs
 # ERESED # see choose_eresed
 # SEQ    # see choose_seqw
+
 # }}} # End of constants
 
 # {{{ # Override-able variables
@@ -343,11 +347,15 @@ declare -i anonymous_mode=0
 declare -i DISABLE_SHADOWS=0
 declare -i DISABLE_TIMESTAMPS=0
 
-# Sets which function is used to obtain random numbers
-# valid values are bashrand and filerand
-# Setting it manually will break it, calling with -R changes this
-# to filerand
+# Sets which function is used to obtain random numbers valid values are
+# bashrand and awkrand.
+# Setting it manually will break it, calling with -R changes this to awkrand.
+# See awkrand for an explanation
 declare RANDFUNCTION=bashrand
+declare -i AWKRANDSEED=$RANDOM
+
+# awk executable. For testing purposes it can be replaced, not configurable.
+declare AWK=awk
 
 # }}} # Variables
 
@@ -544,36 +552,27 @@ ord() {
 }
 
 # Wrapper around $RANDOM, not called directly, wrapped again in rand().
-# See filerand() and rand() for an explanation.
+# See rand() for an explanation.
 bashrand() {
 	echo $RANDOM
 }
 
-# Prepares for "filerand()" calls
-# File descriptor 7 is used to keep a file open, from which data is read
-# and then transformed into a number.
-# init_filerand($1 = filename)
-init_filerand() { # [[FD1]], [[FD2]]
-	test -r "$1"
-	exec 7<"$1"
-	# closed in exithdlr
+# Wrapper around a one-liner awk program producing a random number.
+# See rand() for an explanation.
+# Note bashrand() and awkrand() have different max. values.
+awkrand() {
+	# AWK is mandatory as per SUS, so I guess checking for it is not required
+	# Note rand()*1e6 is ok for gawk but will produce values too close in
+	# nawk.
+	$AWK "BEGIN { srand($AWKRANDSEED); print int((rand()*1e9)%65536); }"
+	let 'AWKRANDSEED++'
 }
 
-# Produce a (not-really-)random number from a file not called directly,
-# wrapped in rand()
-# Note that once the file end is reached, the random values will always
-# be the same (hash_string result for an empty string)
-filerand() {
-	local b=
-	# "read 5 bytes from file descriptor 7 and put them in $b"
-	read -n5 -u7 b
-	hash_string "$b"
-}
-
-# produce a random number
-# $RANDFUNCTION defines wich one to use (bashrand or filerand)
-# for some reason setting RANDOM wasn't enough to make random values
-# predicatable, so this is used to allow predictability on demand
+# Produce a random number
+# $RANDFUNCTION defines wich one to use (bashrand or awkrand).
+# The need for this is that for some reason setting RANDOM wasn't enough to
+# make random values predicatable, so this is used to allow predictability
+# on demand (argument -R)
 rand() {
 	$RANDFUNCTION
 }
@@ -2486,11 +2485,12 @@ Options:
                             Imitates filmstrip look.
                         "random":   Use '-kx' or '--funky random'
                             Randomizes colours and fonts.
-  -R <file>
-  --randomsource <file> Use the provided file to obtain \"random\" values.
-                        Setting this makes otherwise random output (e.g. the
-                        polaroid mode) to behave in a more predictable way:
-                        repeated runs will produce the same output.
+  -R <number>
+  --randomseed <number> Use the provided number as a random seed: random values
+                        won't be random any more, so two runs with the same
+                        seed and same arguments will produce the same output in
+                        modes using randomisation (e.g. the "photos" and
+                        "polaroid" modes).
 
   Options used for debugging purposes or to tweak the internal workings:
   -M|--mplayer          Force the usage of mplayer.
@@ -2557,7 +2557,7 @@ TEMP=$("$GETOPT" -s bash -o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I::k:W:E:d:V
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg::,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:,"\
 "extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
-"end_offset:,disable:,dvd:,randomsource:" \
+"end_offset:,disable:,dvd:,randomseed:,undocumented:" \
        -n $0 -- "$@")
 eval set -- "$TEMP"
 
@@ -2810,19 +2810,23 @@ while true ; do
 			esac
 			shift
 			;;
-		-R|--randomsource)
-			if [ ! -r "$2" ]; then
-				error "Can't use '$2' as a random source, a readable file is required."
-				exit $EX_USAGE
+		-R|--randomseed)
+			if ! is_number "$2"; then
+				# Non-numeric values ARE allowed as seed
+				hash_=$(hash_string "$2")
+				AWKRANDSEED=$hash_
+				inf "Using '$2' (=$hash_) as seed of semi-random values"
+				unset hash_
+			else
+				AWKRANDSEED="$2"
+				inf "Using '$2' as seed of semi-random values"
 			fi
-			init_filerand "$2"
-			RANDFUNCTION=filerand
-			inf "Using '$2' as source of semi-random values"
+			RANDFUNCTION=awkrand
 			shift
 			;;
 		-d|--disable) # Disable default features
 			case $(tolower "$2") in
-				# timestamp (no final s) is undocumented but will stay
+				# timestamp (with no final s) is undocumented but will stay
 				t|timestamps|timestamp)
 					if [ $DISABLE_TIMESTAMPS -eq 0 ]; then
 						inf "Timestamps disabled."
@@ -2864,6 +2868,17 @@ while true ; do
 			else
 				verbosity=$V_NONE
 			fi
+			;;
+		--undocumented)
+			# This is a container for, of course, undocumented functions
+			# These are used for testing/debugging purposes. Might (and will)
+			# change between versions, break easily and do no safety checks.
+			# In short, don't look at them unless told to do so :P
+			case "$2" in
+				set_awk=*) AWK="$(cut -d'=' -f2<<<"$2")" ; warn "[U] AWK=$AWK" ;;
+				*) false ;;
+			esac
+			shift
 			;;
 		-D) # Repeat to just test consistency
 			if [ $DEBUGGED -gt 0 ]; then exit ; fi
