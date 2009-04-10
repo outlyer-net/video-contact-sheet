@@ -59,7 +59,7 @@ declare -r VERSION="1.0.100a" # ("1.1.0 RC2")
 # {{{ # CHANGELOG
 # History (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
-# 1.0.100: (Focus on FreeBSD support -and hopefully better POSIX compatibility-)
+# 1.0.100a: (Focus on FreeBSD support -and hopefully better POSIX compatibility-)
 #    * FEATURE: FreeBSD (7.1-RELEASE) support
 #    * COMPATIBILITY:
 #          - Call bash through env

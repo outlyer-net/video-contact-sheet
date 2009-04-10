@@ -1,3 +1,20 @@
+1.0.100a: (2009-04-10) ("1.1.0 RC2")
+    * FEATURE: FreeBSD (7.1-RELEASE) support
+    * COMPATIBILITY:
+          - Call bash through env
+          - Ensure we're using the correct getopt version
+          - Try to use POSIX sed options when appropriate
+          - Replaced incompatible sed constructs
+          - Use mktemp's common GNU/BSD(/POSIX?) syntax
+          - Use jot instead of seq if required and available
+    * BUGFIX: Don't fail if tput is unable to change colours
+    * BUGFIX: Check for requirements before anything else
+    * INTERNAL: Cache tput output
+    * FEATURE: Added -R / --randomsource. Mainly useful for debugging,
+          also to repeat a set of results and compare outputs on different
+          systems
+    * Corrected info message in photos mode
+
 1.0.99: (2009-03-11) ("1.1.0 RC")
     * FEATURE: Experimental support for DVDs (-V)
     * FEATURE: Added JPEG 2000 output format (-j2)
