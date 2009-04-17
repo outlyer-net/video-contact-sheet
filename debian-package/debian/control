@@ -8,7 +8,7 @@ Homepage: http://p.outlyer.net/vcs/
 
 Package: vcs
 Architecture: all
-Depends: bc, bash, grep, imagemagick (>= 6.0), mktemp, mplayer, ffmpeg, gsfonts
+Depends: bc, bash (>= 3.1), grep, imagemagick (>= 6.0), mktemp, mplayer, ffmpeg, gsfonts
 Recommends: lsdvd
 Description: vcs is a script that creates a contact sheet (preview) from videos
  Video Contact Sheet *NIX (vcs for short) is a script that creates a contact
