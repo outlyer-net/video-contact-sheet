@@ -21,8 +21,9 @@
     * FEATURE/COSMETIC: Polaroid mode now produces a polaroid-like frame, the
        older version is now renamed as simply 'photos'
        New "funky" modes: newer polaroid, photos (older polaroid),
-       polaroidframe.
+       polaroidframe
     * Overrideable variables: DISABLE_SHADOWS and DISABLE_TIMESTAMPS (set to 1
+       to disable)
     * BUGFIX/COSMETIC: Re-added the missed space before filename
     * BUGFIX/COSMETIC: Reworked alignment and padding
     * Timestamps size is adjusted with smaller captures
@@ -37,7 +38,7 @@
     * BUGFIX/COSMETIC: Corrected the count of captures in manual-only mode (-m)
     * FEATURE: Added a minimun length to use the end offset
     * BUGFIX: Fixed the regression on highlights from the last version (extra
-       padding was being added my IM automatically)
+       padding was being added by IM automatically)
     * INTERNAL: Simplified use of IM's identify
     * BUGFIX: Fixed parsing of manual timestamps including milliseconds
        (when seconds didn't include the s character they were accidentally
@@ -142,7 +143,7 @@
    * Requirements detection now prints all failed requirements
    * BUGFIX: (Regression introduced in 1.0.4b) Fail if interval is longer
      than video
-   * Don't print the sucess line unless it was really successful
+   * Don't print the success line unless it was really successful
    * Allow quiet operation (-q and -qq), and different verbosity levels
      (only through config overrides)
    * Print vcs' identification on operation
