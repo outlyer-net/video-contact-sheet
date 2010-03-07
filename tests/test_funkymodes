@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-vcs=vcs
+# Allow setting from the environment
+[ "$vcs" ] || vcs='vcs'
 
 if [ -z "$1" ]; then
 	echo "Usage: $0 <file>"
@@ -9,12 +10,18 @@ fi >&2
 
 HEIGHT="-H240"
 
-echo "Standard" >&2
-$vcs -n4 -c2 $HEIGHT "$1"
-echo "Polaroid" >&2
-$vcs -n6 -c3 -k polaroid $HEIGHT "$1"
-echo "Photos" >&2
-$vcs -n6 -c3 -k photos $HEIGHT "$1"
-echo "Filmstrip" >&2
-$vcs -n8 -c2 -k film $HEIGTH "$1"
+echo "Using vcs: $vcs" >&2
 
+yes 01234 | head -n200 > randsource
+
+BN=$(basename "$1")
+echo ">> Standard <<" >&2
+$vcs -n4 -c2 $HEIGHT "$1" -o "$BN-std.jpg"
+echo ">> Polaroid <<" >&2
+$vcs -n6 -c3 -k polaroid $HEIGHT "$1" -R randsource -o "$BN-polaroid.jpg"
+echo ">> Photos <<" >&2
+$vcs -n6 -c3 -k photos $HEIGHT "$1" -R randsource -o "$BN-photos.jpg"
+echo ">> Filmstrip <<" >&2
+$vcs -n8 -c2 -k film $HEIGTH "$1" -R randsource -o "$BN-film.jpg"
+
+rm -f randsource

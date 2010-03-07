@@ -1,4 +1,93 @@
-1.0.100a: (2009-04-10) ("1.1.0 RC2")
+1.11: (2010-03-07)
+    * FEAT: Allow setting output filename. With extension will set output
+            format, without will inherit it.
+    * FEAT: Require mplayer OR ffmpeg instead of both. Having both is still
+            recommended for better results.
+    * FEAT: Safe mode, for files whose length doesn't get reported correctly.
+            Completely automated.
+            Number of tries can be increased with -Ws. Repeat to increase
+            further. Use -WS to do try as many times as possible.
+            Accuracy (stepping) can be increased with -Wp. Repeat to increase
+            accuracy. Decrease with -WP.
+            Can be deliberately disabled with -Wb to force processing of
+            broken files. *VCS WITH -Wb WILL FAIL ON BROKEN FILES*
+    * FEAT: Allow percentages in height.
+    * BUGFIX: Don't pass ms to mplayer. It ignores them anyway and in some
+              rare cases breaks the last capture (possibly due to the 5-frames
+              hack)
+    * BUGFIX: Honor detected aspect ratio if found
+    * BUGFIX: Try to detect files that might fail on the last capture and
+              trigger safe mode
+    * BUGFIX: Timestamps font was being ignored. As a side effect this produced
+              italiced timestamps in some systems.
+    * BUGFIX: Fixed obscure bug with safe_rename_pattern overrides
+    * COMPAT: Support for bash 2.05b. This will (probably) be the last version
+              capable of running under bash 2.
+    * DVD mode revamp
+       - Print title file size instead of disc size when possible
+       - Aspect ratio detection, if available
+       - Use of FFmpeg if available to get better information
+       - Mostly x-platform, only ISOs identification is a bit better in Linux
+    * Added FourCCs: 3IV1, 3IV2 (3ivx); s263 (H.263); mp4v, MP4V, H264
+      (MPEG-4 and AVC in mov/mp4), VP6F (VP6 Flash Version), AMR
+      Video codec renamings:
+       - TechSmith codec name shortened to TechSmith SCC
+       - Raw RGB renamed to Raw video
+    * Help cleanup. The default help output is much shorter, the full text
+      can be displayed with --fullhelp. Also print the decoder choice near
+      the appropriate option (-M/-F)
+    * Added --anonymous to help (never was in it)
+    * Drop requirement on seq/jot and bc, replaced by inline awk
+           ... New requirement: Perl. It's required by POSIX anyway
+    * Adopt new/fixed numbering scheme
+      <http://p.outlyer.net/dox/vcs:devel:renumbering>
+    * Check ImageMagick version (must decide which is the real minimum
+      required)
+    * Non-latin fonts revamp:
+       - -I no longer works alone (use -Ij or -Ik instead)
+       - -Ik, -Ij and --nonlatin try to pick an appropriate font automatically
+       - -I accepts a font name or font filename like
+              -Ij=Kochi-Mincho-Regular or
+              -Ij=/usr/share/fonts/truetype/kochi/kochi-mincho.ttf
+    * Deprecated options:
+       --shoehorn: Will be removed unless someone really needs it.
+       --mincho: Replaced by --nonlatin
+    * COSMETIC:
+       - Default font switched to DejaVu Sans.
+         Font sizes reduced to accomodate the new default.
+         Should fall back to a sane default if it's not available
+       - Much tighter padding
+       - Smaller timestamps font by default
+       - Print friendlier timestamp when a capture fails
+       - Print program signature to console without colour
+       - Use main font by default in timestamps
+       - Heading background colour toned down
+       - Added colourised output when tput is not capable (i.e. FreeBSD)
+       - Added prefixes when colour is not available for console output
+       - Don't print lsdvd error channel is DVD mode
+       - Suppress mv errors (e.g. over VFS being unable to preserve)
+    * UNDOCUMENTED/DEBUG:
+       - Allow stopping the main loop before cleaning up (--undocumented hang)
+       - Identification-only mode. Might be promoted to an actual feature
+         (--undocumented idonly)
+       - Allow setting ffmpeg and mplayer path (--undocumented set_ffmpeg and
+         set_mplayer)
+       - Allow disabling either mplayer of ffmpeg (as if they weren't
+         installed (--undocumented disable_ffmpeg and disable_mplayer)
+       - Added -Wc to disable console colour, repeat to disable prefixes
+    * INTERNAL: assert()
+    * INTERNAL: Cleanup: correctness checks converted to asserts, removal
+                of old dead code, fixed typos in comments
+    * Fixed various typos and cut out lines in CHANGELOG
+    * Minimum ImageMagick version set to 6.3.5-7
+    * Better detection of requirements (e.g. disallow decoders without png
+      support)
+    * Allow overriding height, number of captures, interval, columns, and
+      padding
+    * Added -dp (--disable padding) equivalent to overriding HPAD to 0
+
+
+1.0.100a: (2009-04-10) (1.10)
     * FEATURE: FreeBSD (7.1-RELEASE) support
     * COMPATIBILITY:
           - Call bash through env
@@ -15,7 +104,7 @@
           systems
     * Corrected info message in photos mode
 
-1.0.99: (2009-03-11) ("1.1.0 RC")
+1.0.99: (2009-03-11) (1.9)
     * FEATURE: Experimental support for DVDs (-V)
     * FEATURE: Added JPEG 2000 output format (-j2)
     * FEATURE/COSMETIC: Polaroid mode now produces a polaroid-like frame, the
@@ -32,7 +121,7 @@
     * Better detection of video/audio features by falling back to ffmpeg when
       appropriate
 
-1.0.12: (2008-04-16)
+1.0.12: (2008-04-16) (1.8)
     * BUGFIX/COSMETIC: Corrected 0ms timestamps
     * COSMETIC: Re-added the (disabled for long) black border after highlights
     * BUGFIX/COSMETIC: Corrected the count of captures in manual-only mode (-m)
@@ -44,7 +133,7 @@
        (when seconds didn't include the s character they were accidentally
        multiplied by 10!)
 
-1.0.11: (2008-04-08)
+1.0.11: (2008-04-08) (1.7)
    * BUGFIX: (brown bag bug) Corrected typo in variable name that made vcs
       fail when setting the default timecode derivation to number of
       captures instead of interval (i.e. when including timecode_from=8 in
@@ -67,7 +156,7 @@
    * COSMETIC: Fixed captures recount with multiple files (prompted by a
       bugreport from Dougn Redhammer)
 
-1.0.10: (2007-11-08)
+1.0.10: (2007-11-08) (1.6)
    * BUGFIX: Corrected aspect guessing bug: would fail if width was standard
        but height not
    * FEATURE: Allow explicitly disabling timestamps (-dt or --disable 
@@ -75,21 +164,21 @@
    * FEATURE: Allow explicitly disabling shadows (-ds or --disable shadows)
    * Added HD resolution guessed aspect ratio (defaults to 16/9)
    * OTHER: Changed e-mail address in the comments to gmail's, would probably
+            get a quicker response.
 
-
-1.0.9a: (2007-06-10) (-Brown bag- Bugfix release)
+1.0.9a: (2007-06-10) (1.5.2, -Brown bag- Bugfix release)
    * BUGFIX: Fixed regression introduced in 1.0.8a: unsetting numcols
        broke extended mode captures (Thanks to 'Aleksandar Urošević').
    * BUGFIX: Use the computed number of columns for extended mode
        (instead of the global one)
 
-1.0.8a: (2007-06-02) (Bugfix release)
+1.0.8a: (2007-06-02) (1.5.1, Bugfix release)
    * BUGFIX: User set number of columns wasn't being used if -n wasn't used
        (Thanks to 'Homer S').
    * BUGFIX: Right side of heading wasn't using the user's font colour
        (Thanks to 'Dougn Redhammer').
 
-1.0.7a: (2007-05-12)
+1.0.7a: (2007-05-12) (1.5)
    * Print title *before* the highlights.
    * Added the forgotten -O and -c to the help text (oops!)
    * Experimental: Allow using non-latin alphabets by switching font. See -I.
@@ -129,11 +218,11 @@
    * Added -E / --end_offset / $DEFAULT_END_OFFSET, used to eliminate some
        seconds from the end
 
-1.0.6b: (2007-04-21) (Bugfix release)
+1.0.6b: (2007-04-21) (1.4.1, Bugfix release)
    * BUGFIX: Use mktemp instead of tempfile (Thanks to 'o kapi')
    * Make sure mktemp is installed, just in case ;)
 
-1.0.5b: (2007-04-20)
+1.0.5b: (2007-04-20) (1.4)
    * INTERNAL: Split functionality in more separate pieces (functions)
    * BUGFIX: Corrected --aspect declaration
    * CLEANUP: Put all temporary files in the same temporary directory
@@ -163,7 +252,7 @@
      MS Video 1 and MS RLE)
    * Print the number of channels if != 2
 
-1.0.4b: (2007-04-17)
+1.0.4b: (2007-04-17) (1.3)
    * Added error checks for failures to create vidcap or to process it
      convert
    * BUGFIX: Corrected error check on tempdir creation
@@ -180,10 +269,10 @@
    * BUGFIX: (Apparently) Corrected the one-vidcap-less/more bug
    * Added codec ids of WMV9 and WMA3
 
-1.0.3b: (2007-04-14)
+1.0.3b: (2007-04-14) (1.2.1, Brown bag hotfix)
    * BUGFIX: Don't put the full video path in the heading
 
-1.0.2b: (2007-04-14)
+1.0.2b: (2007-04-14) (1.2)
    * Licensed under LGPL (was unlicensed before)
    * Renamed variables and constants to me more congruent
    * Added DEFAULT_COLS
@@ -192,7 +281,7 @@
    * Added cleanup on failure and on delayed cleanup on success
    * Changed default signature background to SlateGray (blue-ish gray)
 
-1.0.1a: (2007-04-13)
+1.0.1a: (2007-04-13) (1.1)
    * Print output filename
    * Added manual mode (all timestamps provided by user)
    * More flexible timestamp format (now e.g. 1h5 is allowed (means 1h 5secs)
@@ -201,7 +290,7 @@
      programs fail.
    * Added basic support for a user configuration file.
 
-1.0a: (2007-04-10)
+1.0a: (2007-04-10) (1.0)
    * First release keeping track of history
    * Put vcs' url in the signature
    * Use system username in signature
