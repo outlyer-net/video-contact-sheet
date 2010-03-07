@@ -40,12 +40,15 @@ Version: @VERSION@
 Release: 1%{?disttag},upstream
 License: LGPL
 Packager: @PACKAGER@
-Group: Applications/Video
+Group: Applications/Multimedia
 Source0: http://p.outlyer.net/%{name}/files/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-build
 BuildArch: noarch
 # TODO: How to set alternative dependencies? i.e. mplayer/ffmpeg
-Requires: mplayer / ffmpeg, bash >= 2.05b, ImageMagick >= 6.0, coreutils
+Requires: mplayer / ffmpeg
+Requires: bash >= 2.05b
+Requires: ImageMagick >= 6.3.5-7
+Requires: coreutils
 URL: http://p.outlyer.net/vcs/
 #BuildRequires:
 #Prereq: /sbin/ldconfig

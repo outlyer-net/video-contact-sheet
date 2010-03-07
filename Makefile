@@ -53,6 +53,7 @@ rpm: vcs.spec
 	$(RM) vcs.spec
 	$(RM) -r rpm-package/vcs-$(VER)
 	cd rpm-package && fakeroot rpmbuild -tb vcs-$(VER).tar.gz
+	-ln -s ~/rpmbuild/RPMS/noarch/vcs-$(VER)-*.rpm .
 	$(RM) rpm-package/vcs-$(VER).tar.gz
 
 vcs.spec: rpm-package/vcs.spec.in

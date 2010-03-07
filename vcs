@@ -2337,9 +2337,11 @@ identify_video() {
 		# When a "Seems..." line is printed the correct FPS can be obtained though.
 		[ -z "${VID_MPLAYER[$FPS]}" ] && VID[$FPS]=${VID_FFMPEG[$FPS]}
 		[ "${VID_MPLAYER[$FPS]}" ] && [ "${VID_FFMPEG[$FPS]}" ] && {
-			# Trust ffmpeg if it has three decimals only
+			# Trust ffmpeg if it has three decimals OR if mplayer is probably-wrong
 			local ffps=${VID_FFMPEG[$FPS]}
-			echo $ffps | grep -q '\.[0-9][0-9][0-9]' && VID[$FPS]=$ffps
+			echo $ffps | grep -q '\.[0-9][0-9][0-9]' && VID[$FPS]=$ffps || {
+				fptest "${VID_MPLAYER[$FPS]}" -gt 500 && VID[$FPS]=$ffps
+			}
 		}
 		# It doesn't appear to need any workarounds for num. channels either
 		[ "${VID_FFMPEG[$CHANS]}" ] && VID[$CHANS]=${VID_FFMPEG[$CHANS]}
