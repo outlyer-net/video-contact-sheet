@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+vcs=vcs
+
+if [ -z "$1" ]; then
+	echo "Usage: $0 <file>"
+	exit 1
+fi >&2
+
+HEIGHT="-H240"
+
+echo "Standard" >&2
+$vcs -n4 -c2 $HEIGHT "$1"
+echo "Polaroid" >&2
+$vcs -n6 -c3 -k polaroid $HEIGHT "$1"
+echo "Photos" >&2
+$vcs -n6 -c3 -k photos $HEIGHT "$1"
+echo "Filmstrip" >&2
+$vcs -n8 -c2 -k film $HEIGTH "$1"
+

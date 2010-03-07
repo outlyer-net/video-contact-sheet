@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 # $Id$
 
-VER=$(shell grep VERSION vcs|head -n1|sed 's/#.*//'|sed -r 's/.*"(.*)".*/\1/g')
+VER=$(shell grep VERSION vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
 
 all:
 	@echo "Use $(MAKE) dist"
