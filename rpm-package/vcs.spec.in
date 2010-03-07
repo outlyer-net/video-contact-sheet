@@ -1,0 +1,97 @@
+#
+# spec file for vcs rpm
+#
+# based on mp3plot's which in turn was based on other sources
+#
+
+%define is_mandrake %(test -e /etc/mandrake-release && echo 1 || echo 0)
+%define is_suse %(test -e /etc/SuSE-release && echo 1 || echo 0)
+%define is_fedora 0%{?fedora}
+%define is_redhat 0%{?rhl}
+%define is_rhel 0%{?rhel}
+
+%define distname generic
+%define disttag .generic
+
+%if %{is_fedora}
+%define distname fedora
+%define disttag %{dist}
+%endif
+%if %{is_redhat}
+%define distname redhat
+%define disttag %{dist}
+%endif
+%if %{is_mandrake}
+%define distname mandrake
+%define disttag .mdk
+%endif
+%if %{is_suse}
+%define distname suse
+%define disttag .suse
+%endif
+%if %{is_rhel}
+%define distname rhel
+%define disttag %{dist}
+%endif
+
+Name: vcs
+Summary: Tool to create contact sheets (previews) from videos
+Version: @VERSION@
+Release: 1%{?disttag},upstream
+License: LGPL
+Packager: @PACKAGER@
+Group: Applications/Video
+Source0: http://p.outlyer.net/%{name}/files/%{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-build
+BuildArch: noarch
+# TODO: How to set alternative dependencies? i.e. mplayer/ffmpeg
+Requires: mplayer / ffmpeg
+Requires: bash >= 2.05b
+Requires: ImageMagick >= 6.3.5-7
+Requires: coreutils
+URL: http://p.outlyer.net/vcs/
+#BuildRequires:
+#Prereq: /sbin/ldconfig
+#Requires:
+AutoReqProv: yes
+## Allow relocation (e.g. rpm --prefix /opt/vcs)
+Prefix: /usr
+
+%description
+Video Contact Sheet *NIX (vcs for short) is a script that creates a contact
+sheet (preview) from videos by taking still captures distributed over the
+length of the video. The output image contains useful information on the video
+such as codecs, file size, screen size, frame rate, and length.
+
+%prep
+#echo %_target
+echo Building %{name}-%{version}-%{release}
+
+%setup -q -n %{name}-%{version}
+
+%build
+
+%install
+make DESTDIR=%buildroot install
+
+%clean
+[ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
+
+#%post
+# postinst
+
+#%postun
+# postuninst
+
+%files
+%defattr(-,root,root)
+# binary
+%{_bindir}/%{name}
+# Manpage
+#%{_mandir}/man1/%{name}.1.gz
+%doc CHANGELOG
+
+%changelog
+* Sun Mar 07 2010 - outlyer (at) gmail (dot) com
+- Initial RPM packaging
+
