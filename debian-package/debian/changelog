@@ -1,9 +1,13 @@
-vcs (1.0.100a-upstream.2) experimental; urgency=low
+vcs (1.11-upstream.1) experimental; urgency=low
 
-  * UNRELEASED YET
-  * debian/control: Added min. bash version
+  * debian/control:
+      - Added min. bash version
+      - Rw-worded short description
+      - Don't Depend on bc anymore
+      - Remove mktemp (now coreutils) from Depends:, they're essential anyway
+      - Bumped min IM to 6.3.5-7
 
- -- Toni Corvera <outlyer@gmail.com>  Fri, 17 Apr 2009 03:03:04 +0200
+ -- Toni Corvera <outlyer@gmail.com>  Sun, 07 Mar 2010 21:47:41 +0100
 
 vcs (1.0.100a-upstream.1) experimental; urgency=low
 
