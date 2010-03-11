@@ -1,3 +1,9 @@
+vcs (1.11.1-upstream.1) experimental; urgency=low
+
+  * New version.
+
+ -- Toni Corvera <outlyer@gmail.com>  Tue, 11 Mar 2010 00:07:28 +0100
+
 vcs (1.11-upstream.1) experimental; urgency=low
 
   * debian/control:

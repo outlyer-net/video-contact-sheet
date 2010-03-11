@@ -28,36 +28,44 @@
 # (Note: The references that used to be here have been moved to
 #+       <http://p.outlyer.net/dox/vcs:devel:references>)
 
-declare -r VERSION="1.11"
+declare -r VERSION="1.11.1"
 declare -r RELEASE=1
 
 # {{{ # CHANGELOG
 # Last release changes:
 # (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
+# 1.11.1:
+#    * Added FLV1 codec
+#    * BUGFIXES:
+#       - Deprecate DEFAULT_INTERVAL, DEFAULT_NUMCAPS and DEFAULT_COLS as
+#         overrides, warn about their new names (interval, numcaps and cols)
+#       - Fix ImageMagick version detection
 # 1.11:
-#    * FEAT: Allow setting output filename. With extension will set output
-#            format, without will inherit it.
-#    * FEAT: Require mplayer OR ffmpeg instead of both. Having both is still
-#            recommended for better results.
-#    * FEAT: Safe mode, for files whose length doesn't get reported correctly.
-#            Completely automated.
-#            Number of tries can be increased with -Ws. Repeat to increase
-#            further. Use -WS to do try as many times as possible.
-#            Accuracy (stepping) can be increased with -Wp. Repeat to increase
-#            accuracy. Decrease with -WP.
-#            Can be deliberately disabled with -Wb to force processing of
-#            broken files. *VCS WITH -Wb WILL FAIL ON BROKEN FILES*
-#    * FEAT: Allow percentages in height.
-#    * BUGFIX: Don't pass ms to mplayer. It ignores them anyway and in some
-#              rare cases breaks the last capture (possibly due to the 5-frames
-#              hack)
-#    * BUGFIX: Honor detected aspect ratio if found
-#    * BUGFIX: Try to detect files that might fail on the last capture and
-#              trigger safe mode
-#    * BUGFIX: Timestamps font was being ignored. As a side effect this produced
-#              italiced timestamps in some systems.
-#    * BUGFIX: Fixed obscure bug with safe_rename_pattern overrides
+#    * FEATURES
+#       - Allow setting output filename. With extension will set output format,
+#         without will inherit it.
+#       - Allow percentages in height.
+#       - Require mplayer OR ffmpeg instead of both. Having both is still
+#         recommended for better results.
+#       - Safe mode, for files whose length doesn't get reported correctly.
+#         Completely automated.
+#         Number of tries can be increased with -Ws. Repeat to increase further.
+#         Use -WS to do try as many times as possible.
+#         Accuracy (stepping) can be increased with -Wp. Repeat to increase
+#         accuracy. Decrease with -WP.
+#         Can be deliberately disabled with -Wb to force processing of broken
+#         files. *VCS WITH -Wb WILL FAIL ON BROKEN FILES*
+#       - Added -dp (--disable padding) equivalent to overriding HPAD to 0
+#    * BUGFIXES:
+#       - Don't pass ms to mplayer. It ignores them anyway and in some rare
+#         cases breaks the last capture (possibly due to the 5-frames hack)
+#       - Honor detected aspect ratio if found
+#       - Try to detect files that might fail on the last capture and trigger
+#         safe mode
+#       - Timestamps font was being ignored. As a side effect this produced
+#         italiced timestamps in some systems
+#       - Fixed obscure bug with safe_rename_pattern overrides
 #    * COMPAT: Support for bash 2.05b. This will (probably) be the last version
 #              capable of running under bash 2.
 #    * DVD mode revamp
@@ -75,7 +83,7 @@ declare -r RELEASE=1
 #      the appropriate option (-M/-F)
 #    * Added --anonymous to help (never was in it)
 #    * Drop requirement on seq/jot and bc, replaced by inline awk
-#           ... New requirement: Perl. It's required by POSIX anyway
+#           ... New requirement: Perl (only for DVDs).
 #    * Adopt new/fixed numbering scheme
 #      <http://p.outlyer.net/dox/vcs:devel:renumbering>
 #    * Check ImageMagick version (must decide which is the real minimum
@@ -103,6 +111,11 @@ declare -r RELEASE=1
 #       - Added prefixes when colour is not available for console output
 #       - Don't print lsdvd error channel is DVD mode
 #       - Suppress mv errors (e.g. over VFS being unable to preserve)
+#    * Minimum ImageMagick version set to 6.3.5-7
+#    * Better detection of requirements (e.g. disallow decoders without png
+#      support)
+#    * Allow overriding height, number of captures, interval, columns, and
+#      padding
 #    * UNDOCUMENTED/DEBUG:
 #       - Allow stopping the main loop before cleaning up (--undocumented hang)
 #       - Identification-only mode. Might be promoted to an actual feature
@@ -112,16 +125,12 @@ declare -r RELEASE=1
 #       - Allow disabling either mplayer of ffmpeg (as if they weren't
 #         installed (--undocumented disable_ffmpeg and disable_mplayer)
 #       - Added -Wc to disable console colour, repeat to disable prefixes
-#    * INTERNAL: assert()
-#    * INTERNAL: Cleanup: correctness checks converted to asserts, removal
-#                of old dead code, fixed typos in comments
-#    * Fixed various typos and cut out lines in CHANGELOG
-#    * Minimum ImageMagick version set to 6.3.5-7
-#    * Better detection of requirements (e.g. disallow decoders without png
-#      support)
-#    * Allow overriding height, number of captures, interval, columns, and
-#      padding
-#    * Added -dp (--disable padding) equivalent to overriding HPAD to 0
+#    * INTERNAL:
+#       - assert()
+#       - Cleanup: correctness checks converted to asserts, removal of old dead
+#                  code
+#       - Typos
+#
 # }}} # CHANGELOG
 
 set -e
@@ -187,6 +196,11 @@ set -e
 # The variables that can be overriden are below the block of constants ahead.
 declare -r CFGFILE=~/.vcs.conf
 
+# Default values, use interval, numcaps and cols to override
+declare -ri DEFAULT_INTERVAL=300
+declare -ri DEFAULT_NUMCAPS=16
+declare -ri DEFAULT_COLS=2
+
 # see $decoder
 declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 # See $timecode_from
@@ -221,9 +235,6 @@ declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 declare GETOPT=getopt
 # Set to 1 to print function calls
 declare -i DEBUG=0
-declare -i DEFAULT_INTERVAL=300
-declare -i DEFAULT_NUMCAPS=16
-declare -i DEFAULT_COLS=2
 # Text before the user name in the signature
 declare user_signature="Preview created by"
 # By default sign as the system's username (see -u, -U)
@@ -536,6 +547,16 @@ override() {
 
 	local varname=$(egrep -o '^[[:space:]]*[a-zA-Z0-9_]*=.' <<<"$o" | cut -d'=' -f1 | egrep -o '[^ ]*')
 	local varval=$(egrep -o '^[^=]*=.*' <<<"$o" | cut -d'=' -f2-)
+	if [ "$varname" = "DEFAULT_INTERVAL" ]; then
+		warn '$DEFAULT_INTERVAL is deprecated, please use $interval instead'
+		varname=interval
+	elif [ "$varname" = "DEFAULT_NUMCAPS" ]; then
+		warn '$DEFAULT_NUMCAPS is deprecated, please use $numcaps instead'
+		varname=numcaps
+	elif [ "$varname" = "DEFAULT_COLS" ]; then
+		warn '$DEFAULT_COLS is deprecated, please use $cols instead'
+		varname=cols
+	fi
 	# FIXME: Security!
 	local curvarval=
 	eval curvarval='$'"$varname"
@@ -1068,7 +1089,7 @@ test_programs() {
 	# Versions tested:
 	# * Fedora 9: IM 6.4.0
 	local ver
-	ver=$(identify -version | head -n1  | grep -o 'ImageMagick\s*[^ ]*' |\
+	ver=$(identify -version | head -n1  | grep -o 'ImageMagick[[:space:]]*[^ ]*' |\
 		  cut -f 2 -d' ')
 	if [ "$ver" ]; then
 		local verx=${ver//-/.}.0 # Extra .0 in case rev doesn't exist
@@ -1980,6 +2001,7 @@ get_vcodec_name() {
 		WMVA) vcodec="WMV9 Advanced Profile" ;; # Not VC1 compliant. Deprecated by Microsoft.
 		XVID) vcodec="Xvid" ;;
 		3IV2) vcodec="3ivx Delta 4.0" ;; # Rare but seen
+		FLV1) vcodec="Sorenson Spark (FLV1)" ;;
 
 		# These are known FourCCs that I haven't tested against so far
 		WVC1) vcodec="VC-1" ;;
@@ -2039,6 +2061,7 @@ translate_ffmpeg_vcodec_id() {
 		h263)       mpid="s263" ;;
 
 		vc1)        mpid="WVC1" ;; # In FF: WMVA = vc1
+		flv)        mpid="FLV1" ;;
 		# Not supported (ff just prints the FourCC)
 		# IV4*, vp4
 		vp3) mpid="VP30" ;;
