@@ -1,26 +1,35 @@
+1.11.1: (2010-03-11)
+    * Added FLV1 codec
+    * BUGFIXES:
+       - Deprecate DEFAULT_INTERVAL, DEFAULT_NUMCAPS and DEFAULT_COLS as
+         overrides, warn about their new names (interval, numcaps and cols)
+       - Fix ImageMagick version detection
+
 1.11: (2010-03-07)
-    * FEAT: Allow setting output filename. With extension will set output
-            format, without will inherit it.
-    * FEAT: Require mplayer OR ffmpeg instead of both. Having both is still
-            recommended for better results.
-    * FEAT: Safe mode, for files whose length doesn't get reported correctly.
-            Completely automated.
-            Number of tries can be increased with -Ws. Repeat to increase
-            further. Use -WS to do try as many times as possible.
-            Accuracy (stepping) can be increased with -Wp. Repeat to increase
-            accuracy. Decrease with -WP.
-            Can be deliberately disabled with -Wb to force processing of
-            broken files. *VCS WITH -Wb WILL FAIL ON BROKEN FILES*
-    * FEAT: Allow percentages in height.
-    * BUGFIX: Don't pass ms to mplayer. It ignores them anyway and in some
-              rare cases breaks the last capture (possibly due to the 5-frames
-              hack)
-    * BUGFIX: Honor detected aspect ratio if found
-    * BUGFIX: Try to detect files that might fail on the last capture and
-              trigger safe mode
-    * BUGFIX: Timestamps font was being ignored. As a side effect this produced
-              italiced timestamps in some systems.
-    * BUGFIX: Fixed obscure bug with safe_rename_pattern overrides
+    * FEATURES
+       - Allow setting output filename. With extension will set output format,
+         without will inherit it.
+       - Allow percentages in height.
+       - Require mplayer OR ffmpeg instead of both. Having both is still
+         recommended for better results.
+       - Safe mode, for files whose length doesn't get reported correctly.
+         Completely automated.
+         Number of tries can be increased with -Ws. Repeat to increase further.
+         Use -WS to do try as many times as possible.
+         Accuracy (stepping) can be increased with -Wp. Repeat to increase
+         accuracy. Decrease with -WP.
+         Can be deliberately disabled with -Wb to force processing of broken
+         files. *VCS WITH -Wb WILL FAIL ON BROKEN FILES*
+       - Added -dp (--disable padding) equivalent to overriding HPAD to 0
+    * BUGFIXES:
+       - Don't pass ms to mplayer. It ignores them anyway and in some rare
+         cases breaks the last capture (possibly due to the 5-frames hack)
+       - Honor detected aspect ratio if found
+       - Try to detect files that might fail on the last capture and trigger
+         safe mode
+       - Timestamps font was being ignored. As a side effect this produced
+         italiced timestamps in some systems
+       - Fixed obscure bug with safe_rename_pattern overrides
     * COMPAT: Support for bash 2.05b. This will (probably) be the last version
               capable of running under bash 2.
     * DVD mode revamp
@@ -38,7 +47,7 @@
       the appropriate option (-M/-F)
     * Added --anonymous to help (never was in it)
     * Drop requirement on seq/jot and bc, replaced by inline awk
-           ... New requirement: Perl. It's required by POSIX anyway
+           ... New requirement: Perl (only for DVDs).
     * Adopt new/fixed numbering scheme
       <http://p.outlyer.net/dox/vcs:devel:renumbering>
     * Check ImageMagick version (must decide which is the real minimum
@@ -66,6 +75,11 @@
        - Added prefixes when colour is not available for console output
        - Don't print lsdvd error channel is DVD mode
        - Suppress mv errors (e.g. over VFS being unable to preserve)
+    * Minimum ImageMagick version set to 6.3.5-7
+    * Better detection of requirements (e.g. disallow decoders without png
+      support)
+    * Allow overriding height, number of captures, interval, columns, and
+      padding
     * UNDOCUMENTED/DEBUG:
        - Allow stopping the main loop before cleaning up (--undocumented hang)
        - Identification-only mode. Might be promoted to an actual feature
@@ -75,17 +89,11 @@
        - Allow disabling either mplayer of ffmpeg (as if they weren't
          installed (--undocumented disable_ffmpeg and disable_mplayer)
        - Added -Wc to disable console colour, repeat to disable prefixes
-    * INTERNAL: assert()
-    * INTERNAL: Cleanup: correctness checks converted to asserts, removal
-                of old dead code, fixed typos in comments
-    * Fixed various typos and cut out lines in CHANGELOG
-    * Minimum ImageMagick version set to 6.3.5-7
-    * Better detection of requirements (e.g. disallow decoders without png
-      support)
-    * Allow overriding height, number of captures, interval, columns, and
-      padding
-    * Added -dp (--disable padding) equivalent to overriding HPAD to 0
-
+    * INTERNAL:
+       - assert()
+       - Cleanup: correctness checks converted to asserts, removal of old dead
+                  code
+       - Typos
 
 1.0.100a: (2009-04-10) (1.10)
     * FEATURE: FreeBSD (7.1-RELEASE) support
