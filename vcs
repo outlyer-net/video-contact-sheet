@@ -28,13 +28,15 @@
 # (Note: The references that used to be here have been moved to
 #+       <http://p.outlyer.net/dox/vcs:devel:references>)
 
-declare -r VERSION="1.11.1"
+declare -r VERSION="1.11.2"
 declare -r RELEASE=1
 
 # {{{ # CHANGELOG
 # Last release changes:
 # (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
+# 1.11.2:
+#    * BUGFIX: Remove extra, empty, temporary dir
 # 1.11.1:
 #    * Added FLV1 codec
 #    * BUGFIXES:
@@ -1142,7 +1144,7 @@ choose_getopt() {
 cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
 	inf "Cleaning up..."
-	rm -rf "${TEMPSTUFF[@]}"
+	rm -rf "${TEMPSTUFF[*]}"
 	unset VCSTEMPDIR
 	unset TEMPSTUFF ; declare -a TEMPSTUFF
 }
@@ -1902,8 +1904,6 @@ probe_video() {
 	local tempfile=
 	local ret=0
 
-	# create_temp_dir should have been called
-
 	# This time a resize filter is applied to the player to produce smaller
 	# output
 	if [ $decoder -eq $DEC_MPLAYER ]; then
@@ -1935,8 +1935,6 @@ safe_length_measure() {
 	local tempfile=
 	local newlen=$len
 	local capturefn=
-
-	create_temp_dir
 
 	if probe_video "$1" $len ; then
 		inf " File looks fine, suspicion withdrawn"
@@ -2433,7 +2431,6 @@ identify_video() {
 	# Last safeguard: Try to reach the detected length, if it fails, trigger
 	# quirks mode
 	if [ $QUIRKS -eq 0 ]; then
-		create_temp_dir
 		if ! probe_video "$1" "${VID[$LEN]}" ; then
 			warn "Detected video length can't be reached. Safe measuring enabled."
 			QUIRKS=1
@@ -2751,6 +2748,7 @@ process() {
 		inf "Processing $f..."
 	fi
 
+	create_temp_dir
 	# {{SET_E}} Beware, set -e will break this
 	identify_video "$f"
 	local ecode=$?
@@ -2796,8 +2794,6 @@ process() {
 	local numsecs=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2 | cut -d. -f1)
 	
 	local nc=$numcaps
-
-	create_temp_dir
 
 	unset TIMECODES
 	# Compute the stamps (if in auto mode)...
