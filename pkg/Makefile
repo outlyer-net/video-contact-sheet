@@ -11,7 +11,10 @@ ifeq ($(PACKAGER),)
   PACKAGER:=$(shell grep ^`id -un` /etc/passwd | cut -d: -f5 | cut -d, -f1)
 endif
 
-all: vcs.spec
+all:
+	# Nothing to be done
+
+dist: vcs.spec PKGBUILD
 
 install:
 	install -D -m755 vcs $(DESTDIR)$(prefix)/bin/vcs
@@ -34,6 +37,8 @@ PKGBUILD: arch/PKGBUILD.in
 		-e 's!@SHA1@!'\''$(shell bzip2 -c9 < vcs | sha1sum -b - | cut -d' ' -f1)'\''!g' > $@
 
 clean:
+
+distclean:
 	-$(RM) vcs.spec PKGBUILD
 
 .PHONY: all install clean

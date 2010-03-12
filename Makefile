@@ -1,63 +1,59 @@
 #!/usr/bin/make -f
 # $Id$
 
-VER=$(shell grep VERSION vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
+srcdir=pkg
+VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
 
 all:
 	@echo "Use $(MAKE) dist"
 
+vcs-$(VER).tar.gz:
+	cp -rvpP pkg/ vcs-$(VER)
+	cd vcs-$(VER) && make dist
+	tar zcvf vcs-$(VER).tar.gz --exclude '.svn' --exclude '*.swp' --exclude '*.swo' vcs-$(VER)
+	$(RM) -r vcs-$(VER)
+
 check-no-svn:
-	@if [ -d .svn ]; then echo "Don't release from SVN working copy" ; false ; fi
+	#@if [ -d .svn ]; then echo "Don't release from SVN working copy" ; false ; fi
 
 check-rel:
 	@if head -n50 vcs | grep -q 'RELEASE=0' ; then \
 		echo 'RELEASE is set to 0!' ; false ; fi
 
-prep:
-	cp vcs CHANGELOG debian-package/
-	cp vcs rpm-package/
+dist: check-rel check-no-svn \
+		vcs-$(VER).tar.gz \
+		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
+		CHANGELOG.gz CHANGELOG \
+		rpm deb
 
-dist: check-rel check-no-svn prep gz bz2 plaintext changelog deb rpm cleanup
+vcs-$(VER).gz: $(srcdir)/vcs
+	gzip -c9 < vcs > $@
 
-gz:
-	cp vcs vcs-$(VER)
-	chmod -x vcs-$(VER)
-	gzip -9 vcs-$(VER)
+vcs-$(VER).bz2: $(srcdir)/vcs
+	bzip2 -c9 < vcs > $@
 
-bz2:
-	cp vcs vcs-$(VER)
-	chmod -x vcs-$(VER)
-	bzip2 -9 vcs-$(VER)
+vcs-$(VER).bash: $(srcdir)/vcs
+	cat $< > $@
 
-plaintext:
-	cp vcs vcs-$(VER)
-	chmod -x vcs-$(VER)
+CHANGELOG.gz: $(srcdir)/CHANGELOG
+	gzip -c9 < $< > $@
 
-changelog:
-	gzip -9 CHANGELOG
-	gzip -dc CHANGELOG.gz > CHANGELOG
+CHANGELOG: $(srcdir)/CHANGELOG
+	cp $< $@
 
-cleanup:
-	$(RM) vcs Makefile *.changes
-	$(RM) -r debian-package
-	$(RM) -r rpm-package
+distclean:
+	$(RM) -ri vcs Makefile *.changes pkg
 
 deb:
-	cd debian-package/ && dpkg-buildpackage -rfakeroot -us -uc -b
+	cd pkg && debuild -us -uc -b && debclean
+	$(RM) vcs_*.changes vcs_*.build
 
-rpm: vcs.spec
-	mkdir rpm-package/vcs-$(VER)/
-	cp vcs CHANGELOG rpm-package/Makefile rpm-package/vcs-$(VER)/
-	mv vcs.spec rpm-package/vcs-$(VER)/
-	cd rpm-package && tar zcvf vcs-$(VER).tar.gz vcs-$(VER)
-	$(RM) vcs.spec
-	$(RM) -r rpm-package/vcs-$(VER)
-	cd rpm-package && fakeroot rpmbuild -tb vcs-$(VER).tar.gz
-	-ln -s ~/rpmbuild/RPMS/noarch/vcs-$(VER)-*.rpm .
-	$(RM) rpm-package/vcs-$(VER).tar.gz
+rpm: vcs-$(VER).tar.gz
+	rpmbuild --clean -tb vcs-$(VER).tar.gz
+	test -d ~/rpmbuild/RPMS/noarch && ln -s ~/rpmbuild/RPMS/noarch/vcs-$(VER)-*.rpm . || true
+	test -d ~/RPM/RPMS/noarch && ln -s ~/RPM/RPMS/noarch/vcs-$(VER)-*.rpm . || true
 
-vcs.spec: rpm-package/vcs.spec.in
-	cd rpm-package && $(MAKE) -f Makefile spec PACKAGER="$(PACKAGER)"
-	mv rpm-package/vcs.spec .
+clean:
+	-$(RM) vcs[-_]$(VER)* CHANGELOG*
 
 .PHONY: dist
