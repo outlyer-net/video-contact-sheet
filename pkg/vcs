@@ -39,7 +39,7 @@ declare -r RELEASE=1
 #    * BUGFIXES:
 #       - Remove extra, empty, temporary dir
 #       - Use standard awk syntax for exponentiation (pyth_th)
-#       - Woraround for systems that don't register fonts with ImageMagick
+#       - Workaround for systems that don't register fonts with ImageMagick
 # 1.11.1:
 #    * Added FLV1 codec
 #    * BUGFIXES:
