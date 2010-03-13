@@ -36,7 +36,9 @@ declare -r RELEASE=1
 # (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
 # 1.11.2:
-#    * BUGFIX: Remove extra, empty, temporary dir
+#    * BUGFIXES:
+#       - Remove extra, empty, temporary dir
+#       - Use standard awk syntax for exponentiation (pyth_th)
 # 1.11.1:
 #    * Added FLV1 codec
 #    * BUGFIXES:
@@ -773,7 +775,7 @@ hash_string() {
 # Applies the Pythagorean Theorem
 # pyth_th($1 = cathetus1, $2 = cathetus2)
 pyth_th() {
-	awkex "sqrt($1 ** 2 + $2 ** 2)"
+	awkex "sqrt($1 ^ 2 + $2 ^ 2)"
 }
 
 # Prints the width correspoding to the input height and the variable
