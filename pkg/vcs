@@ -39,6 +39,7 @@ declare -r RELEASE=1
 #    * BUGFIXES:
 #       - Remove extra, empty, temporary dir
 #       - Use standard awk syntax for exponentiation (pyth_th)
+#       - Woraround for systems that don't register fonts with ImageMagick
 # 1.11.1:
 #    * Added FLV1 codec
 #    * BUGFIXES:
@@ -931,6 +932,7 @@ get_pretty_file_size() {
 
 # Clean $safe_rename_pattern, which is override-able
 # Since safe_rename() is called from $() it won't be able to affect global variables directly
+# Hopefully sson this won't be needed
 sanitise_rename_pattern() {
 	if  ! grep -q '%e' <<<"$safe_rename_pattern" ||
 		! grep -q '%N' <<<"$safe_rename_pattern" ||
@@ -2648,6 +2650,40 @@ coherence_check() {
 	fptest "$interval" -eq 0 && interval=$DEFAULT_INTERVAL 
 
 	sanitise_rename_pattern
+	sanitise_fonts
+}
+
+# If the OS hasn't registered TTF fonts with IM, try to use a saner value
+#+*only* for fonts not overridden
+sanitise_fonts() {
+	# Any default font in use? If all of them are overridden, return
+	if [ "$USR_font_heading" -a "$USR_font_title" -a "$USR_font_tstamps" -a "$USR_font_sign" ]; then
+		return
+	fi
+	# If the user edits any font in the script, stop messing with this
+	[ -z "$USR_font_heading" ] && [ "$font_heading" != 'DejaVu-Sans-Book' ] && return
+	[ -z "$USR_font_title" ] && [ "$font_title" != 'DejaVu-Sans-Book' ] && return
+	[ -z "$USR_font_tstamps" ] && [ "$font_tstamps" != 'DejaVu-Sans-Book' ] && return
+	[ -z "$USR_font_sign" ] && [ "$font_sign" != 'DejaVu-Sans-Book' ] && return
+	# Try to locate DejaVu Sans
+	[ ! -d /usr/share/fonts ] && return
+	local dvs=$(find /usr/share/fonts/ -type f -iname 'dejavusans.ttf')
+	if [ -z "$dvs" ]; then
+		warn "Unable to locate DejaVu Sans font. Falling back to helvetica."
+		dvs=helvetica
+	fi
+	[ -z "$USR_font_heading" ] && font_heading="$dvs"
+	[ -z "$USR_font_title" ] && font_title="$dvs"
+	[ -z "$USR_font_tstamps" ] && font_tstamps="$dvs"
+	[ -z "$USR_font_sign" ] && font_sign="$dvs"
+	[ $DEBUG -eq 1 ] || { return 0; }
+	cat >&2 <<-EOFF
+	Font Sanitization:
+	  font_heading: $font_heading
+	  font_title  : $font_title
+	  font_tstamps: $font_tstamps
+	  font_sign   : $font_sign
+EOFF
 }
 
 check_height() { # Acceptable height
@@ -3983,7 +4019,7 @@ while true ; do
 					GETOPT:      $GETOPT
 					MPLAYER:     $MPLAYER
 					FFMPEG:      $FFMPEG
-					AWK:         $(type -pf awk)
+					AWK:         $(realpathr $(type -pf awk))
 					Filterchain: [ ${FILTERS_IND[*]} ]
 					Decoder:     $d
 					Safe step:   $QUIRKS_LEN_STEP
