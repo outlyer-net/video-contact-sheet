@@ -36,6 +36,7 @@ declare -r RELEASE=1
 # (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
 #
 # 1.11.2:
+#    * Added Cook and Sipro (RealAudio 4, 5 & 6) codecs
 #    * BUGFIXES:
 #       - Remove extra, empty, temporary dir
 #       - Use standard awk syntax for exponentiation (pyth_th)
@@ -2022,7 +2023,6 @@ get_vcodec_name() {
 		MRLE) vcodec="Microsoft RLE" ;;
 		3IV1) vcodec="3ivx Delta" ;;
 		# "mp4v" is the MPEG-4 fourcc *in mov/mp4/3gp*; but I also found MP4V (Apple's iTunes sample)
-		#mp4v|MP4V) vcodec="MPEG-4" ;;
 		mp4v|MP4V) vcodec="MPEG-4" ;;
 		# Synthetic, used for ffmpeg translations
 		vcs_divx) vcodec="DivX ;-)" ;;
@@ -2115,6 +2115,9 @@ get_acodec_name() {
 		#<http://lists.mplayerhq.hu/pipermail/ffmpeg-devel/2005-November/005054.html>
 		355) acodec="WMA9 Lossless" ;;
 		10) acodec="WMA9 Voice" ;;
+		# Other versions of R.A. listed at Wikipedia/RealAudio
+		sipr) acodec="RealAudio SIPR" ;; # RA 4/5
+		cook) acodec="RealAudio Cook" ;; # RA 6
 		*) # If not recognized show audio id tag
 			acodec="$acid"
 			;;
