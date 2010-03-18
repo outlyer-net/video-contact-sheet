@@ -1,3 +1,11 @@
+1.11.2: (2010-03-19)
+    * Added Cook and Sipro (RealAudio 4, 5 & 6) codecs
+    * BUGFIXES:
+       - Remove extra, empty, temporary dir
+       - Use standard awk syntax for exponentiation (pyth_th)
+       - Workaround for systems that don't register fonts with ImageMagick
+    * DEBUG: Print to stderr when probbing with mplayer too
+
 1.11.1: (2010-03-11)
     * Added FLV1 codec
     * BUGFIXES:
