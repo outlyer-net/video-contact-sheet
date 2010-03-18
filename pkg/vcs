@@ -2682,7 +2682,7 @@ sanitise_fonts() {
 	[ -z "$USR_font_sign" ] && font_sign="$dvs"
 	[ $DEBUG -eq 1 ] || { return 0; }
 	cat >&2 <<-EOFF
-	Font Sanitization:
+	Font Sanitation:
 	  font_heading: $font_heading
 	  font_title  : $font_title
 	  font_tstamps: $font_tstamps
