@@ -72,7 +72,7 @@ echo Building %{name}-%{version}-%{release}
 %build
 
 %install
-make DESTDIR=%buildroot install
+make DESTDIR=%buildroot prefix=/usr install
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}

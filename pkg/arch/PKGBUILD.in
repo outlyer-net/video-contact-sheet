@@ -1,7 +1,7 @@
 # Maintainer: Toni Corvera <outlyer@gmail.com>
 
 pkgname=vcs
-pkgver=1.11
+pkgver=@VERSION@
 pkgrel=1.upstream
 pkgdesc="tool to create contact sheets (previews) from videos"
 arch=('any')
@@ -13,9 +13,9 @@ optdepends=('lsdvd: for DVD support'
             'perl: for DVD support')
 backup=()
 source=($url/files/$pkgname-$pkgver.bz2)
-md5sums=('c0cc4152278d93836bfc920e9e7a1078') #generate with 'makepkg -g'
-sha1sums=('f08f07ba655355942a36a8ee695d88c86965a471')
-sha256sums=('056233236a3ed06249af652e5d11e843586d025974b131c173b38a06bd8f2bbd')
+md5sums=(@MD5@) #generate with 'makepkg -g'
+sha1sums=(@SHA1@)
+# Debian & Arch don't agree on this (???) sha256sums=()
 
 build() {
 #  cd $srcdir/$pkgname-$pkgver
