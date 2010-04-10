@@ -1,0 +1,39 @@
+
+Index
+-----
+
+  1. Files
+  2. Installation
+  3. Uninstallation
+
+Files
+-----
+
+In this package:
+
+  vcs                   The VCS script
+  profiles/             Example profiles:
+           mosaic.conf  20 small thumbnails in a 5x4 grid, no padding
+           black.conf   Black background and white text
+           white.conf   White background and black text
+  examples/vcs.conf     Example configuration
+                        Use "make examples/vcs.conf.example" to create
+                        a version with all options commented out.
+
+Installation
+------------
+
+$ make install
+Will install under /usr/local
+
+$ make install prefix=/usr
+Will install under /usr
+
+Uninstallation
+--------------
+
+$ make uninstall
+
+If you used a prefix during install use it too during uninstall
+
+

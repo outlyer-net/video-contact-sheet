@@ -1,0 +1,14 @@
+
+
+VERSION!=head -50 vcs | grep 'declare -r VERSION=' | perl -pe 's/.*"(.*)".*/\1/'
+PACKAGER!=finger -lp `echo $USER` 2>/dev/null | head -n1 | cut -d: -f3
+.if empty($(PACKAGER))
+PACKAGER!=grep ^`id -un` /etc/passwd | cut -d: -f5 | cut -d, -f1
+.endif
+
+.if empty($(RM))
+RM=rm -f
+.endif
+
+include common.mk
+

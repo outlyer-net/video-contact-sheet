@@ -1,4 +1,6 @@
 #
+# $Rev$
+#
 # spec file for vcs rpm
 #
 # based on mp3plot's which in turn was based on other sources
@@ -70,9 +72,10 @@ echo Building %{name}-%{version}-%{release}
 %setup -q -n %{name}-%{version}
 
 %build
+make examples/vcs.conf.example
 
 %install
-make DESTDIR=%buildroot prefix=/usr install
+make DESTDIR=%buildroot prefix=%{prefix} install
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
@@ -87,11 +90,21 @@ make DESTDIR=%buildroot prefix=/usr install
 %defattr(-,root,root)
 # binary
 %{_bindir}/%{name}
+# Profiles
+%{prefix}/share/vcs/profiles/black.conf
+%{prefix}/share/vcs/profiles/mosaic.conf
+%{prefix}/share/vcs/profiles/white.conf
 # Manpage
 #%{_mandir}/man1/%{name}.1.gz
 %doc CHANGELOG
+# Config example
+%doc examples/vcs.conf.example
 
 %changelog
+* Sat Apr 10 2010 - outlyer (at) gmail (dot) com
+- Added profiles and example configuration
+- Use %{prefix}
+
 * Sun Mar 07 2010 - outlyer (at) gmail (dot) com
 - Initial RPM packaging
 

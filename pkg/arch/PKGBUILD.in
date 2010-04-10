@@ -1,4 +1,10 @@
-# Maintainer: Toni Corvera <outlyer@gmail.com>
+#
+# $Rev$
+#
+# Maintainer (Upstream): Toni Corvera <outlyer@gmail.com>
+#
+# Build with '$ makepkg' on the same directory as this file
+#
 
 pkgname=vcs
 pkgver=@VERSION@
@@ -12,17 +18,22 @@ makedepends=('bzip2')
 optdepends=('lsdvd: for DVD support'
             'perl: for DVD support')
 backup=()
-source=($url/files/$pkgname-$pkgver.bz2)
+options=('docs' 'zipman')
+source=($url/files/$pkgname-$pkgver.tar.gz)
 md5sums=(@MD5@) #generate with 'makepkg -g'
 sha1sums=(@SHA1@)
-# Debian & Arch don't agree on this (???) sha256sums=()
+# Debian & Arch didn't agree on this on my first try (???)
+sha256sums=(@SHA256@)
 
 build() {
-#  cd $srcdir/$pkgname-$pkgver
-#  bzip2 -dc $pkgname-$pkgver.bz2 > $pkgname-$pkgver
-  install -D -m755 $pkgname-$pkgver ${pkgdir}/usr/bin/$pkgname || return 1
+  cd $srcdir/$pkgname-$pkgver
+  make prepackage
+  make install DESTDIR=${pkgdir} prefix=/usr
+  install -D $srcdir/$pkgname-$pkgver/examples/vcs.conf.example \
+    ${pkgdir}/usr/share/doc/$pkgname/vcs.conf.example
 }
 
 #man page (TODO)
 # install -D -m644 $pkgname.1 ${pkgdir}/usr/share/man1/$pkgname.1 || return 1
 
+# vim:set filetype=sh ts=2 et: #

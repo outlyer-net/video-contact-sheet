@@ -27,118 +27,12 @@
 #
 # (Note: The references that used to be here have been moved to
 #+       <http://p.outlyer.net/dox/vcs:devel:references>)
+#
+# The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
-declare -r VERSION="1.11.2"
+
+declare -r VERSION="1.12"
 declare -r RELEASE=1
-
-# {{{ # CHANGELOG
-# Last release changes:
-# (The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>).
-#
-# 1.11.2:
-#    * Added Cook and Sipro (RealAudio 4, 5 & 6) codecs
-#    * BUGFIXES:
-#       - Remove extra, empty, temporary dir
-#       - Use standard awk syntax for exponentiation (pyth_th)
-#       - Workaround for systems that don't register fonts with ImageMagick
-#    * DEBUG: Print to stderr when probbing with mplayer too
-# 1.11.1:
-#    * Added FLV1 codec
-#    * BUGFIXES:
-#       - Deprecate DEFAULT_INTERVAL, DEFAULT_NUMCAPS and DEFAULT_COLS as
-#         overrides, warn about their new names (interval, numcaps and cols)
-#       - Fix ImageMagick version detection
-# 1.11:
-#    * FEATURES
-#       - Allow setting output filename. With extension will set output format,
-#         without will inherit it.
-#       - Allow percentages in height.
-#       - Require mplayer OR ffmpeg instead of both. Having both is still
-#         recommended for better results.
-#       - Safe mode, for files whose length doesn't get reported correctly.
-#         Completely automated.
-#         Number of tries can be increased with -Ws. Repeat to increase further.
-#         Use -WS to do try as many times as possible.
-#         Accuracy (stepping) can be increased with -Wp. Repeat to increase
-#         accuracy. Decrease with -WP.
-#         Can be deliberately disabled with -Wb to force processing of broken
-#         files. *VCS WITH -Wb WILL FAIL ON BROKEN FILES*
-#       - Added -dp (--disable padding) equivalent to overriding HPAD to 0
-#    * BUGFIXES:
-#       - Don't pass ms to mplayer. It ignores them anyway and in some rare
-#         cases breaks the last capture (possibly due to the 5-frames hack)
-#       - Honor detected aspect ratio if found
-#       - Try to detect files that might fail on the last capture and trigger
-#         safe mode
-#       - Timestamps font was being ignored. As a side effect this produced
-#         italiced timestamps in some systems
-#       - Fixed obscure bug with safe_rename_pattern overrides
-#    * COMPAT: Support for bash 2.05b. This will (probably) be the last version
-#              capable of running under bash 2.
-#    * DVD mode revamp
-#       - Print title file size instead of disc size when possible
-#       - Aspect ratio detection, if available
-#       - Use of FFmpeg if available to get better information
-#       - Mostly x-platform, only ISOs identification is a bit better in Linux
-#    * Added FourCCs: 3IV1, 3IV2 (3ivx); s263 (H.263); mp4v, MP4V, H264
-#      (MPEG-4 and AVC in mov/mp4), VP6F (VP6 Flash Version), AMR
-#      Video codec renamings:
-#       - TechSmith codec name shortened to TechSmith SCC
-#       - Raw RGB renamed to Raw video
-#    * Help cleanup. The default help output is much shorter, the full text
-#      can be displayed with --fullhelp. Also print the decoder choice near
-#      the appropriate option (-M/-F)
-#    * Added --anonymous to help (never was in it)
-#    * Drop requirement on seq/jot and bc, replaced by inline awk
-#           ... New requirement: Perl (only for DVDs).
-#    * Adopt new/fixed numbering scheme
-#      <http://p.outlyer.net/dox/vcs:devel:renumbering>
-#    * Check ImageMagick version (must decide which is the real minimum
-#      required)
-#    * Non-latin fonts revamp:
-#       - -I no longer works alone (use -Ij or -Ik instead)
-#       - -Ik, -Ij and --nonlatin try to pick an appropriate font automatically
-#       - -I accepts a font name or font filename like
-#              -Ij=Kochi-Mincho-Regular or
-#              -Ij=/usr/share/fonts/truetype/kochi/kochi-mincho.ttf
-#    * Deprecated options:
-#       --shoehorn: Will be removed unless someone really needs it.
-#       --mincho: Replaced by --nonlatin
-#    * COSMETIC:
-#       - Default font switched to DejaVu Sans.
-#         Font sizes reduced to accomodate the new default.
-#         Should fall back to a sane default if it's not available
-#       - Much tighter padding
-#       - Smaller timestamps font by default
-#       - Print friendlier timestamp when a capture fails
-#       - Print program signature to console without colour
-#       - Use main font by default in timestamps
-#       - Heading background colour toned down
-#       - Added colourised output when tput is not capable (i.e. FreeBSD)
-#       - Added prefixes when colour is not available for console output
-#       - Don't print lsdvd error channel is DVD mode
-#       - Suppress mv errors (e.g. over VFS being unable to preserve)
-#    * Minimum ImageMagick version set to 6.3.5-7
-#    * Better detection of requirements (e.g. disallow decoders without png
-#      support)
-#    * Allow overriding height, number of captures, interval, columns, and
-#      padding
-#    * UNDOCUMENTED/DEBUG:
-#       - Allow stopping the main loop before cleaning up (--undocumented hang)
-#       - Identification-only mode. Might be promoted to an actual feature
-#         (--undocumented idonly)
-#       - Allow setting ffmpeg and mplayer path (--undocumented set_ffmpeg and
-#         set_mplayer)
-#       - Allow disabling either mplayer of ffmpeg (as if they weren't
-#         installed (--undocumented disable_ffmpeg and disable_mplayer)
-#       - Added -Wc to disable console colour, repeat to disable prefixes
-#    * INTERNAL:
-#       - assert()
-#       - Cleanup: correctness checks converted to asserts, removal of old dead
-#                  code
-#       - Typos
-#
-# }}} # CHANGELOG
 
 set -e
 
@@ -158,29 +52,31 @@ set -e
 }
 
 # {{{ # TO-DO
-# TODO / FIXME:
-# * (1.12) Start replacing 'grep' with bash's '[[ =~ ]]'. Will break bash 2 compatibility for good
+# * (1.12 or 1.13) Start replacing 'grep' with bash's '[[ =~ ]]'. Will break bash 2 compatibility
+#   for good
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
 # * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace. =>
 #+         SUS v2: egrep is deprecated, grep -E replaces it
 # * Change default DVD_TITLE to 0
 # * Deprecations:
 #     OPTION/VAR    -> ALTERNATIVE              DEPRECATED FROM VERSION   REMOVAL ETA
-#     --shoehorn    -> --undocumented shoehorn   1.11                      1.12
 #     --undocumented shoehorn -> NONE            1.12                      1.13 or 1.14
 #     --funky       -> --profile                 ?                         ?+1
-#     MIN_LENGTH_FOR_END_OFFSET -> none          1.11                      1.12 or 1.13
-#       * No warning shown in 1.11. 1.12 will switch back default end offset either to 0 or a
-#         percentage *and* use it always (disable with -E0)
-#     end offset     -> none                     ?                         ?+1
-#     --mincho      -> --nonlatin                1.11                      1.12
-# * Better check for coherence of overrides
+#     --end_offset  -> --end-offset              1.12 (silent), 1.13 (warn) 1.14
+#    > Usage of ./vcs.conf is also deprecated since it doesn't mesh well with profiles
+#      (and it was a bad placeholder for them). Will remain to be loadable with
+#      -C:pwd.
+#      Loaded by default in 1.12 and maybe 1.13.
+#      Not loaded from 1.14 onwards (maybe 1.13), a warning may be shown if the file
+#      exists
 # * Variables cleanup:
 #   Variables will use a more uniform scheme, with prefixes where appropriate:
 #   - INTERNAL_*: Used internally to adapt messages and the like to the input
 #   - UNDFLAG_*: Undocumented flags. Used internally to keep track of undocumented modes (-Z)
 #   - USR_*: Holds values of variables as set by the user, either from overrides or from the
 #            command-line
+# * Optimisations:
+#   - Reduce the number of forks
 # }}} # TO-DO
 
 # {{{ # Constants
@@ -197,11 +93,10 @@ set -e
 #
 # There is a total of three configuration files than are loaded if the exist:
 # * /etc/vcs.conf: System wide conf, least precedence
-# * $CFGFILE (by default ~/.vcs.conf): Per-user conf, second least precedence
+# * ~/.vcs.conf: Per-user conf, second least precedence
 # * ./vcs.conf: Per-dir config, most precedence
 #
 # The variables that can be overriden are below the block of constants ahead.
-declare -r CFGFILE=~/.vcs.conf
 
 # Default values, use interval, numcaps and cols to override
 declare -ri DEFAULT_INTERVAL=300
@@ -220,8 +115,8 @@ declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $verbosity
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
-# see $font_filename and $FONT_MINCHO
-declare -ri FF_DEFAULT=5 FF_MINCHO=7
+# see $font_filename
+declare -ri FF_DEFAULT=5 FF_NONLATIN=7
 # Indexes in $VID
 declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7 ASPECT=8 VCNAME=9 ACNAME=10
 # Exit codes, same numbers as /usr/include/sysexits.h
@@ -231,6 +126,10 @@ declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
 # The context allows the creator to identify which contact sheet it is creating
 # (CTX_*) HL: Highlight (-l), STD: Normal, EXT: Extended (-e)
 declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
+
+# Used for feedback
+declare -r NL=$'\012' # Newline
+declare -r TAB=$'\011' # Tab
 
 # }}} # End of constants
 
@@ -264,9 +163,9 @@ declare bg_sign=SlateGray #'#a2a9af'       # Background for signature
 declare bg_title=White          # Background for the title (see -T)
 declare bg_contact=White        # Background for the captures
 declare bg_tstamps='#000000aa'  # Background for the timestamps box
-declare fg_heading=black        # Font colour for meta info box
-declare fg_sign=black           # Font colour for signature
-declare fg_tstamps=white        # Font colour for timestamps
+declare fg_heading=Black        # Font colour for meta info box
+declare fg_sign=Black           # Font colour for signature
+declare fg_tstamps=White        # Font colour for timestamps
 declare fg_title=Black          # Font colour for the title
 # Fonts, use identify -list font to get the list, up to IM 6.3.5-7 was '-list type' [[IM1]]
 # If a font is not available IM will pick a sane default. In theory it will be silent
@@ -292,9 +191,7 @@ declare -i pts_title=33            # Used for the title (see -T)
 # See --shoehorn
 declare shoehorned=
 # See -E / $end_offset
-declare -i DEFAULT_END_OFFSET=60
-# If the video is less than this length, end offset won't be used at all 
-declare MIN_LENGTH_FOR_END_OFFSET=19m30s
+declare -r DEFAULT_END_OFFSET="5.5%"
 # This can only be changed in the configuration file
 # Change it to change the safe renanimg:
 # When writing the output file, the input name + output extension is
@@ -333,12 +230,10 @@ declare -i DISABLE_TIMESTAMPS=0
 declare FONT_MINCHO= # Filename or font name as known to ImageMagick (identify -list font)
 # Output of capturing programs is redirected here
 declare stdout=/dev/null stderr=/dev/null
-declare -i DVD_MODE=0 DVD_TITLE=1
-declare DVD_FILE=
 
 # Override-able since 1.11:
 # Height of the thumbnails, by default use same as input
-declare th_height=					# *WILL CHANGE NAME*
+declare th_height='100%'
 declare interval=$DEFAULT_INTERVAL	# Interval of captures (=numsecs/numcaps)
 declare -i numcaps=$DEFAULT_NUMCAPS	# Number of captures (=numsecs/interval)
 # This is the horizontal padding added to each capture.
@@ -386,8 +281,8 @@ declare prefix_err= prefix_inf= prefix_warn= suffix_fback=
 # e.g.: for second 50 '-ss ' will become '-ss 50' while '' will stay empty
 # By default -ss goes before -i.
 declare wa_ss_af="" wa_ss_be="-ss "
-# This number of seconds is *not* captured from the end of the video
-declare -i end_offset=$DEFAULT_END_OFFSET
+# This amount of time is *not* captured from the end of the video
+declare end_offset=$DEFAULT_END_OFFSET
 
 # Transformations/filters
 # Operations are decomposed into independent optional steps, this allows
@@ -464,116 +359,443 @@ declare -i INTERNAL_WS_C=0 # -Ws count
 declare -i INTERNAL_WP_C=0 # -Wp count
 declare -i INTERNAL_MAXREWIND_REACHED=0 # More -Ws in the command-line won't help
 
+# Stores the names of variables overridden from the command-line,
+#+see cmdline_override() and "--override"
+declare CMDLINE_OVERRIDES=""
+
+# Implicit error handling (see die()), obviously inspired by C's errno
+# and PHP's die(). Functions adapted to use them allow uses like:
+#  some_function arg || die
+# which will exit with the appropriate exit code and print the error message
+# (Introduced in 1.12, still being retrofitted)
+declare -i ERROR_CODE=0 # Exit code associated with the last error
+declare ERROR_MSG=      # Error message associated to the last error
+
+# Used to buffer feedback (see buffered())
+declare BUFFER=
+
+# This is only used to exit when -DD is used
+declare -i DEBUGGED=0 # It will be 1 after using -DD
+
+# See post_getopt_hooks()
+# Format: Priority:Command[:Arguments] (lower priority run sooner)
+declare -a POST_GETOPT_HOOKS=( )
+
+declare -i DVD_MODE=0 DVD_TITLE=
+declare -a DVD_TITLES=( ) # Titles for each input DVD, filled by --dvd-title
+declare DVD_MOUNTP= # Mountpoint for DVD, detected & reset for each DVD
+declare DVD_VTS=    # VTS, detected & reset for each DVD
+
 # }}} # Variables
 
 # {{{ # Configuration handling
 
-# These are the variables allowed to be overriden in the config file,
-# please.
-# They're REGEXes, they'll be concatenated to form a regex like
-# (override1|override2|...).
-# Don't mess with this unless you're pretty sure of what you're doing.
-# All this extra complexity is done to avoid including the config
-# file directly for security reasons.
-declare -ra ALLOWED_OVERRIDES=(
-	'user'
-	'user_signature'
-	'bg_.*'
-	'font_.*'
-	'pts_.*'
-	'fg_.*'
-	'output_quality'
-	'DEFAULT_INTERVAL'
-	'DEFAULT_NUMCAPS'
-	'DEFAULT_COLS'
-	'decoder'
-	'output_format'
-	'shoehorned'
-	'timecode_from'
-	'safe_rename_pattern'
-#	'default_options'
-	'extended_factor'
-	'verbosity'
-	'plain_messages'
-	'FONT_MINCHO'
-	'stdout'
-	'stderr'
-	'DEFAULT_END_OFFSET'
-	'MIN_LENGTH_FOR_END_OFFSET'
-	'DEBUG'
-	'DISABLE_.*'
-	'th_height'
-	'interval'
-	'numcaps'
-	'HPAD'
-	'cols'
-#	Note GETOPT doesn't make sense to be overridden from the command-line
-	'GETOPT'
+# New override system: This variable maps configuration variables to actual
+#+variables used in the script. Each item in the array follows the syntax:
+# <cfg variable>:<variable>:<flags>:[type constraints] Where:
+#+ cfg variable: is the name of the configuration file variable
+#+ variable: is the name of the actual variable. If empty or '=', it will be
+#+           the same as cfg variable.
+#+ flags can currently be:
+#+  "deprecated=new name": Will print a deprecation warning and suggest to use
+#+                         "new name" instead
+#+  "striked": Variable is marked for removal, will print a warning about it
+#+             directing anyone needing it to contact me. Only used for variables
+#+             believed to be no longer needed
+#+  "gone":    Variable removed in the current version
+#+  "alias": Marks an alias, duplicate name intended to stay
+#+  "=": ignore
+#+ type constraints: a character indicating accepted values:
+#     n  -> Number (Natural, positive Integer)
+#     p  -> Number, not zero
+#     t  -> Timestamp
+#     b  -> Bool
+#     h  -> Positive, non-zero, number or percentage
+#     f  -> Float or fraction
+#     D  -> only $DEC_* constants
+#     T  -> only $TC_* constants
+#     V  -> only $V_* constants
+#     I  -> interval or percentage
+# Note during the switch to the new system most variables will remain unchanged
+# Also, the new system is case insensitive to variable names
+# TODO: Allow 'y', 'n' in booleans
+# TODO: Remove extra coherence_check()'s once constraints are implemented
+declare -ra OVERRIDE_MAP=(
+	"user:::"
+	"extended_factor:=:=:f"
+	"stdout::"
+	"stderr::"
+	"DEBUG:=:=:b"
+	"interval:=:=:t"
+	"numcaps:=:=:p"
+	"captures:numcaps:alias:n" # Alias
+	"GETOPT::" # Note it makes no sense as command-line override
+	"columns:cols:=:p"
+	"cols:=:alias:p" # Alias
+
+	"DISABLE_SHADOWS:=:=:b"
+	"DISABLE_TIMESTAMPS:=:=:b"
+
+	"bg_heading::"
+	"bg_sign::"
+	"bg_title::"
+	"bg_contact::"
+	"bg_tstamps::"
+	"fg_heading::"
+	"fg_sign::"
+	"fg_tstamps::"
+	"fg_title::"
+	"font_heading::"
+	"font_sign::"
+	"font_tstamps::"
+	"font_title::"
+	"pts_tstamps::"
+	"pts_meta::"
+	"pts_sign::"
+	"pts_title::"
+	# Aliases for cosmetic stuff
+	"bg_header:bg_heading:alias"
+	"bg_signature:bg_sign:alias"
+	"bg_footer:bg_sign:alias"
+	"bg_sheet:bg_contact:alias"
+	"fg_header:fg_heading:alias"
+	"fg_signature:fg_sign:alias"
+	"fg_footer:fg_sign:alias"
+	"font_header:font_heading:alias"
+	"font_meta:font_heading:alias"
+	"font_signature:font_sign:alias"
+	"font_footer:font_sign:alias"
+	"pts_heading:pts_meta:alias"
+	"pts_header:pts_meta:alias"
+	"pts_signature:pts_sign:alias"
+	"pts_footer:pts_sign:alias"
+
+	"signature:user_signature:"
+	"user_signature::deprecated=signature"
+
+	"quality:output_quality:=:n"
+	"output_quality::deprecated=quality:n"
+
+	# TODO: These variables are evaluated to constants, would be better to
+	#       use some symbolic system (e.g. decoder=f instead of decoder=$DEC_FFMPEG)
+	"decoder:=:=:D"
+	#"capture_mode:timecode_from:alias:T"
+	"timecode_from:=:=:T"
+	"verbosity:=:=:V"
+
+	"format:output_format:"
+	"output_format:=:deprecated=format"
+
+	"simple_feedback:plain_messages:=:b"
+	"plain_messages::deprecated=simple_feedback:b"
+
+	"height:th_height:=:h"
+	"th_height::deprecated=height:h"
+
+	"padding:HPAD:=:n"
+	"HPAD:=:deprecated=padding:n"
+
+	"nonlatin_font:FONT_MINCHO:"
+	"FONT_MINCHO::deprecated=nonlatin_font"
+
+	"end_offset:=:=:I" # New, used to have a two-variables assignment before USR_*
+	"DEFAULT_END_OFFSET:end_offset:deprecated=end_offset:I"
+
+	# TODO TBA:
+	#"use_nonlatinfont::"
+	#"noboldfeedback::" # Colour but not bold
+
+	"shoehorned::striked"
+	"safe_rename_pattern::striked"
+	"MIN_LENGTH_FOR_END_OFFSET::gone:"
 )
 
-# This is only used to exit when -DD is used
-declare -i DEBUGGED=0 # It will be 1 after using -D
+# Load a configuration file
+# File *MUST* exist
+# Configuration files are a series of variable=value assignment; they'll be
+#+evaluated directly so they can refer to other variables (with their value at
+#+the point of the assignment).
+# Quotes shouldn't be used (they'll be kept)
+# Since 1.12 comments can be placed in-line (i.e. after an assignment),
+# Literal '#' can be written as '$#'
+# ';' can be used to mark an end of line, anything after it will be ignored
+#+(making it equivalent to '#'), there's no way to include a literal ';'
+# load_config_file($1 = file, [$2 = type (description) = 'Settings'])
+load_config_file() {
+	local cfgfile=$1
+	local desc=$2
+	[ "$desc" ] || desc='Settings'
+
+	local por= # Parsed override
+	local varname= tmp= flag= bashcode= feedback= ov=
+	while read line ; do # auto variable $line
+		parse_override "$line" # Feeding it comments should be harmless
+		por=$RESULT
+		if [ "$por" ]; then
+			varname=${por/% *} # Everything up to the first space...
+			tmp=${por#* } # Rest of string
+			flag=${tmp/% *}
+			bashcode=${tmp#* }
+			if [ "$flag" == '=' ]; then
+				# No need to override...
+				feedback="$varname(=)"
+			else
+				feedback=$varname
+				eval "$bashcode"
+			fi
+			ov="$ov, $feedback"
+		fi
+	done <$cfgfile
+	[ -z "$ov" ] || inf "$desc from $cfgfile:$NL ${ov:2}"
+	# No loaded overrides but errors/warnings to print, do print the file name
+	if [ -z "$ov" -a "$BUFFER" ]; then
+		inf "In $cfgfile:"
+	fi
+	flush_buffered ' '
+}
 
 # Loads the configuration files if present
 # load_config()
 load_config() {
-	local -a CONFIGS=( /etc/vcs.conf $CFGFILE ./vcs.conf )
+	local -a CONFIGS=( /etc/vcs.conf ~/.vcs.conf ~/.vcs/vcs.conf ./vcs.conf )
 
 	for cfgfile in "${CONFIGS[@]}" ;do
-		if [ ! -f "$cfgfile" ]; then continue; fi
-
-		while read line ; do # auto variable $line
-			override "$line" "file $cfgfile" # Feeding it comments should be harmless
-		done <$cfgfile
+		[ -f "$cfgfile" ] || continue
+		load_config_file "$cfgfile"
 	done
-
-	end_offset=$DEFAULT_END_OFFSET
 }
 
-# Do an override
-# It takes basically an assignment (in the same format as bash)
-# to one of the override-able variables (see $ALLOWED_OVERRIDES).
-# There are some restrictions though. Currently ';' is not allowed to
-# be in the assignment.
-# override($1 = bash variable assignment, $2 = source)
-override() {
+# Load a profile, if found; fail otherwise
+# Profiles are just configuration files that can be loaded on demand (whereas
+#+config files are always loaded) and be given a name.
+# See load_config_file() for comments on the syntax
+# Locations to be searched, in order:
+#+  1) ~/.vcs/profiles/NAME.conf
+#+  2) /usr/local/share/vcs/profiles/NAME.conf
+#+  3) /usr/share/vcs/profiles/NAME.conf
+#+i.e. files in ~/.vcs/ will prevent loading files named like them in /usr
+# load_profile($1 = profile name)
+load_profile() {
+	local p=$1 prof=
+	local -a PATHS=( ~/.vcs/profiles/ /usr/local/share/vcs/profiles/ /usr/share/vcs/profiles/ )
+
+	if [ ${p:0:1} == ':' ]; then
+		case $p in
+		:list)
+			# No need to be efficient here...
+			echo "Profiles located:"
+			local path= profname=
+			# 1) Find all profiles
+			# 2) (sed) Extract profile file name
+			# 3 & 4) (sort+uniq) Keep only first hits for each name (most precedence)
+			# 5) (while) Process each name
+			# 6) (for) Re-locate most precedent profile
+			# 7) (echo x3) Print <name>[: description]
+			# 8) (sed) Indent with ' * '
+			find "${PATHS[@]}" -name '*.conf' 2>/dev/null \
+				| sed -e 's#.*/\(.*\)\.conf#\1#' \
+				| sort | uniq \
+				| while read profname ; do
+					for path in "${PATHS[@]}" ; do
+						path=$path$profname.conf
+						[ -f "$path" ] || continue
+						echo -n "$profname"
+						# [ ] here contains <space><tab>. Mawk doesn't understand
+						# [[:space:]]
+						echo -n $(awk 'sub(/#[ 	]*vcs:desc:[ 	]*/, ": ")' "$path")
+						echo
+						break
+					done
+				done \
+				| sed 's/^/ * /'
+			exit 0
+			;;
+		*)
+			ERROR_MSG="Profiles starting with ':' are reserved.$NL"\
+" Use ':list' to list available profiles."
+			ERROR_CODE=$EX_USAGE
+			return $ERROR_CODE
+		esac
+	fi
+
+	for prof in "${PATHS[@]}" ; do
+		prof="$prof$p.conf"
+		[ -f "$prof" ] || continue
+		load_config_file "$prof" 'Profile'
+		return 0
+	done
+	ERROR_MSG="Profile '$p' not found"
+	ERROR_CODE=$EX_USAGE
+	return $ERROR_CODE
+}
+
+# Check value for an overrideable variable against the allowed values
+# check_constraint($1 = variable name, $2 = value [, $3 = public_name])
+#  where public_name is the name to be used for error messages
+check_constraint() {
+	local n=$1 v=$2 p=$3
+	# Get constraint
+	local map=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$n:")
+	[ "$map" ] || return 0
+	local ct=$(cut -d':' -f4 <<<"$map")
+	[ "$ct" ] || return 0
+	local checkfn= domain=
+	case $ct in
+		n) checkfn=is_number ; domain=numbers ;;
+		p) checkfn=is_positive ; domain='numbers greater than zero' ;;
+		t) checkfn=is_interval ; domain=intervals ;;
+		b) checkfn=is_bool ; domain='boolean values (0 or 1)' ;;
+		h) checkfn=is_pos_or_percent ; domain='positive numbers or percentages' ;;
+		f) checkfn=is_float_or_frac ; domain='positive numbers or fractions' ;;
+		D) checkfn=is_decoder ; domain='$DEC_FFMPEG or $DEC_MPLAYER' ;;
+		T) checkfn=is_tcfrom ; domain='$TC_INTERVAL or $TC_INTERVAL' ;;
+		V) checkfn=is_vlevel ; domain='verbosity levels ($V_.*)' ;;
+		I) checkfn=is_interv_or_percent ; domain='intervals or percentages' ;;
+	esac
+	if [ "$checkfn" ] && ! $checkfn "$v" ; then
+		[ "$p" ] || p=$n
+		ERROR_MSG="Illegal value for '$p', only $domain are accepted"
+		ERROR_CODE=$EX_USAGE
+		return $ERROR_CODE
+	fi
+	return 0
+}
+
+# Parse an override
+# Input should be a var=value assignment, result, stored in the global variable $RESULT,
+# will be in the format:
+# <variable name> <flag> <evaluable code> where
+#  * variable name: is the name of the variable to be overridden
+#  * flag: is a character indicating the status: "+" for a possible override,
+#         "=" for an override that already has the same value
+#  * evaluable code: is a piece of bash code to be feed to eval to change
+#         the variable, it also sets the related USR_* variable
+# Warnings and errors are buffered
+# This function always returns true
+# parse_override($1 = override assignment)
+parse_override() {
 	local o="$1"
-	local src="$2"
+	RESULT=''
 
-	local compregex=${ALLOWED_OVERRIDES[*]}
-	compregex=${compregex// /|} # = s ' ' => '|'
-
-	# Don't allow ';', FIXME: dunno how secure that really is...
-	# FIXME: ...it doesn't really work anyway
-	if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*=[^;]*' <<<"$o" ; then
+	if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*=.*' <<<"$o" ; then
 		return
 	fi
-	if ! egrep -q "^($compregex)=" <<<"$o" ; then
-		return
+	local varname=$(echo "${o/=*}" | sed 's/[[:space:]]//g') # Trim var name
+	local lcvarname=$(echo "$varname" | tr '[A-Z]' '[a-z]')
+	local mapping=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$lcvarname:")
+
+	[ "$mapping" ] || return 0
+
+	local varval=${o#*=} # No trimming here (yet)
+	#  1) Trim from ; (if present) to finish
+	#  2) Trim from # (comments) not "escaped" like '$#'
+	#  3) Replace '$#' with '#'
+	#  4) Trim whitespace on both ends
+	varval=$(sed -e 's/;.*//' -e 's/\([^$]\)#.*/\1/g' -e 's/\$#/#/g' \
+				-e 's/^[[:space:]]*//;s/[[:space:]]*$//' <<<"$varval")
+	# Is varval empty?
+	[ "$varval" ] || return 0
+
+	local mvar=$(cut -d':' -f1 <<<"$mapping")
+	local ivar=$(cut -d':' -f2 <<<"$mapping")
+	local flags=$(cut -d':' -f3 <<<"$mapping")
+	local constraints=$(cut -d':' -f4 <<<"$mapping")
+	{ [ "$ivar" ] && [ "$ivar" != "=" ] ; } || ivar="$mvar"
+
+	# Note using "\$(echo $varval)" would allow a more flexible syntax but
+	#+enforce special handling of escaping, which with the currently available
+	#+settings is not worth the effort
+	# Resolve symbolic variables to check their actual value
+	eval varval="\"$varval\"" 2>/dev/null || { # Hide eval's errors
+		buffered error "Syntax error: '$o'"
+		return 0
+	}
+
+	[ "$varval" ] || return 0 # If empty value, ignore it
+
+	local evcode=''
+	if [ "$flags" ] && [ $flags != "=" ] && [ $flags != 'alias' ]; then
+		if echo "$flags" | grep -q '^deprecated=' ; then
+			local new=$(echo "$flags" | sed 's/^deprecated=//')
+			buffered warn "Variable '$varname' will be removed in the future,$NL please use '$new' instead."
+		else
+			case "$flags" in
+				gone) buffered error "Variable '$varname' has been removed." ;;
+				striked)
+					buffered error "Variable '$varname' is scheduled to be removed in the next release."
+					buffered error " Please contact the author if you absolutely need it."
+					;;
+			esac
+			return 0
+		fi
 	fi
 
-	local varname=$(egrep -o '^[[:space:]]*[a-zA-Z0-9_]*=.' <<<"$o" | cut -d'=' -f1 | egrep -o '[^ ]*')
-	local varval=$(egrep -o '^[^=]*=.*' <<<"$o" | cut -d'=' -f2-)
-	if [ "$varname" = "DEFAULT_INTERVAL" ]; then
-		warn '$DEFAULT_INTERVAL is deprecated, please use $interval instead'
-		varname=interval
-	elif [ "$varname" = "DEFAULT_NUMCAPS" ]; then
-		warn '$DEFAULT_NUMCAPS is deprecated, please use $numcaps instead'
-		varname=numcaps
-	elif [ "$varname" = "DEFAULT_COLS" ]; then
-		warn '$DEFAULT_COLS is deprecated, please use $cols instead'
-		varname=cols
-	fi
-	# FIXME: Security!
-	local curvarval=
-	eval curvarval='$'"$varname"
+	[ -z "$constraints" ] || check_constraint $ivar "$varval" $varname || {
+		buffered error "$ERROR_MSG"
+		return 0
+	}
+
+	eval local curvarval='$'"$ivar" retflag='+'
 	if [ "$curvarval" == "$varval" ]; then
-		warn "Ignored override '$varname' (already had same value)"
+		retflag='='
 	else
-		eval "$varname=\"$varval\""
-		eval "USR_$varname=\"$varval\""
-		# FIXME: Only for really overridden ones
-		warn "Overridden variable '$varname' from $src"
+		if [ "$constraints" == "t" ]; then
+			varval=$(get_interval "$varval")
+		fi
+		# Escape single quotes, since it will be single-quoted:
+		varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
+		evcode="$ivar='$varval'; USR_$ivar='$varval'"
+	fi
+
+	# varname, as found in the config file
+	RESULT="$varname $retflag $evcode"
+}
+
+# Do an override from the command line
+# cmdline_override($1 = override assignment)
+#+e.g. cmdline_override 'decoder=$DEC_FFMPEG'
+cmdline_override() {
+	trace $FUNCNAME $@
+	parse_override "$1"
+	local r=$RESULT
+	[ "$r" ] || return 0
+	local varname=${r/% *} # See load_config()
+	local tmp=${r#* }
+	local flag=${tmp/% *}
+	local bashcode=${tmp#* }
+
+	if [ "$flag" == '=' ]; then
+		varname="$varname(=)"
+	else
+		eval "$bashcode"
+	fi
+
+	CMDLINE_OVERRIDES="$CMDLINE_OVERRIDES, $varname"
+}
+
+# Call any pending commands required by the command-line arguments
+# This is used to defer some calls and to flush buffers
+post_getopt_hooks() {
+	local cback= EX=0
+	local funcs=$(echo "${POST_GETOPT_HOOKS[*]}" | stonl | sort -n | uniq |\
+			cut -d':' -f2- )
+	for cback in $funcs ; do
+		local fn=${cback/:*}
+		local arg=${cback/*:}
+		[ "$arg" != "$cback" ] || arg=''
+		$fn $arg
+	done
+}
+
+# Print the list of command-line overrides
+cmdline_overrides_flush() {
+	trace $FUNCNAME $@
+	if [ "$CMDLINE_OVERRIDES" ]; then
+		inf "Overridden settings from command line:$NL ${CMDLINE_OVERRIDES:2}"
+	fi
+	if [ "$BUFFER" ]; then
+		[ "$CMDLINE_OVERRIDES" ] || warn "In command-line overrides:"
+		flush_buffered ' '
 	fi
 }
 
@@ -581,37 +803,66 @@ override() {
 
 # {{{ # Convenience functions
 
-# Returns true if input is composed only of numbers
-# is_number($1 = input)
-is_number() {
-	egrep -q '^[0-9]+$' <<<"$1"
-}
+#### {{{{ # Type checkers: Return true if input is of a certain type
+####                       All take exactly one argument and print nothing
 
-# Returns true if input is a valid percentage (xx% or xx.yy%)
-# is_percentage($1 = input)
+## Natural number
+is_number() {
+	#egrep -q '^[0-9]+$' <<<"$1" ;
+	# From [[abs]], test if '[ ]' can parse input as numbers
+	# Returns 2 for failed test, expected to return 1
+	[ "$1" -ne 0 -o "$1" -eq 0 ] 2>/dev/null || return 1
+}
+## Number > 0
+is_positive() { is_number "$1" && [ $1 -gt 0 ]; }
+## Bool (0 or 1)
+is_bool() { [ "$1" == "0" -o "$1" == "1" ] 2>/dev/null ; }
+## Float (XX.YY; XX.; ;.YY) (.24=0.24)
+is_float() { egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))$'<<<"$1" ; }
+## Percentage (xx% or xx.yy%)
 is_percentage() {
 	egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))%$'<<<"$1"
 }
-
-# Returns true if input can be parsed as a floating point number
-# Accepted: XX.YY XX. .YY (.24=0.24
-# is_float($1 = input)
-is_float() {
-	egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))$'<<<"$1"
+## Interval
+is_interval() {
+	local i=$(get_interval "$1" || true)
+	[ "$i" ] && fptest $i -gt 0
 }
-
-# Returns true if input is a fraction (*strictly*, i.e. "1" is not a fraction)
-# Only accepts XX/YY
-# is_fraction($1 = input)
+## Interval or percentage
+is_interv_or_percent() {
+	is_percentage "$1" || is_interval "$1"
+}
+## Positive or percentage
+is_pos_or_percent() {
+	is_number "$1" && [ "$1" -gt 0 ] || is_percentage "$1"
+}
+## Float (>=0) or fraction
+is_float_or_frac() {
+	{ is_fraction "$1" || is_float "$1" ; } && fptest "$1" -ge 0
+}
+## Fraction, strictly (X/Y, but no X; Y!=0)
 is_fraction() {
-	egrep -q '^[0-9]+/[0-9]+$'<<<"$1"
+	egrep -q '^[0-9]+/[0-9]+$'<<<"$1" && {
+		local d=$(echo "$1" | cut -d'/' -f2)
+		[ "$d" -ne 0 ]
+	}
 }
+## Decoder ($DEC_* constants)
+is_decoder() { [ "$1" == $DEC_FFMPEG -o "$1" == $DEC_MPLAYER ]; }
+## Time calculation source ($TC_* constants)
+is_tcfrom() { [ "$1" == $TC_INTERVAL -o "$1" == $TC_NUMCAPS ]; }
+### Verbosity level ($V_* constants)
+is_vlevel() {
+	is_number "$1" && \
+		[ $1 -eq $V_ALL -o $1 -eq $V_NONE -o $1 -eq $V_ERROR -o \
+			$1 -eq $V_WARN -o $1 -eq $V_INFO ]
+}
+
+#### }}}} # End of type checkers
 
 # Makes a string lowercase
 # tolower($1 = string)
-tolower() {
-	tr '[A-Z]' '[a-z]' <<<"$1"
-}
+tolower() { tr '[A-Z]' '[a-z]' <<<"$1" ; }
 
 # Rounded product
 # multiplies parameters and prints the result, rounded to the closest int
@@ -687,7 +938,9 @@ keepdecimals_lower() {
 awkexf() {
 	# By default awk prints in compact form (scientific notation and/or up to 6 digits/decimals),
 	# printf is used to avoid this, TODO: Is there any direct way?
-	# .%20f is clearly overkill but matches the all code (default bc -l)
+	# .%20f is clearly overkill but matches the old code (default bc -l)
+	# TODO: gawk and mawk differ in how to handle stuff like div by zero:
+	#       gawk errors, mawk prints inf. Should somehow handle inf and nan
 	awk "BEGIN { printf \"%.20f\", ($1)+0 }"
 }
 
@@ -699,15 +952,23 @@ awkex() {
 }
 
 # converts spaces to newlines in a x-platform way [[FNL]]
-# stonl($1 = string)
+# stonl([$1 = string])
 stonl() {
-	awk '{gsub(" ", "\n");print}' <<<"$1" | egrep -v '^$'
+	if [ "$1" ]; then
+		awk '{gsub(" ", "\n");print}' <<<"$1" | egrep -v '^$'
+	else
+		awk '{gsub(" ", "\n");print}' | egrep -v '^$'
+	fi
 }
 
 # Converts newlines to spaces portably
-# nltos($1 = string)
+# nltos([$1 = string])
 nltos() {
-	awk '{printf "%s ",$0}' <<<"$1" | sed 's/ *//'
+	if [ "$1" ]; then
+		awk '{printf "%s ",$0}' <<<"$1" | sed 's/ *//'
+	else
+		awk '{printf "%s ",$0}' | sed 's/ *//'
+	fi
 }
 
 # bash version of ord() [[ORD]]
@@ -778,7 +1039,21 @@ hash_string() {
 # Applies the Pythagorean Theorem
 # pyth_th($1 = cathetus1, $2 = cathetus2)
 pyth_th() {
-	awkex "sqrt($1 ^ 2 + $2 ^ 2)"
+	awkexf "sqrt($1 ^ 2 + $2 ^ 2)"
+}
+
+# Get a percentage
+# percent($1 = value, $2 = percentage)
+percent() {
+	local pc=${2/%%/} # BASH %% == RE %$
+	awkexf "($1 * $pc) / 100"
+}
+
+# Rounded percentage
+# rpercent($1 = value, $2 = percentage)
+rpercent() {
+	local pc=${2/%%/}
+	awkex "int( ($1 * $pc) / 100 + 0.5 )"
 }
 
 # Prints the width correspoding to the input height and the variable
@@ -799,7 +1074,7 @@ compute_width() {
 get_interval() {
 	trace $FUNCNAME $@
 	# eval it even if it's numeric to strip leading zeroes. Note the quoting
-	if is_number "$1" ; then awkex "\"$1\"" ; return 0 ; fi
+	if is_number "$1" ; then awkexf "\"$1\"" ; return 0 ; fi
 
 	local s=$(tolower "$1") t r n
 
@@ -841,7 +1116,7 @@ get_interval() {
 	t=${t//s/ + }
 	t="$t$secs"
 	t=${t/% + /} # Strip empty addition
-	r=$(awkex "$t" 2>/dev/null)
+	r=$(awkexf "$t" 2>/dev/null)
 
 	# Negative and empty intervals
 	assert $LINENO "[ '$r' ] && [ '$t' ]"
@@ -872,6 +1147,15 @@ imw() {
 # imh($1 = file)
 imh() {
 	identify -format '%h' "$1"
+}
+
+# Get the line height used for a certain font and size
+# line_height($1 = font, $2 = size)
+line_height() {
+	# Create a small image to see how tall are characters. In my tests, no
+	#+matter which character is used it's always the same height.
+	convert -font "$1" -pointsize "$2" \
+		label:'F' png:- | identify -format '%h' -
 }
 
 # Prints a number of seconds in a more human readable form
@@ -934,7 +1218,7 @@ get_pretty_file_size() {
 
 # Clean $safe_rename_pattern, which is override-able
 # Since safe_rename() is called from $() it won't be able to affect global variables directly
-# Hopefully sson this won't be needed
+# Hopefully soon this won't be needed
 sanitise_rename_pattern() {
 	if  ! grep -q '%e' <<<"$safe_rename_pattern" ||
 		! grep -q '%N' <<<"$safe_rename_pattern" ||
@@ -1030,9 +1314,10 @@ is_linux() {
 # Get the mountpoint of a mounted image.
 # This only works on Linux. *BSD normal users aren't able to use mdconfig -l
 # Is there any better way?
+# get_dvd_image_mountpoint($1 = image file)
 get_dvd_image_mountpoint() {
 	if is_linux ; then
-		local lodev=$(/sbin/losetup -j "$DVD_FILE" | cut -d':' -f1 | head -1)
+		local lodev=$(/sbin/losetup -j "$1" | cut -d':' -f1 | head -1)
 		mount | grep "^$lodev " | cut -d' ' -f3
 	fi
 }
@@ -1201,6 +1486,7 @@ inf() {
 		echo "$1$suffix_fback"
 	fi >&2
 }
+
 #
 # Same as inf but with no colour ever.
 # infplain($1 = text)
@@ -1211,10 +1497,45 @@ infplain() {
 }
 
 #
+# Buffering of feedback, usage:
+#  buffered warn "my warning"
+#  ...
+#  flush_buffered
+# buffered($1 = feedback function, $2 = arguments)
+buffered() {
+	local grab=$( $1 "$2" 2>&1 )
+#	BUFFER=( "${BUFFER[@]}" -- "$grab" )
+	BUFFER=$BUFFER$grab$NL
+}
+
+#
+# Print buffered feedback to stderr
+# flush_buffered([$1 = indentation])
+flush_buffered() {
+	[ "${BUFFER[*]}" ] || return 0
+	echo "$BUFFER" | sed -e '$d' -e "s/^/$1/g" >&2 # sed: delete last line, indent with $1
+	BUFFER=''
+}
+
+
+#
 # trace($1 = function name = $FUNCNAME, function arguments...)
 trace() {
 	if [ "$DEBUG" -ne "1" ]; then return; fi
 	echo "[TRACE]: $@" >&2
+}
+
+# Print an error message and exit
+# die([$1 = message [, $2 = exit_code]])
+#  If no message is provided, use $ERROR_MSG
+#  If no exit_code is provided, use $ERROR_CODE
+die() {
+	local m=$1 ec=$2
+	[ "$ec" ] || ec=$ERROR_CODE
+	[ "$ec" ] || ec=1
+	[ "$m" ] || m=$ERROR_MSG
+	error "$m"
+	exit $ec
 }
 
 #
@@ -1249,13 +1570,13 @@ init_feedback() {
 	# Is tput available?
 	if type -pf tput >/dev/null ; then
 		# Is it able to set colours?
-		if tput bold && tput setaf 0 >/dev/null && tput sgr0 ; then
+		if tput bold && tput setaf 0 && tput sgr0 ; then
 			prefix_err=$(tput bold; tput setaf 1)
 			prefix_warn=$(tput bold; tput setaf 3)
 			prefix_inf=$(tput bold; tput setaf 2)
 			suffix_fback=$(tput sgr0)
 			HAS_COLORS="yes"
-		fi
+		fi >/dev/null
 	fi
 
 	if [ -z "$HAS_COLORS" ]; then
@@ -1428,6 +1749,8 @@ compute_timecodes() {
 	trace $FUNCNAME $@
 
 	local st=0 end=${VID[$LEN]} tcfrom=$1 tcint=$2 tcnumcaps=$3 eo=0
+	local eff_eo= # Effective end_offset (for percentages)
+
 	# globals: fromtime, totime, timecode_from, TIMECODES, end_offset
 	if fptest $st -lt $fromtime ; then
 		st=$fromtime
@@ -1435,17 +1758,18 @@ compute_timecodes() {
 	if fptest $totime -gt 0 && fptest $end -gt $totime ; then
 		end=$totime
 	fi
+	if is_percentage $end_offset ; then
+		eff_eo=$(percent $end $end_offset)
+	else
+		eff_eo=$(get_interval "$end_offset")
+	fi
 	if fptest $totime -le 0 ; then # If no totime is set, use end_offset
-		eo=$end_offset
+		eo=$eff_eo
 
-		local runlen=$(awkex "$end - $st")
+		local runlen=$(awkexf "$end - $st")
 
-		if fptest "$runlen" -lt $(get_interval "$MIN_LENGTH_FOR_END_OFFSET") ; then
-			# Min length to use end offset not met, it won't be used
-			inf "End offset won't be used, video too short."
-			eo=0
-		elif fptest "($end-$eo-$st)" -le 0 ; then
-			if fptest "$eo" -gt 0 && fptest "$eo" -eq "$DEFAULT_END_OFFSET" ; then
+		if fptest "($end-$eo-$st)" -le 0 ; then
+			if fptest "$eo" -gt 0 && [ -z "$USR_end_offset" ] ; then
 				warn "Default end offset was too high for the video, ignoring it."
 				eo=0
 			else
@@ -1481,11 +1805,14 @@ compute_timecodes() {
 	local stamp=$st
 	local -a LTC
 	local bound=$(awkexf "$end - $eo")
+	local last=
 	while fptest $stamp -le "$bound"; do
 		assert $LINENO fptest $stamp -ge 0
 		LTC=( "${LTC[@]}" "$stamp" )
+		last=$stamp
 		stamp=$(keepdecimals_lower $(awkexf "$stamp + $inc") 3)
 	done
+	inf "Capturing in range [$(pretty_stamp $inc)-$(pretty_stamp $last)]. Total length: $(pretty_stamp ${VID[$LEN]})"
 	unset LTC[0] # Discard initial cap (=$st)
 	TIMECODES=( ${TIMECODES[@]} ${LTC[@]} ) # Don't quote or extra empty stamp!
 }
@@ -1539,6 +1866,7 @@ guess_aspect() {
 # Capture a frame with ffmpeg
 # capture_ffmpeg($1 = inputfile, $2 = outputfile, $3 = timestamp[, $4 = extra opts])
 capture_ffmpeg() {
+	trace $FUNCNAME $@
 	local f=$1
 	local o=$2
 	local ts=$3
@@ -1554,7 +1882,9 @@ capture_ffmpeg() {
 # Capture a frame with mplayer
 # capture_mplayer($1 = inputfile, $2 = UNUSED, $3 = timestamp[, $4 = extra opts])
 capture_mplayer() {
-	# Note mplayer CAN'T set the output filename
+	trace $FUNCNAME $@
+	# Note mplayer CAN'T set the output filename, newer mplayer can set output
+	#+dir though.
 	local f="$1"
 	local o=00000005.png
 	local ts=$3
@@ -1566,7 +1896,7 @@ capture_mplayer() {
 	{
 	if [ $DVD_MODE -eq 1 ]; then
 		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			   -frames 5 -ss "$ts" $shoehorned -dvd-device "$DVD_FILE" \
+			   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
 			   $4 "dvd://$DVD_TITLE"
 	else
 		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
@@ -1957,7 +2287,7 @@ safe_length_measure() {
 			INTERNAL_MAXREWIND_REACHED=1
 		fi
 		for rew in $(seqr $QUIRKS_LEN_STEP $maxrew $QUIRKS_LEN_STEP); do
-			newlen=$(keepdecimals_lower $(awkex "$len - $rew") 3)
+			newlen=$(keepdecimals_lower $(awkexf "$len - $rew") 3)
 			warn "   ... trying $newlen"
 			if probe_video "$f" "$newlen" ; then
 				echo $newlen
@@ -2171,7 +2501,7 @@ mplayer_identify() {
 							-quiet "$f" 2>"$stderr" | grep ^ID)
 	else
 		MPLAYER_CACHE=$("$MPLAYER" -benchmark -ao null -vo null -identify -frames 0 \
-							-quiet -dvd-device $DVD_FILE dvd://$DVD_TITLE \
+							-quiet -dvd-device "$f" dvd://$DVD_TITLE \
 							2>"$stderr" | grep ^ID)
 	fi
 	# Note the head -1!
@@ -2224,19 +2554,18 @@ mplayer_identify() {
 ffmpeg_identify() {
 	trace $FUNCNAME $@
 	[ "$FFMPEG" ] || return
-	# (AFAIK) Can't use ffmpeg in DVD Mode
-	#[ $DVD_MODE -eq 0 ] || return
 	local f="$1"
 	# DVD Devices *MUST* be mounted for the identifying process to even start
 	assert $LINENO "[ $DVD_MODE -eq 0 ] || [ '$DVD_MOUNTP' ]"
-	[ $DVD_MODE -eq 1 ] && [ "$DVD_DEVICE" ] && {
-		local vfile="$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_1.VOB"
+	[ $DVD_MODE -eq 1 ] && {
+		local vfile="$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_0.VOB"
 		if [ ! -r "$vfile" ]; then
-			error "Failed to locale mounted DVD. Detection will be less accurate."
+			error "Failed to locate mounted DVD. Detection will be less accurate."
 			return 0 # We can continue anyway
 		fi
 		f="$vfile"
 	}
+	# XXX: FFmpeg detects mpeg1video in DVDs??
 
 	local fi=( ) vs= as= obs= vsid=
 	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
@@ -2324,13 +2653,13 @@ ffmpeg_identify() {
 	if [ "${fi[$LEN]}" == "N/A" ]; then # It might be unable to detect
 		fi[$LEN]=""
 	fi
-	fi[$LEN]=$( get_interval $(echo "${fi[$LEN]}" | sed 's/:/h/' | sed 's/:/m/') )
+	fi[$LEN]=$( get_interval $(echo "${fi[$LEN]}" | sed -e 's/:/h/' -e 's/:/m/') )
 	# Aspect ratio in FFmpeg is only provided in newer ffmpeg
 	# It might be calculated for files without one (which is ok anyway)
 	# TODO: Replace tail -1 with some better option (see the double DAR example above)
 	fi[$ASPECT]=$(egrep -o 'DAR [0-9]*:[0-9]*'<<<"$FFMPEG_CACHE" | tail -1 | cut -d' ' -f2 | sed 's#:#/#')
 	# Due to calling ffmpeg on a single VOB when in DVD Device mode, the length will be partial
-	[ $DVD_MODE -eq 1 ] && [ "$DVD_DEVICE" ] && fi[$LEN]=''
+	[ $DVD_MODE -eq 0 ] || fi[$LEN]=''
 	fi[$VCNAME]=$(get_vcodec_name $(translate_ffmpeg_vcodec_id "${fi[$VCODEC]}"))
 	fi[$ACNAME]=$(get_acodec_name $(translate_ffmpeg_acodec_id "${fi[$ACODEC]}"))
 	VID_FFMPEG=("${fi[@]}")
@@ -2383,7 +2712,7 @@ identify_video() {
 		fptest "$fflen" -eq 0 && fptest "$mplen" -eq 0 && return $RET_NOLEN
 		if [ $DVD_MODE -eq 0 ] && [ $QUIRKS -eq 0 ]; then # In DVD mode ffmpeg has no length
 			# Quirks disabled, should be enabled?
-			local delta=$(abs $(awkex "($fflen - $mplen)"))
+			local delta=$(abs $(awkexf "($fflen - $mplen)"))
 			# If they don't agree, take the shorter as a starting point,
 			#+if both are different than zero take min, if one of them is 0, take max to start
 			if fptest "$fflen" -ne 0 && fptest "$mplen" -ne 0 ; then
@@ -2496,7 +2825,9 @@ dump_idinfo() {
 EODUMP
 	local ffl="${VID_FFMPEG[$LEN]}"
 	[ "$ffl" ] && ffl=$(pretty_stamp "$ffl")
-	[ -z "$ffl" ] && [ $DVD_MODE -eq 1 ] && ffl="(unavailable in DVD mode)"
+	if [ -z "$ffl" -a $DVD_MODE -eq 1 ]; then
+		ffl="(unavailable in DVD mode)"
+	fi
 	[ "$FFMPEG" ] && cat <<-EODUMP
 	=========== FFmpeg Identification ===========
 	Length: $ffl
@@ -2545,8 +2876,7 @@ set_extended_font() {
 	else
 		if [ "$DEBUG" -eq 1 ]; then
 			local list=$(echo "$candidates" |  sed 's/^/  >/g')
-			inf "Available non-latin fonts detected:"
-			inf "$list"
+			inf "Available non-latin fonts detected:$NL$list"
 		fi
 	fi
 
@@ -2557,7 +2887,6 @@ set_extended_font() {
 		FONT_MINCHO=$(head -1 <<<"$candidates")
 	fi
 }
-					
 
 # Checks if the provided arguments make sense and are allowed to be used
 # together
@@ -2569,6 +2898,11 @@ coherence_check() {
 		return $EX_USAGE
 	fi
 
+	# In case it's 0/0 or 0.0 since they aren't rejected
+	if fptest "$extended_factor" -eq 0 ; then
+		extended_factor=0
+	fi
+
 	if [ $decoder -eq $DEC_MPLAYER ] && [ -z "$MPLAYER" ]; then
 		inf "No mplayer available. Using ffmpeg only."
 		decoder=$DEC_FFMPEG
@@ -2577,14 +2911,8 @@ coherence_check() {
 		decoder=$DEC_MPLAYER
 	fi
 
-	if [ $DVD_MODE -eq 1 ] ; then
-		# Currently it's not allowed to use dvd mode with more than one input
-		# "file" (in this mode, input files are actually dvd titles of the file
-		# provided in -V)
-		if [ $multiple_input_files -eq 1 ]; then
-			error "Only an input file is allowed in DVD mode"
-			return $EX_UNAVAILABLE
-		fi
+	if [ $DVD_MODE -eq 1 ]; then
+		# Since 1.12 DVD mode can work with multiple inputs too
 
 		# DVD Mode only works with mplayer, the decoder is changed when
 		# the DVD mode option is found, so if it's ffmpeg at this point,
@@ -2644,12 +2972,6 @@ coherence_check() {
 	done
 	FILTERS_IND=( "${filts[@]}" "${end_filts[@]}" )
 
-	# Override-able options check, in case they were set from overrides instead
-	#+of equivalent command-line options. Will check the actual selected values,
-	#+i.e. fail silently if the overrides aren't effective 
-	[ "$USR_th_height" ] && { check_height "$th_height" || exit $? ; }
-	[ "$USR_numcaps" ] && { check_numcaps "$numcaps" || exit $? ; }
-	[ "$USR_interval" ] && { check_interval "$interval" || exit $? ; }
 	# Interval=0 == default interval
 	fptest "$interval" -eq 0 && interval=$DEFAULT_INTERVAL 
 
@@ -2660,6 +2982,7 @@ coherence_check() {
 # If the OS hasn't registered TTF fonts with IM, try to use a saner value
 #+*only* for fonts not overridden
 sanitise_fonts() {
+	trace $FUNCNAME $@
 	# Any default font in use? If all of them are overridden, return
 	if [ "$USR_font_heading" -a "$USR_font_title" -a "$USR_font_tstamps" -a "$USR_font_sign" ]; then
 		return
@@ -2670,8 +2993,13 @@ sanitise_fonts() {
 	[ -z "$USR_font_tstamps" ] && [ "$font_tstamps" != 'DejaVu-Sans-Book' ] && return
 	[ -z "$USR_font_sign" ] && [ "$font_sign" != 'DejaVu-Sans-Book' ] && return
 	# Try to locate DejaVu Sans
-	[ ! -d /usr/share/fonts ] && return
-	local dvs=$(find /usr/share/fonts/ -type f -iname 'dejavusans.ttf')
+	local dvs=''
+	if [ -d /usr/local/share/fonts ]; then
+		dvs=$(find /usr/local/share/fonts/ -type f -iname 'dejavusans.ttf')
+	fi
+	if [ -z "$dvs" -a -d /usr/share/fonts ]; then
+		dvs=$(find /usr/share/fonts/ -type f -iname 'dejavusans.ttf')
+	fi
 	if [ -z "$dvs" ]; then
 		warn "Unable to locate DejaVu Sans font. Falling back to helvetica."
 		dvs=helvetica
@@ -2690,31 +3018,6 @@ sanitise_fonts() {
 EOFF
 }
 
-check_height() { # Acceptable height
-	if ! is_number "$1" && ! is_percentage "$1" ; then
-		error "Height must be a (positive) number or a percentage. Got '$1'."
-		return $EX_USAGE
-	fi
-}
-
-check_numcaps() { # Acceptable numcaps
-	if ! is_number "$1" ; then
-		error "Number of captures must be a (positive) a number! Got '$1'."
-		return $EX_USAGE
-	fi
-	if [ $1 -eq 0 ]; then
-		error "Number of captures must be greater than 0! Got '$1'."
-		return $EX_USAGE
-	fi
-}
-
-check_interval() { # Acceptable interval
-	if ! get_interval "$1" >/dev/null ; then
-		error "Incorrect interval format. Got '$1'."
-		return $EX_USAGE
-	fi
-}
-
 # Main function.
 # Creates the contact sheet.
 # process($1 = file)
@@ -2730,14 +3033,12 @@ process() {
 	local pre_output_format="$output_format"
 	INTERNAL_MAXREWIND_REACHED=0 # Reset for each file
 
-	# XXX: Some of this should be moved to coherence_check
-	if [ $DVD_MODE -eq 1 ]; then # DVD Mode
-		f="$DVD_FILE"
-		DVD_DEVICE=
-		local dvdn=$(realpathr "$f") # dvdn might be a device or an ISO
+	DVD_MOUNTP= DVD_TITLE= # Re-set for each file
+	if [ $DVD_MODE -eq 1 ]; then
+		local dvdn=$(realpathr "$f")
+		# Is it an ISO?
 		if [ -f "$dvdn" ]; then
-			# It's an ISO
-			DVD_MOUNTP=$(get_dvd_image_mountpoint)
+			DVD_MOUNTP=$(get_dvd_image_mountpoint "$dvdn")
 			if [ -z "$DVD_MOUNTP" ]; then
 				# Only in Linux does this matter
 				if ! is_linux ; then
@@ -2746,8 +3047,7 @@ process() {
 					warn "Mount DVD image to get better video properties detection"
 				fi
 			fi
-		elif [ ! -r "$dvdn" ]; then
-			# It's something else we cannot read
+		elif [ ! -r "$dvdn" ]; then # Not an ISO, is it readable?
 			error "Can't access DVD ($f)"
 			return $EX_NOINPUT
 		else
@@ -2758,29 +3058,26 @@ process() {
 				error "DVD mode requires device ($f) to be mounted"
 				return $EX_UNAVAILABLE
 			fi
-			DVD_DEVICE="$dvdn"
-			DVD_MOUNTP=$(mount | grep -o "^$DVD_DEVICE *on [^ ]*" | cut -d' ' -f3)
-			dvdn="DVD"
+			DVD_MOUNTP=$(mount | grep -o "^$dvdn *on [^ ]*" | cut -d' ' -f3)
+			dvdn="DVD $f"
 		fi
+
 		inf "Processing $dvdn..."
 		unset dvdn
-		if ! is_number "$1" ; then
-			error "DVD Title must be a number (e.g.: \$ vcs -V /dev/dvd 1)"
-			exit $EX_USAGE
-		fi
-		DVD_TITLE=$1
-		if [ $DVD_TITLE -eq 0 ]; then
-			local dt="$(lsdvd "$DVD_FILE" 2>/dev/null | grep 'Longest track:' | \
+		DVD_TITLE=${DVD_TITLES[0]}
+		DVD_TITLES=( "${DVD_TITLES[@]:1}" ) # shift array
+		if [ -z "$DVD_TITLE" -o "$DVD_TITLE" == "0" ]; then
+			local dt="$(lsdvd "$f" 2>/dev/null | grep 'Longest track:' | \
 							cut -d' ' -f3- | sed 's/^0*//')"
 			if ! is_number "$dt" ; then
-				error "Failed to autodetect longest DVD title"
+				error "Failed to autodetect longest DVD title for '$f'"
 				exit $EX_INTERNAL
 			fi
 			DVD_TITLE=$dt
-			DVD_VTS=$(lsdvd -t$DVD_TITLE -v "$DVD_FILE" 2>/dev/null | grep -o 'VTS: [0-9]*' | cut -d' ' -f2)
 			unset dt
-			inf "Using DVD Title #$DVD_TITLE (VTS: $DVD_VTS)"
 		fi
+		DVD_VTS=$(lsdvd -t$DVD_TITLE -v "$f" 2>/dev/null | grep -o 'VTS: [0-9]*' | cut -d' ' -f2)
+		inf "Using DVD Title #$DVD_TITLE (VTS: $DVD_VTS) for '$f'"
 	else # Not DVD Mode:
 		if [ ! -f "$f" ]; then
 			error "File \"$f\" doesn't exist"
@@ -2808,9 +3105,8 @@ process() {
 
 	# Vidcap/Thumbnail height
 	local vidcap_height=$th_height
-	if is_percentage "$th_height" ; then
-		local pc=${th_height/%%/} # BASH %% == RE %$
-		vidcap_height=$(awkex "int ((${VID[$H]} * ${pc}) / 100 + 0.5)")
+	if is_percentage "$th_height" && [ "$th_height" != '100%' ]; then
+		vidcap_height=$(rpercent ${VID[$H]} ${th_height})
 		inf "Height: $th_height of ${VID[$H]} = $vidcap_height"
 	fi
 	if ! is_number "$vidcap_height" || [ "$vidcap_height" -eq 0 ]; then
@@ -2823,9 +3119,9 @@ process() {
 	if [ "0" == "$aspect_ratio" ]; then
 		if [ "${VID[$ASPECT]}" ]; then
 			# Aspect ratio in file headers, honor it
-			aspect_ratio=$(awkex "${VID[$ASPECT]}")
+			aspect_ratio=$(awkexf "${VID[$ASPECT]}")
 		else
-			aspect_ratio=$(awkex "${VID[$W]} / ${VID[$H]}")
+			aspect_ratio=$(awkexf "${VID[$W]} / ${VID[$H]}")
 		fi
 	elif [ "-1" == "$aspect_ratio" ]; then
 		aspect_ratio=$(guess_aspect ${VID[$W]} ${VID[$H]})
@@ -2943,7 +3239,7 @@ process() {
 		# Number of captures. Always rounded to a multiplier of *double* the
 		# number of columns (the extended caps are half width, this way they
 		# match approx with the standard caps width)
-		local hlnc=$(rtomult "$(( ${#TIMECODES[@]} * $extended_factor ))" $((2*$numcols)))
+		local hlnc=$(rtomult $(awkex "int(${#TIMECODES[@]} * $extended_factor)") $((2*$numcols)))
 
 		unset TIMECODES # required step to get the right count
 		declare -a TIMECODES # Note the manual stamps are not included anymore
@@ -3060,32 +3356,42 @@ with $PROGRAM_SIGNATURE"
 	else
 		signature="Created with $PROGRAM_SIGNATURE"
 	fi
-	local headwidth=$(imw "$output")
-	# TODO: Use a better height calculation
-	local headheight=$(($pts_meta * 4 ))
+	local headwidth=$(imw "$output") headheight=
 	local heading=$(new_temp_file .png)
 	# Add the title if any
 	if [ "$title" ]; then
-		# TODO: Use a better height calculation
+		local tlheight=$(line_height "$font_title" "$pts_title")
 		convert \
 			\( \
-				-size ${headwidth}x$(( $pts_title + ($pts_title/2) )) "xc:$bg_title" \
+				-size ${headwidth}x$tlheight "xc:$bg_title" \
 				-font "$font_title" -pointsize "$pts_title" \
 				-background "$bg_title" -fill "$fg_title" \
 				-gravity Center -annotate 0 "$title" \
 			\) \
 			-flatten \
 			"$output" -append "$output"
+		unset tlheight
 	fi
 	local fn_font=	# see $font_filename
 	case $font_filename in
 		$FF_DEFAULT) fn_font="$font_heading" ;;
-		$FF_MINCHO) fn_font="$FONT_MINCHO" ;;
+		$FF_NONLATIN) fn_font="$FONT_MINCHO" ;;
 		*)
 			warn "\$font_filename was overridden with an incorrect value, using default."
 			fn_font="$font_heading"
 			;;
 	esac
+	# Create a small image to see how tall are characters. In my tests, no matter
+	#+which character is used it's always the same height.
+	local lineheight=$(line_height "$font_heading" "$pts_meta")
+	# Since filename can be set in a different font check it too
+	if [ "$fn_font" != "$font_heading" ]; then
+		local fnlineheight=$lineheight
+		fnlineheight=$(line_height "$fn_font" "$pts_meta")
+		[ $fnlineheight -le $lineheight ] || lineheight=$fnlineheight
+		unset fnlineheight
+	fi
+	headheight=$(( $lineheight * 3 ))
 	# Talk about voodoo... feel the power of IM... let's try to explain what's this:
 	# It might technically be wrong but it seems to work as I think it should
 	# (hence the voodoo I was talking)
@@ -3115,18 +3421,19 @@ with $PROGRAM_SIGNATURE"
 	local filesize_value=
 	if [ $DVD_MODE -eq 1 ]; then
 		# lsdvd is guaranteed to be installed if DVD mode is enabled
-		local dvd_label=$(lsdvd "$DVD_FILE" 2>/dev/null | grep -o 'Disc Title: .*' | cut -d' ' -f3-)
-		# Need a mountpoint to get the actual *title* size
+		local dvd_label=$(lsdvd "$f" 2>/dev/null | grep -o 'Disc Title: .*' | cut -d' ' -f3-)
+		# There's no guarantee that titles are on separate VTS, I have no idea
+		# how to compute the actual title size
 		if [ "$DVD_MOUNTP" ]; then
 			filename_label="Disc label"
 			filename_value="$dvd_label"
-			filesize_label="Title size"
+			filesize_label="Titleset size"
 			filesize_value="$(get_dvd_size)"
 		else
 			# Not mounted. We can get the disc size but this will include any other titles.
 			# Since 1.11 mounting DVDs is mandatory to get the title size. Both for ISOs and
 			#+ devices
-			filename_value="$(basename "$DVD_FILE") $filename_value (DVD Label: $dvd_label)"
+			filename_value="$(basename "$f") $filename_value (DVD Label: $dvd_label)"
 			is_linux && warn "DVD not mounted: Can't detect title file size."
 			filesize_label='Disc image size'
 			filesize_value="$(get_pretty_size $(dur "$f"))"
@@ -3135,6 +3442,9 @@ with $PROGRAM_SIGNATURE"
 		filename_value="$(basename "$f")"
 		filesize_value="$(get_pretty_file_size "$f")"
 	fi
+
+	local signlh=$(line_height "$font_sign" "$pts_sign")
+	local signheight=$(( 4 + ( $signlh * 2 ) ))
 	convert \
 		\( \
 			-size $(( ${headwidth} -18 ))x1 "xc:$bg_heading" +size \
@@ -3159,13 +3469,13 @@ with $PROGRAM_SIGNATURE"
 		\) \
 		"$output" -append \
 		\( \
-			-size ${headwidth}x34 -gravity Center "xc:$bg_sign" \
+			-size ${headwidth}x$signheight -gravity Center "xc:$bg_sign" \
 			-font "$font_sign" -pointsize "$pts_sign" \
 			-fill "$fg_sign" -annotate 0 "$signature" \
 		\) \
 		-append \
 		"$output"
-	unset signature meta2 headwidth headheight heading fn_font
+	unset signature meta2 headwidth headheight heading fn_font signheight signlh
 
 	local wanted_name=${OUTPUT_FILES[$FILEIDX]}
 	[ "$wanted_name" ] && \
@@ -3261,7 +3571,7 @@ internal_integrity_test() {
 		"pyth_th 4 3 5 #Integer pythagorean theorem"
 		#bc result: "pyth_th 16 9 18.35755975068581929849 #FP pythagorean theorem"
 		#perl result: "pyth_th 16 9 18.3575597506858 #FP pythagorean theorem"
-		"pyth_th 16 9 18.3576 #FP pythagorean theorem"
+		"pyth_th 16 9 18.35755975068581946630 #FP pythagorean theorem"
 
 		"get_interval 2h 7200 #Hours parsing"
 		"get_interval 2m 120 #Minutes parsing"
@@ -3464,16 +3774,21 @@ Options:
   -T|--title <arg>      Add a title above the vidcaps.
   -j|--jpeg             Output in jpeg (by default output is in png).
   -j2|--jpeg 2          Output in jpeg 2000
-  -V|--dvd <file.iso|dvd_device>
+  -V|--dvd              DVD Mode.
+                        In this mode the input <file>s must be the DVD
+                        device(s) or ISO(s). When in DVD mode all input files
+                        must be DVDs.
+                        Implies -A (auto aspect ratio)
+  --dvd-title <arg>     DVD title to use. Using 0 (the default) will use the
+                        longest title.
                         DVD Mode, use file.iso as DVD. In this mode the
                         <file> argument must point to the title number, e.g.:
                            $ vcs -V somedvd.iso 1
                         Passing title 0 will use the default (longest) title.
                            $ vcs -V /dev/dvd 0
-                        Implies -A (auto aspect ratio)
   -M|--mplayer          Use Mplayer to capture$mpchosen
   -F|--ffmpeg           Use FFmpeg to capture [Default$ffchosen]
-  -E|--end_offset <arg> This time is ignored, from the end of the video. Same
+  -E|--end-offset <arg> This time is ignored, from the end of the video. Same
                         format as -i. This value is not used when a explicit
                         ending time is set. By default it is $DEFAULT_END_OFFSET.
   -q|--quiet            Don't print progess messages just errors. Repeat to
@@ -3501,6 +3816,10 @@ Options:
   -u|--user <arg>       Set the username found in the signature to this.
   -U|--fullname         Use user's full/real name (e.g. John Smith) as found in
                         /etc/passwd.
+  -p|--profile <arg>    Load profile "arg"
+  -C|--config <arg>     Load configuration file "arg"
+  --generate <config|profile>
+                        Generate configuration or profile from current settings
   -k <arg>
   --funky <arg>         Funky modes:$funkyex
 $longhelp
@@ -3520,6 +3839,61 @@ Examples:
     See more examples at vcs' homepage <http://p.outlyer.net/vcs/>.
 
 EOF
+	# ' # Syntax highlighting bait
+}
+
+# Print a configuration file generated from the currently active settings
+# generate_config($1 = <config|profile>)
+generate_config() {
+	local n=$(echo $1 | tr '[a-z]' '[A-Z]') f= t= x=
+	cat <<-EOM
+	# --- $n STARTS HERE ---
+	# This is a sample configuration file for VCS generated automatically
+	# from the command-line with the "--generate $1" command-line option
+	# Save it to ~/.vcs.conf or ~/.vcs/vcs.conf to make it the default
+	# configuration.
+	# OR
+	# Save it to ~/.vcs/profiles/something.conf to create a profile named
+	# "something". To use this profile run vcs with the "--profile something"
+	# (or "-p something") option
+	# OR
+	# Save it to "something.conf" and load it with "--config something.conf"
+	# (or "-C something.conf")
+EOM
+	echo "${OVERRIDE_MAP[*]}" | stonl | egrep -v '(deprecated=|alias)' | cut -d':' -f1-2 |\
+	 while read ovname ; do
+		f=${ovname/:*}
+		t=${ovname#*:}
+		if [ -z "$t" ] || [ "$t" == "=" ]; then t=$f ; fi
+		eval v=\$USR_$t
+		[ -z "$v" ] || {
+			# Symbolic values:
+			case "$t" in
+				timecode_from)
+					x='$TC_NUMCAPS'
+					[ $v -eq $TC_NUMCAPS ] || x='$TC_INTERVAL'
+					v=$x
+					;;
+				decoder)
+					x='$DEC_FFMPEG'
+					[ $v -eq $DEC_FFMPEG ] || x='$DEC_MPLAYER'
+					v=$x
+					;;
+				verbosity)
+					case $v in
+						$V_ALL) v='$V_ALL' ;;
+						$V_NONE) v='$V_NONE' ;;
+						$V_INFO) v='$V_INFO' ;;
+						$V_WARN) v='$V_WARN' ;;
+						$V_ERROR) v='$V_ERROR' ;;
+					esac # verbosity
+					;;
+			esac
+			echo "$f=$v"
+		}
+	done
+	echo "# vcs:conf:$NL# Generated on $(date)$NL# --- $n ENDS HERE --- "
+	exit 0
 }
 
 # }}} # Help / Info
@@ -3554,30 +3928,31 @@ ARGS="$@"
 # [[R0]]
 # TODO: Why does FreeBSD's GNU getopt ignore -n??
 TEMP=$("$GETOPT" -n "$0" -s bash \
-	-o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I:k:W:E:d:V:R:Z:o:P: \
+	-o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I:k:W:E:d:VR:Z:o:p:C: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg::,help,"\
 "shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:"\
 "extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
-"end_offset:,disable:,dvd:,randomsource:,undocumented:,output:,fullhelp,profile:,"\
-"jpeg2,nonlatin" \
+"end_offset:,end-offset:,disable:,dvd,dvd-title:,randomsource:,undocumented:,output:,"\
+"fullhelp,profile:,"\
+"jpeg2,nonlatin,generate:,config:" \
        -- "$@")
 eval set -- "$TEMP"
 
 while true ; do
 	case "$1" in
 		-i|--interval)
-			check_interval "$2"
-			interval=$(get_interval "$2")
+			check_constraint 'interval' "$2" "$1" || die
+			interval=$(get_interval $2)
 			timecode_from=$TC_INTERVAL
 			USR_interval=$interval
 			USR_timecode_from=$TC_INTERVAL
 			shift # Option arg
 			;;
 		-n|--numcaps)
-			check_numcaps "$2"
-			numcaps="$2"
+			check_constraint 'numcaps' "$2" "$1" || die
+			numcaps=$2
 			timecode_from=$TC_NUMCAPS
-			USR_numcaps="$2"
+			USR_numcaps=$2
 			USR_timecode_from=$TC_NUMCAPS
 			shift # Option arg
 			;;
@@ -3615,12 +3990,17 @@ while true ; do
 			USR_fromtime="$fromtime"
 			shift
 			;;
-		-E|--end_offset)
-			if ! end_offset=$(get_interval "$2") ; then
-				error "End offset must be a valid timecode. Got '$2'."
-				exit $EX_USAGE
+		-E|--end_offset|--end-offset)
+			check_constraint 'end_offset' "$2" "$1" || die
+			is_p='y'
+			is_percentage "$2" || is_p=''
+			if [ "$is_p" ]; then
+				end_offset="$2"
+			else
+				end_offset=$(get_interval "$2")
 			fi
 			USR_end_offset="$end_offset"
+			unset is_i
 			shift
 			;;
 		-t|--to)
@@ -3671,15 +4051,10 @@ while true ; do
 			;;
 		-h|--help) show_help ; exit $EX_OK ;;
 		--fullhelp) show_help 'full' ; exit $EX_OK ;;
-		--shoehorn)
-			warn "$1 is deprecated, please use '--undocumented shoehorn=\"$2\"' instead"
-			shoehorned="$2"
-			shift
-			;;
 		-F) decoder=$DEC_FFMPEG ;  USR_decoder=$decoder ;;
 		-M) decoder=$DEC_MPLAYER ; USR_decoder=$decoder ;;
 		-H|--height)
-			check_height "$2"
+			check_constraint 'height' "$2" "$1" || die
 			th_height="$2"
 			USR_th_height="$2"
 			shift
@@ -3696,10 +4071,7 @@ while true ; do
 			;;
 		-A|--autoaspect) aspect_ratio=-1 ; USR_aspect_ratio=-1 ;;
 		-c|--columns)
-			if ! is_number "$2" ; then
-				error "Columns must be a (positive) number. Got '$2'."
-				exit $EX_USAGE
-			fi
+			check_constraint 'columns' "$2" "$1" || die
 			cols="$2"
 			USR_cols="$2"
 			shift
@@ -3709,15 +4081,8 @@ while true ; do
 			# Optional argument quirks: $2 is always present, set to '' if unused
 			# from the commandline it MUST be directly after the -e (-e2 not -e 2)
 			# the long format is --extended=VAL
-			# XXX: For some reason parsing of floats gives an error, so for now
-			# ints and only fractions are allowed
-			if [ "$2" ] && ! is_float "$2" && ! is_fraction "$2" ; then
-				error "Extended multiplier must be a (positive) number (integer, float "\
-"or fraction)."
-				error "    Got '$2'."
-				exit $EX_USAGE
-			fi
 			if [ "$2" ]; then
+				check_constraint 'extended_factor' "$2" "$1" || die
 				extended_factor="$2"
 			else
 				extended_factor=$DEFAULT_EXT_FACTOR
@@ -3725,16 +4090,10 @@ while true ; do
 			USR_extended_factor=$extended_factor
 			shift
 			;;
-		--mincho)
-			warn "--mincho is deprecated, please use -Ij or --nonlatin instead"
-			if [ -z "$USR_FONT_MINCHO" ]; then
-				set_extended_font
-				inf "Filename font set to '$FONT_MINCHO'"
-			fi
-			;;
 		# Unlike -I, --nonlatin does not accept a font name
 		--nonlatin)
 			if [ -z "$USR_FONT_MINCHO" ]; then
+				font_filename=$FF_NONLATIN
 				set_extended_font
 				inf "Filename font set to '$FONT_MINCHO'"
 			fi
@@ -3754,7 +4113,7 @@ while true ; do
 			fi
 			# It isn't tested for existence because it could also be a font
 			# which convert would understand without giving the full path
-			font_filename=$FF_MINCHO;
+			font_filename=$FF_NONLATIN
 			if [ ${#2} -gt 1 ]; then
 				# j=, k= syntax
 				FONT_MINCHO="${2:2}"
@@ -3780,7 +4139,8 @@ while true ; do
 				# set/detected we won't reach here
 				warn "GETOPT can't be overridden from the command line."
 			else
-				override "$2" "command line"
+				cmdline_override "$2"
+				POST_GETOPT_HOOKS=( "${POST_GETOPT_HOOKS[@]}" 1:cmdline_overrides_flush )
 			fi
 			shift
 			;;
@@ -3802,7 +4162,7 @@ while true ; do
 				#  - -Ws -Ws -Ws = -Ws3
 				s|s[0-9]|s[0-9][0-9])
 				  [ ${#2} -gt 1 ] && n=${2:1} || n=1
-				  QUIRKS_MAX_REWIND=$(awkex "$QUIRKS_MAX_REWIND * (2^$n)")
+				  QUIRKS_MAX_REWIND=$(awkexf "$QUIRKS_MAX_REWIND * (2^$n)")
 				  let 'INTERNAL_WS_C+=n,1'
 				  ;;
 				# Brute force -Ws: Test all the length of the file if required
@@ -3811,7 +4171,7 @@ while true ; do
 				# Like -Ws can be repeated
 				p|p[0-9]|p[0-9][0-9])
 				  [ ${#2} -gt 1 ] && n=${2:1} || n=1
-				  QUIRKS_LEN_STEP=$(awkex "$QUIRKS_LEN_STEP / (2^$n)")
+				  QUIRKS_LEN_STEP=$(awkexf "$QUIRKS_LEN_STEP / (2^$n)")
 				  let 'INTERNAL_WP_C+=n,1'
 				  ;;
 				# Inverse of -Wp: Decrease precission of safe length measuring
@@ -3820,7 +4180,7 @@ while true ; do
 				# Can also be repeated
 				P|P[0-9]|P[0-9][0-9])
 				  [ ${#2} -gt 1 ] && n=${2:1} || n=1
-				  QUIRKS_LEN_STEP=$(awkex "$QUIRKS_LEN_STEP * (2^$n)")
+				  QUIRKS_LEN_STEP=$(awkexf "$QUIRKS_LEN_STEP * (2^$n)")
 				  let 'INTERNAL_WP_C-=n,1'
 				  ;;
 				# -Wb (Semi-undocumented): Disable safe mode. Use this to force accepting
@@ -3886,7 +4246,7 @@ while true ; do
 			esac
 			shift
 			;;
-		-P|--profile)
+		-p|--profile)
 			case "$2" in
 			  classic) # Classic colour scheme
 			    bg_heading=YellowGreen bg_sign=SlateGray bg_contact=White
@@ -3896,7 +4256,35 @@ while true ; do
 			    bg_heading=YellowGreen bg_sign=SandyBrown bg_contact=White
 			    bg_title=White fg_heading=Black fg_sign=Black
 			    ;;
+			  *) load_profile "$2" || die
+			    ;;
 			esac
+			shift
+			;;
+		-C|--config)
+			if echo "$2" | grep -q '^:' ; then
+				if [ $2 = ':pwd' ]; then
+					cfg=./vcs.conf
+				else
+					error "Configuration names starting with ':' are reserved."
+					exit $EX_USAGE
+				fi
+			else
+				cfg=$2
+			fi
+			[ -f "$cfg" ] || {
+				error "Configuration file '$cfg' not found"
+				exit $EX_USAGE
+			}
+			# ./vcs.conf doesn't need the vcs:conf: mark
+			if [ $2 != ':pwd' ]; then
+				head -5 "$cfg" | grep -q '#[[:space:]]*vcs:conf[[:space:]]*:' || \
+				tail -5 "$cfg" | grep -q '#[[:space:]]*vcs:conf[[:space:]]*:' || {
+					error "No vcs:conf: mark found in '$cfg'"
+					exit $EX_NOINPUT
+				}
+			fi
+			load_config_file "$cfg" 'Custom configuration'
 			shift
 			;;
 		-R|--randomsource)
@@ -3939,6 +4327,11 @@ while true ; do
 			esac
 			shift
 			;;
+		--dvd-title)
+			check_constraint 'dvd_title' "$2" "$1" || die
+			DVD_TITLES=( "${DVD_TITLES[@]}" "$2" )
+			shift
+			;;
 		-V|--dvd)
 			# XXX; Are there systems with no perl???
 			if ! type -pf perl >/dev/null ; then
@@ -3951,10 +4344,8 @@ while true ; do
 				exit $EX_UNAVAILABLE
 			fi
 			DVD_MODE=1
-			DVD_FILE="$2"
 			decoder=$DEC_MPLAYER
 			aspect_ratio=-2 # Special value: Auto detect only if ffmpeg couldn't
-			shift
 			;;
 		-q|--quiet)
 			# -q to only show errors
@@ -3964,6 +4355,7 @@ while true ; do
 			else
 				verbosity=$V_NONE
 			fi
+			USR_verbosity=$verbosity
 			;;
 		-Z|--undocumented)
 			# This is a container for, of course, undocumented functions
@@ -4008,8 +4400,39 @@ while true ; do
 				# a few more versions
 				shoehorn=*)
 					shoehorned="$(cut -d'=' -f2-<<<"$2")"
+					error "Shoehorning of options is scheduled to be removed in the next version."
+					error " Please contact the author if you absolutely need it."
+					;;
+				debug)
+					warn "[U] debug"
+					DEBUG=1
+					;;
+				# Dump user-set variables and exit [since 1.12]
+				uservars)
+					echo "${OVERRIDE_MAP[*]}" | stonl | egrep -v '(deprecated=|alias)' | cut -d':' -f1-2 |\
+					 while read ovname ; do
+						f=${ovname/:*}
+						t=${ovname#*:}
+						if [ "$t" -a "$t" != "=" ]; then f="$t" ; fi
+						eval v=\$USR_$f
+						[ -z "$v" ] || echo "$f=$v"
+					done
+					exit 0
 					;;
 				*) false ;;
+			esac
+			shift
+			;;
+		--generate)
+			case "$2" in
+				profile|config)
+					POST_GETOPT_HOOKS=( "${POST_GETOPT_HOOKS[@]}" \
+									10:generate_config:$2 )
+					;;
+				*)
+					error "Option --generate must be followed by profile or config"
+					exit $EX_USAGE
+					;;
 			esac
 			shift
 			;;
@@ -4047,11 +4470,15 @@ EOD
 	shift
 done
 
-# Remaining arguments
-if [ ! "$1" ]; then
-	show_help
+# Avoid coherence_check if there's no arguments and no cmdline post
+# processing
+[ "$1" -o "$POST_GETOPT_HOOKS" ] || {
+	[ $verbosity -eq $V_NONE ] || show_help
 	exit $EX_USAGE
-elif [ "$2" ]; then
+}
+
+# More than one argument...
+if [ "$2" ]; then
 	multiple_input_files=1
 fi
 # }}} # Command line parsing
@@ -4062,6 +4489,18 @@ fi
 coherence_check || {
 	exit $?
 }
+# Run after coherence check to clean recoverable incorrect values
+post_getopt_hooks
+
+# Remaining arguments
+if [ ! "$1" ]; then
+	[ $verbosity -eq $V_NONE ] || show_help
+	exit $EX_USAGE
+fi
+
+# TODO:
+# DVD mode + multiple titles is still tricky:
+# --dvd --dvd-title 1 --dvd-title 2 /dev/dvd /dev/dvd
 
 set +e # Don't fail automatically. Blocks marked with {{SET_E}} will break if this changes
 for arg do process "$arg" ; done
@@ -4084,6 +4523,7 @@ for arg do process "$arg" ; done
 #          inside let
 # * bash2: [*] expands as a string while [@] expands as an array. Both have trouble with spaces
 #          in elements though
+# * bash3: |& (inherited from csh?) pipes both stdout and stderr
 # * performance: bash loops are often slower than awk or perl
 # * performance: grep + cut proved faster than an equivalent sed -r s// replacement
 # }}} # Bash syntax notes
