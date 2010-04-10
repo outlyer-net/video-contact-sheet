@@ -1,3 +1,10 @@
+vcs (1.12-upstream.1) experimental; urgency=low
+
+  * New version.
+  * debian/docs: Install vcs.conf.example
+
+ -- Toni Corvera <outlyer@gmail.com>  Sat, 10 Apr 2010 00:57:17 +0200
+
 vcs (1.11.2-upstream.1) experimental; urgency=low
 
   * New version.

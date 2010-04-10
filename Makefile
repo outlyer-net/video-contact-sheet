@@ -7,6 +7,8 @@ VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.
 all:
 	@echo "Use $(MAKE) dist"
 
+tgz: vcs-$(VER).tar.gz
+
 vcs-$(VER).tar.gz:
 	cp -rvpP pkg/ vcs-$(VER)
 	cd vcs-$(VER) && make dist
@@ -22,9 +24,16 @@ check-rel:
 
 dist: check-rel check-no-svn \
 		vcs-$(VER).tar.gz \
+		PKGBUILD-$(VER) \
 		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
 		CHANGELOG.gz CHANGELOG \
 		rpm deb
+
+PKGBUILD-$(VER): vcs-$(VER).tar.gz
+	cd pkg && ln -s ../vcs-$(VER).tar.gz ./
+	cd pkg && make PKGBUILD
+	$(RM) pkg/vcs-$(VER).tar.gz
+	mv pkg/PKGBUILD $@
 
 vcs-$(VER).gz: $(srcdir)/vcs
 	gzip -c9 < vcs > $@
