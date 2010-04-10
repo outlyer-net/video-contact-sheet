@@ -720,13 +720,16 @@ parse_override() {
 			buffered warn "Variable '$varname' will be removed in the future,$NL please use '$new' instead."
 		else
 			case "$flags" in
-				gone) buffered error "Variable '$varname' has been removed." ;;
+				gone)
+					buffered error "Variable '$varname' has been removed."
+					return 0
+					;;
 				striked)
 					buffered error "Variable '$varname' is scheduled to be removed in the next release."
 					buffered error " Please contact the author if you absolutely need it."
 					;;
+				*) return 0 ;;
 			esac
-			return 0
 		fi
 	fi
 
