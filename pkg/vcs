@@ -36,6 +36,11 @@ declare -r RELEASE=1
 
 set -e
 
+# Make Gawk 3.1.3 to 3.1.5 print always decimal dots instead of locale-specific
+#+separators <http://www.gnu.org/manual/gawk/html_node/Conversion.html>
+#export POSIXLY_CORRECT=1 # Immitate behaviour in newer gawk
+export LC_NUMERIC=C
+
 # Fail soon if this version of bash is too old for the syntax, don't expose bash to the newer
 # syntax
 # See the "Bash syntax notes" section for details
