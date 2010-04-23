@@ -1,3 +1,9 @@
+1.12.1:
+   * BUGFIXES:
+     - Workaround for cases in which GAWK uses comma as decimal separator.
+       Any OS with GAWK 3.1.3 to 3.1.5 was affected (e.g. Debian Lenny)
+     - Don't try to go on in DVD mode with unreadable ISOs
+
 1.12: (2010-04-10)
    * New features/tweaks:
      - Loading of random configuration files (--config / -C)

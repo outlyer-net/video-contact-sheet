@@ -31,10 +31,19 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.12"
+declare -r VERSION="1.12.1"
 declare -r RELEASE=1
 
 set -e
+
+# GAWK 3.1.3 to 3.1.5 print decimals (with printf) according to locale (i.e.
+#+decimal comma separator in some locales, which is apparently POSIX correct).
+#+Older and newer versions, though, need either POSIXLY_CORRECT=1, --posix or
+#+ --use-lc-numeric to honour locale.
+# MAWK appears to always use dots.
+# Info: <http://www.gnu.org/manual/gawk/html_node/Conversion.html>
+#export POSIXLY_CORRECT=1 # Immitate behaviour in newer gawk
+export LC_NUMERIC=C
 
 # Fail soon if this version of bash is too old for the syntax, don't expose bash to the newer
 # syntax
@@ -3050,9 +3059,6 @@ process() {
 					warn "Mount DVD image to get better video properties detection"
 				fi
 			fi
-		elif [ ! -r "$dvdn" ]; then # Not an ISO, is it readable?
-			error "Can't access DVD ($f)"
-			return $EX_NOINPUT
 		else
 			# It's a device. Note BSD has no concept of block devices.
 			# It MUST be mounted to continue. This is required to allow ffmpeg detection
@@ -3063,6 +3069,10 @@ process() {
 			fi
 			DVD_MOUNTP=$(mount | grep -o "^$dvdn *on [^ ]*" | cut -d' ' -f3)
 			dvdn="DVD $f"
+		fi
+		if [ ! -r "$f" ]; then
+			error "Can't access DVD ($f)"
+			return $EX_NOINPUT
 		fi
 
 		inf "Processing $dvdn..."
