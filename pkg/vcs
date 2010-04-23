@@ -31,7 +31,7 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.12.1"
+declare -r VERSION="1.12.2"
 declare -r RELEASE=1
 
 set -e
