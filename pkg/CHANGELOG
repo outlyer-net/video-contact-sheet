@@ -1,3 +1,8 @@
+1.12.2:
+   * BUGFIX: Fix cleanup of temporary files (regression since 1.11.2).
+             Submitted by Jason Tackaberry. [#167]
+   * FEATURE: Added fg_all, bg_all and font_all config variables. [#156]
+
 1.12.1:
    * BUGFIXES:
      - Workaround for cases in which GAWK uses comma as decimal separator.

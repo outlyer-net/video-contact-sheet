@@ -413,6 +413,8 @@ declare DVD_VTS=    # VTS, detected & reset for each DVD
 #+             believed to be no longer needed
 #+  "gone":    Variable removed in the current version
 #+  "alias": Marks an alias, duplicate name intended to stay
+#+  "meta":  Special variable that will modify other variables (e.g. font_all
+#+           modifies all font_ variables.
 #+  "=": ignore
 #+ type constraints: a character indicating accepted values:
 #     n  -> Number (Natural, positive Integer)
@@ -458,6 +460,9 @@ declare -ra OVERRIDE_MAP=(
 	"font_sign::"
 	"font_tstamps::"
 	"font_title::"
+	"font_all:=:meta" # see parse_override
+	"bg_all:=:meta"
+	"fg_all:=:meta"
 	"pts_tstamps::"
 	"pts_meta::"
 	"pts_sign::"
@@ -544,13 +549,11 @@ load_config_file() {
 			varname=${por/% *} # Everything up to the first space...
 			tmp=${por#* } # Rest of string
 			flag=${tmp/% *}
-			bashcode=${tmp#* }
 			if [ "$flag" == '=' ]; then
 				# No need to override...
 				feedback="$varname(=)"
 			else
 				feedback=$varname
-				eval "$bashcode"
 			fi
 			ov="$ov, $feedback"
 		fi
@@ -670,22 +673,20 @@ check_constraint() {
 	return 0
 }
 
-# Parse an override
-# Input should be a var=value assignment, result, stored in the global variable $RESULT,
-# will be in the format:
-# <variable name> <flag> <evaluable code> where
+# Parse an override and set its value.
+# Input should be a var=value assignment. Also sets USR_<variable>.
+# The global variable $RESULT is set with the format:
+# <variable name> <flag> where
 #  * variable name: is the name of the variable to be overridden
 #  * flag: is a character indicating the status: "+" for a possible override,
 #         "=" for an override that already has the same value
-#  * evaluable code: is a piece of bash code to be feed to eval to change
-#         the variable, it also sets the related USR_* variable
 # Warnings and errors are buffered
 # This function always returns true
 # parse_override($1 = override assignment)
 parse_override() {
 	local o="$1"
 	RESULT=''
-
+	
 	if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*=.*' <<<"$o" ; then
 		return
 	fi
@@ -737,6 +738,11 @@ parse_override() {
 					buffered error "Variable '$varname' is scheduled to be removed in the next release."
 					buffered error " Please contact the author if you absolutely need it."
 					;;
+				meta)
+					apply_meta_override "$varname" "$varval"
+					RESULT="$varname +"
+					return 0;
+					;;
 				*) return 0 ;;
 			esac
 		fi
@@ -757,10 +763,41 @@ parse_override() {
 		# Escape single quotes, since it will be single-quoted:
 		varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
 		evcode="$ivar='$varval'; USR_$ivar='$varval'"
+		eval "$evcode"
 	fi
 
 	# varname, as found in the config file
-	RESULT="$varname $retflag $evcode"
+	RESULT="$varname $retflag"
+}
+
+# Handle meta configuration variables, variables that, when set, modify the
+# value of (various) others
+# apply_meta_override($1 = actual variable name, $2 = value)
+apply_meta_override() {
+	case "$1" in
+		font_all)
+			buffered inf "font_all => font_heading, font_sign, font_title, font_tstamps"
+			parse_override "font_heading=$2"
+			parse_override "font_sign=$2"
+			parse_override "font_title=$2"
+			parse_override "font_tstamps=$2"
+		;;
+		fg_all)
+			buffered inf "fg_all => fg_heading, fg_sign, fg_title, fg_tstamps"
+			parse_override "fg_heading=$2"
+			parse_override "fg_sign=$2"
+			parse_override "fg_tstamps=$2"
+			parse_override "fg_title=$2"
+		;;
+		bg_all)
+			buffered inf "bg_all => bg_heading, bg_contact, bg_sign, bg_title, bg_tstamps"
+			parse_override "bg_heading=$2"
+			parse_override "bg_contact=$2"
+			parse_override "bg_sign=$2"
+			parse_override "bg_title=$2"
+			parse_override "bg_tstamps=$2"
+		;;
+	esac
 }
 
 # Do an override from the command line
@@ -774,12 +811,9 @@ cmdline_override() {
 	local varname=${r/% *} # See load_config()
 	local tmp=${r#* }
 	local flag=${tmp/% *}
-	local bashcode=${tmp#* }
 
 	if [ "$flag" == '=' ]; then
 		varname="$varname(=)"
-	else
-		eval "$bashcode"
 	fi
 
 	CMDLINE_OVERRIDES="$CMDLINE_OVERRIDES, $varname"
@@ -1447,7 +1481,7 @@ choose_getopt() {
 cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
 	inf "Cleaning up..."
-	rm -rf "${TEMPSTUFF[*]}"
+	rm -rf "${TEMPSTUFF[@]}"
 	unset VCSTEMPDIR
 	unset TEMPSTUFF ; declare -a TEMPSTUFF
 }
