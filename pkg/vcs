@@ -2375,6 +2375,7 @@ get_vcodec_name() {
 		theo) vcodec="Ogg Theora" ;;
 		tscc) vcodec="TechSmith SCC" ;;
 		VP6[012F]) vcodec="On2 Truemotion VP6" ;;
+		VP80) vcodec="VP8" ;;
 		WMV1) vcodec="WMV7" ;;
 		WMV2) vcodec="WMV8" ;;
 		WMV3) vcodec="WMV9" ;;
@@ -2428,6 +2429,7 @@ translate_ffmpeg_vcodec_id() {
 		theora)     mpid="theo" ;;
 		camtasia)   mpid="tscc" ;;
 		vp6|vp6a|vp6f) mpid="VP60" ;;
+		vp8) mpid="VP80" ;;
 		# FIXME List of codec id's I translate but haven't test:
 		# svq3, rv40, theora, camtasia, vp6*
 		# MPlayer uses uppercase while FFmpeg uses lowercase
