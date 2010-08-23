@@ -83,7 +83,8 @@ export LC_NUMERIC=C
 #   - INTERNAL_*: Used internally to adapt messages and the like to the input
 #   - UNDFLAG_*: Undocumented flags. Used internally to keep track of undocumented modes (-Z)
 #   - USR_*: Holds values of variables as set by the user, either from overrides or from the
-#            command-line
+#            command-line.
+#            implementation
 # * Optimisations:
 #   - Reduce the number of forks
 # }}} # TO-DO
@@ -124,8 +125,6 @@ declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $verbosity
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
-# see $font_filename
-declare -ri FF_DEFAULT=5 FF_NONLATIN=7
 # Indexes in $VID
 declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7 ASPECT=8 VCNAME=9 ACNAME=10
 # Exit codes, same numbers as /usr/include/sysexits.h
@@ -182,15 +181,6 @@ declare fg_title=Black          # Font colour for the title
 declare font_tstamps=DejaVu-Sans-Book  # Used for timestamps over the thumbnails
 declare font_heading=DejaVu-Sans-Book  # Used for the meta info heading
 declare font_sign=$font_heading # Used for the signature box
-# Unlike other font_ variables this doesn't take a font name directly
-# but is restricted to the $FF_ values. This is to allow overrides
-# from the command line to be placed anywhere, i.e. in
-#  $ vcs -I file.avi -O 'FONT_MINCHO=whatever'
-# as the font is overridden is after requesting its use, it wouldn't be
-# affected 
-# The other font_ variables are only affected by overrides and not command
-# line options that's why this one is special.
-declare font_filename=$FF_DEFAULT # Used to print only the filename in the heading
 declare font_title=$font_heading # Used for the title (see -T)
 # Font sizes, in points
 declare -i pts_tstamps=14          # Used for the timestamps
@@ -237,6 +227,11 @@ declare -i DISABLE_TIMESTAMPS=0
 # The automatic picks a semi-random one from the fonts believed to support CJK/Cyrillic
 #+characters.
 declare FONT_MINCHO= # Filename or font name as known to ImageMagick (identify -list font)
+# Introduced in 1.12.2:
+# When true (1) uses $FONT_MINCHO to print the filename, otherwise the same
+#+font as the heading is used.
+# See -I and --nonlatin
+declare -i NONLATIN_FILENAMES=0
 # Output of capturing programs is redirected here
 declare stdout=/dev/null stderr=/dev/null
 
@@ -511,6 +506,7 @@ declare -ra OVERRIDE_MAP=(
 
 	"nonlatin_font:FONT_MINCHO:"
 	"FONT_MINCHO::deprecated=nonlatin_font"
+	"NONLATIN_FILENAMES:=:=:b"
 
 	"end_offset:=:=:I" # New, used to have a two-variables assignment before USR_*
 	"DEFAULT_END_OFFSET:end_offset:deprecated=end_offset:I"
@@ -2937,7 +2933,8 @@ set_extended_font() {
 }
 
 # Checks if the provided arguments make sense and are allowed to be used
-# together
+#+together. When an incoherence is found, sets some sane values if reasonable
+#+or fails otherwise.
 coherence_check() {
 	trace $FUNCNAME $@
 	# If -m is used then -S must be used
@@ -3023,6 +3020,17 @@ coherence_check() {
 	# Interval=0 == default interval
 	fptest "$interval" -eq 0 && interval=$DEFAULT_INTERVAL 
 
+	# If in non-latin mode and no nonlatin font has been picked try to pick one.
+	# Should it fail, fallback to latin font.
+	if [ $NONLATIN_FILENAMES -eq 1 ] && [ -z "$FONT_MINCHO" ]; then
+		set_extended_font || {
+			# set_extended_font already warns about lack of fonts
+			warn "    Falling back to latin font"
+			NONLATIN_FILENAMES=0
+			FONT_MINCHO="$font_heading"
+		}
+	fi
+
 	sanitise_rename_pattern
 	sanitise_fonts
 }
@@ -3031,6 +3039,7 @@ coherence_check() {
 #+*only* for fonts not overridden
 sanitise_fonts() {
 	trace $FUNCNAME $@
+
 	# Any default font in use? If all of them are overridden, return
 	if [ "$USR_font_heading" -a "$USR_font_title" -a "$USR_font_tstamps" -a "$USR_font_sign" ]; then
 		return
@@ -3421,15 +3430,12 @@ with $PROGRAM_SIGNATURE"
 			"$output" -append "$output"
 		unset tlheight
 	fi
-	local fn_font=	# see $font_filename
-	case $font_filename in
-		$FF_DEFAULT) fn_font="$font_heading" ;;
-		$FF_NONLATIN) fn_font="$FONT_MINCHO" ;;
-		*)
-			warn "\$font_filename was overridden with an incorrect value, using default."
-			fn_font="$font_heading"
-			;;
-	esac
+	local fn_font=	# see $NONLATIN_FILENAMES
+	if [ $NONLATIN_FILENAMES -ne 1 ]; then
+		fn_font="$font_heading"
+	else
+		fn_font="$FONT_MINCHO"
+	fi
 	# Create a small image to see how tall are characters. In my tests, no matter
 	#+which character is used it's always the same height.
 	local lineheight=$(line_height "$font_heading" "$pts_meta")
@@ -3938,7 +3944,8 @@ EOM
 					esac # verbosity
 					;;
 			esac
-			echo "$f=$v"
+			# Print all names in lowercase
+			echo "$(tolower "$f")=$v"
 		}
 	done
 	echo "# vcs:conf:$NL# Generated on $(date)$NL# --- $n ENDS HERE --- "
@@ -4142,7 +4149,8 @@ while true ; do
 		# Unlike -I, --nonlatin does not accept a font name
 		--nonlatin)
 			if [ -z "$USR_FONT_MINCHO" ]; then
-				font_filename=$FF_NONLATIN
+				NONLATIN_FILENAMES=1
+				USR_NONLATIN_FILENAMES=1
 				set_extended_font
 				inf "Filename font set to '$FONT_MINCHO'"
 			fi
@@ -4162,7 +4170,8 @@ while true ; do
 			fi
 			# It isn't tested for existence because it could also be a font
 			# which convert would understand without giving the full path
-			font_filename=$FF_NONLATIN
+			NONLATIN_FILENAMES=1
+			USR_NONLATIN_FILENAMES=1
 			if [ ${#2} -gt 1 ]; then
 				# j=, k= syntax
 				FONT_MINCHO="${2:2}"
@@ -4464,7 +4473,7 @@ while true ; do
 						t=${ovname#*:}
 						if [ "$t" -a "$t" != "=" ]; then f="$t" ; fi
 						eval v=\$USR_$f
-						[ -z "$v" ] || echo "$f=$v"
+						[ -z "$v" ] || echo "$(tolower $f)=$v"
 					done
 					exit 0
 					;;

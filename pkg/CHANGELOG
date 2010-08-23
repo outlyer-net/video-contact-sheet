@@ -1,9 +1,12 @@
 1.12.2:
-   * BUGFIX: Fix cleanup of temporary files (regression since 1.11.2).
-             Submitted by Jason Tackaberry. [#167]
+   * BUGFIX: Fix cleanup of temporary files (regression since 1.11.2). [#167]
+             Submitted by Jason Tackaberry.
    * FEATURES:
-     - Added fg_all, bg_all and font_all config variables. [#156]
+     - Added 'fg_all', 'bg_all' and 'font_all' config variables. [#156]
+     - Added 'nonlatin_filenames' config variable. [#159]
      - Added identification for VP8 (WebM). [#166]
+   * OTHER:
+     - Print variable names in lowercase when using --generate.
 
 1.12.1:
    * BUGFIXES:
