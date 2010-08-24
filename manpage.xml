@@ -4,7 +4,7 @@
 
 <!--
 
-$Id: manpage.xml 1651 2010-08-24 18:44:40Z toni $
+$Id$
 This file based on the default template for debian packages.
 
 Generation of man page:
@@ -68,7 +68,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
         Version 2 or (at your option) any later version published by
         the Free Software Foundation.</para>
     </legalnotice>
-    <edition>$Rev: 1651 $</edition>
+    <edition>$Rev$</edition>
   </refentryinfo>
   <refmeta>
     <refentrytitle>&dhucpackage;</refentrytitle>
