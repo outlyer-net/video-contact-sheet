@@ -15,6 +15,8 @@ prefix:=/usr/local
 DESTDIR:=/
 TGZ=vcs-$(VERSION).tar.gz
 
+MANDIR:=$(prefix)/share/man/man1/
+
 all:
 	# Nothing to be done
 
@@ -28,14 +30,18 @@ install:
 	install -m755 vcs $(DESTDIR)$(prefix)/bin/vcs
 	install -d $(DESTDIR)$(prefix)/share/vcs/profiles
 	install -m644 profiles/*.conf $(DESTDIR)$(prefix)/share/vcs/profiles/
+	install -d $(DESTDIR)$(MANDIR)
+	install -m644 vcs.1 $(DESTDIR)$(MANDIR)/
 
 uninstall:
 	$(RM) $(DESTDIR)$(prefix)/bin/vcs
+	$(RM) $(DESTDIR)$(MANDIR)/vcs.1
 	for file in profiles/*.conf ; do \
 	   $(RM) $(DESTDIR)$(prefix)/share/vcs/profiles/`basename $$file` ; \
 	done
 	-rmdir -p $(DESTDIR)$(prefix)/bin
 	-rmdir -p $(DESTDIR)$(prefix)/share/vcs/profiles
+	-rmdir -p $(DESTDIR)$(MANDIR)
 
 examples/vcs.conf.example: examples/vcs.conf
 	sed -e 's/^/#/;s/^#$$//;s/^##/#/' < $< > $@

@@ -1,3 +1,9 @@
+vcs (1.12.2-upstream.1) experimental; urgency=medium
+
+  * New version. Medium priority due to temporary files cleanup bug.
+
+ -- Toni Corvera <outlyer@gmail.com>  Tue, 24 Aug 2010 20:48:41 +0200
+
 vcs (1.12.1-upstream.1) experimental; urgency=medium
 
   * New version.

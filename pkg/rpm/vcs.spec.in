@@ -95,12 +95,15 @@ make DESTDIR=%buildroot prefix=%{prefix} install
 %{prefix}/share/vcs/profiles/mosaic.conf
 %{prefix}/share/vcs/profiles/white.conf
 # Manpage
-#%{_mandir}/man1/%{name}.1.gz
+%{_mandir}/man1/%{name}.1.gz
 %doc CHANGELOG
 # Config example
 %doc examples/vcs.conf.example
 
 %changelog
+* Tue Aug 24 2010 - outlyer (at) gmail (dot) com
+- Install manpage
+
 * Sat Apr 10 2010 - outlyer (at) gmail (dot) com
 - Added profiles and example configuration
 - Use %{prefix}
