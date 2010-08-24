@@ -26,6 +26,7 @@ check-rel:
 		echo 'RELEASE is set to 0!' ; false ; fi
 
 dist: check-rel check-no-svn \
+		pkg/vcs.1 \
 		vcs-$(VER).tar.gz \
 		PKGBUILD-$(VER) \
 		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
