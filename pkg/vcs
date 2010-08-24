@@ -31,7 +31,7 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.12.1"
+declare -r VERSION="1.12.2"
 declare -r RELEASE=1
 
 set -e
@@ -83,7 +83,8 @@ export LC_NUMERIC=C
 #   - INTERNAL_*: Used internally to adapt messages and the like to the input
 #   - UNDFLAG_*: Undocumented flags. Used internally to keep track of undocumented modes (-Z)
 #   - USR_*: Holds values of variables as set by the user, either from overrides or from the
-#            command-line
+#            command-line.
+#            implementation
 # * Optimisations:
 #   - Reduce the number of forks
 # }}} # TO-DO
@@ -124,8 +125,6 @@ declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $verbosity
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
-# see $font_filename
-declare -ri FF_DEFAULT=5 FF_NONLATIN=7
 # Indexes in $VID
 declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7 ASPECT=8 VCNAME=9 ACNAME=10
 # Exit codes, same numbers as /usr/include/sysexits.h
@@ -182,15 +181,6 @@ declare fg_title=Black          # Font colour for the title
 declare font_tstamps=DejaVu-Sans-Book  # Used for timestamps over the thumbnails
 declare font_heading=DejaVu-Sans-Book  # Used for the meta info heading
 declare font_sign=$font_heading # Used for the signature box
-# Unlike other font_ variables this doesn't take a font name directly
-# but is restricted to the $FF_ values. This is to allow overrides
-# from the command line to be placed anywhere, i.e. in
-#  $ vcs -I file.avi -O 'FONT_MINCHO=whatever'
-# as the font is overridden is after requesting its use, it wouldn't be
-# affected 
-# The other font_ variables are only affected by overrides and not command
-# line options that's why this one is special.
-declare font_filename=$FF_DEFAULT # Used to print only the filename in the heading
 declare font_title=$font_heading # Used for the title (see -T)
 # Font sizes, in points
 declare -i pts_tstamps=14          # Used for the timestamps
@@ -237,6 +227,11 @@ declare -i DISABLE_TIMESTAMPS=0
 # The automatic picks a semi-random one from the fonts believed to support CJK/Cyrillic
 #+characters.
 declare FONT_MINCHO= # Filename or font name as known to ImageMagick (identify -list font)
+# Introduced in 1.12.2:
+# When true (1) uses $FONT_MINCHO to print the filename, otherwise the same
+#+font as the heading is used.
+# See -I and --nonlatin
+declare -i NONLATIN_FILENAMES=0
 # Output of capturing programs is redirected here
 declare stdout=/dev/null stderr=/dev/null
 
@@ -413,6 +408,8 @@ declare DVD_VTS=    # VTS, detected & reset for each DVD
 #+             believed to be no longer needed
 #+  "gone":    Variable removed in the current version
 #+  "alias": Marks an alias, duplicate name intended to stay
+#+  "meta":  Special variable that will modify other variables (e.g. font_all
+#+           modifies all font_ variables.
 #+  "=": ignore
 #+ type constraints: a character indicating accepted values:
 #     n  -> Number (Natural, positive Integer)
@@ -458,6 +455,9 @@ declare -ra OVERRIDE_MAP=(
 	"font_sign::"
 	"font_tstamps::"
 	"font_title::"
+	"font_all:=:meta" # see parse_override
+	"bg_all:=:meta"
+	"fg_all:=:meta"
 	"pts_tstamps::"
 	"pts_meta::"
 	"pts_sign::"
@@ -506,6 +506,7 @@ declare -ra OVERRIDE_MAP=(
 
 	"nonlatin_font:FONT_MINCHO:"
 	"FONT_MINCHO::deprecated=nonlatin_font"
+	"NONLATIN_FILENAMES:=:=:b"
 
 	"end_offset:=:=:I" # New, used to have a two-variables assignment before USR_*
 	"DEFAULT_END_OFFSET:end_offset:deprecated=end_offset:I"
@@ -544,13 +545,11 @@ load_config_file() {
 			varname=${por/% *} # Everything up to the first space...
 			tmp=${por#* } # Rest of string
 			flag=${tmp/% *}
-			bashcode=${tmp#* }
 			if [ "$flag" == '=' ]; then
 				# No need to override...
 				feedback="$varname(=)"
 			else
 				feedback=$varname
-				eval "$bashcode"
 			fi
 			ov="$ov, $feedback"
 		fi
@@ -670,22 +669,20 @@ check_constraint() {
 	return 0
 }
 
-# Parse an override
-# Input should be a var=value assignment, result, stored in the global variable $RESULT,
-# will be in the format:
-# <variable name> <flag> <evaluable code> where
+# Parse an override and set its value.
+# Input should be a var=value assignment. Also sets USR_<variable>.
+# The global variable $RESULT is set with the format:
+# <variable name> <flag> where
 #  * variable name: is the name of the variable to be overridden
 #  * flag: is a character indicating the status: "+" for a possible override,
 #         "=" for an override that already has the same value
-#  * evaluable code: is a piece of bash code to be feed to eval to change
-#         the variable, it also sets the related USR_* variable
 # Warnings and errors are buffered
 # This function always returns true
 # parse_override($1 = override assignment)
 parse_override() {
 	local o="$1"
 	RESULT=''
-
+	
 	if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*=.*' <<<"$o" ; then
 		return
 	fi
@@ -737,6 +734,11 @@ parse_override() {
 					buffered error "Variable '$varname' is scheduled to be removed in the next release."
 					buffered error " Please contact the author if you absolutely need it."
 					;;
+				meta)
+					apply_meta_override "$varname" "$varval"
+					RESULT="$varname +"
+					return 0;
+					;;
 				*) return 0 ;;
 			esac
 		fi
@@ -757,10 +759,41 @@ parse_override() {
 		# Escape single quotes, since it will be single-quoted:
 		varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
 		evcode="$ivar='$varval'; USR_$ivar='$varval'"
+		eval "$evcode"
 	fi
 
 	# varname, as found in the config file
-	RESULT="$varname $retflag $evcode"
+	RESULT="$varname $retflag"
+}
+
+# Handle meta configuration variables, variables that, when set, modify the
+# value of (various) others
+# apply_meta_override($1 = actual variable name, $2 = value)
+apply_meta_override() {
+	case "$1" in
+		font_all)
+			buffered inf "font_all => font_heading, font_sign, font_title, font_tstamps"
+			parse_override "font_heading=$2"
+			parse_override "font_sign=$2"
+			parse_override "font_title=$2"
+			parse_override "font_tstamps=$2"
+		;;
+		fg_all)
+			buffered inf "fg_all => fg_heading, fg_sign, fg_title, fg_tstamps"
+			parse_override "fg_heading=$2"
+			parse_override "fg_sign=$2"
+			parse_override "fg_tstamps=$2"
+			parse_override "fg_title=$2"
+		;;
+		bg_all)
+			buffered inf "bg_all => bg_heading, bg_contact, bg_sign, bg_title, bg_tstamps"
+			parse_override "bg_heading=$2"
+			parse_override "bg_contact=$2"
+			parse_override "bg_sign=$2"
+			parse_override "bg_title=$2"
+			parse_override "bg_tstamps=$2"
+		;;
+	esac
 }
 
 # Do an override from the command line
@@ -774,12 +807,9 @@ cmdline_override() {
 	local varname=${r/% *} # See load_config()
 	local tmp=${r#* }
 	local flag=${tmp/% *}
-	local bashcode=${tmp#* }
 
 	if [ "$flag" == '=' ]; then
 		varname="$varname(=)"
-	else
-		eval "$bashcode"
 	fi
 
 	CMDLINE_OVERRIDES="$CMDLINE_OVERRIDES, $varname"
@@ -1447,7 +1477,7 @@ choose_getopt() {
 cleanup() {
 	if [ -z $TEMPSTUFF ]; then return 0 ; fi
 	inf "Cleaning up..."
-	rm -rf "${TEMPSTUFF[*]}"
+	rm -rf "${TEMPSTUFF[@]}"
 	unset VCSTEMPDIR
 	unset TEMPSTUFF ; declare -a TEMPSTUFF
 }
@@ -2341,6 +2371,7 @@ get_vcodec_name() {
 		theo) vcodec="Ogg Theora" ;;
 		tscc) vcodec="TechSmith SCC" ;;
 		VP6[012F]) vcodec="On2 Truemotion VP6" ;;
+		VP80) vcodec="VP8" ;;
 		WMV1) vcodec="WMV7" ;;
 		WMV2) vcodec="WMV8" ;;
 		WMV3) vcodec="WMV9" ;;
@@ -2394,6 +2425,7 @@ translate_ffmpeg_vcodec_id() {
 		theora)     mpid="theo" ;;
 		camtasia)   mpid="tscc" ;;
 		vp6|vp6a|vp6f) mpid="VP60" ;;
+		vp8) mpid="VP80" ;;
 		# FIXME List of codec id's I translate but haven't test:
 		# svq3, rv40, theora, camtasia, vp6*
 		# MPlayer uses uppercase while FFmpeg uses lowercase
@@ -2901,7 +2933,8 @@ set_extended_font() {
 }
 
 # Checks if the provided arguments make sense and are allowed to be used
-# together
+#+together. When an incoherence is found, sets some sane values if reasonable
+#+or fails otherwise.
 coherence_check() {
 	trace $FUNCNAME $@
 	# If -m is used then -S must be used
@@ -2987,6 +3020,17 @@ coherence_check() {
 	# Interval=0 == default interval
 	fptest "$interval" -eq 0 && interval=$DEFAULT_INTERVAL 
 
+	# If in non-latin mode and no nonlatin font has been picked try to pick one.
+	# Should it fail, fallback to latin font.
+	if [ $NONLATIN_FILENAMES -eq 1 ] && [ -z "$FONT_MINCHO" ]; then
+		set_extended_font || {
+			# set_extended_font already warns about lack of fonts
+			warn "    Falling back to latin font"
+			NONLATIN_FILENAMES=0
+			FONT_MINCHO="$font_heading"
+		}
+	fi
+
 	sanitise_rename_pattern
 	sanitise_fonts
 }
@@ -2995,6 +3039,7 @@ coherence_check() {
 #+*only* for fonts not overridden
 sanitise_fonts() {
 	trace $FUNCNAME $@
+
 	# Any default font in use? If all of them are overridden, return
 	if [ "$USR_font_heading" -a "$USR_font_title" -a "$USR_font_tstamps" -a "$USR_font_sign" ]; then
 		return
@@ -3385,15 +3430,12 @@ with $PROGRAM_SIGNATURE"
 			"$output" -append "$output"
 		unset tlheight
 	fi
-	local fn_font=	# see $font_filename
-	case $font_filename in
-		$FF_DEFAULT) fn_font="$font_heading" ;;
-		$FF_NONLATIN) fn_font="$FONT_MINCHO" ;;
-		*)
-			warn "\$font_filename was overridden with an incorrect value, using default."
-			fn_font="$font_heading"
-			;;
-	esac
+	local fn_font=	# see $NONLATIN_FILENAMES
+	if [ $NONLATIN_FILENAMES -ne 1 ]; then
+		fn_font="$font_heading"
+	else
+		fn_font="$FONT_MINCHO"
+	fi
 	# Create a small image to see how tall are characters. In my tests, no matter
 	#+which character is used it's always the same height.
 	local lineheight=$(line_height "$font_heading" "$pts_meta")
@@ -3902,7 +3944,8 @@ EOM
 					esac # verbosity
 					;;
 			esac
-			echo "$f=$v"
+			# Print all names in lowercase
+			echo "$(tolower "$f")=$v"
 		}
 	done
 	echo "# vcs:conf:$NL# Generated on $(date)$NL# --- $n ENDS HERE --- "
@@ -4106,7 +4149,8 @@ while true ; do
 		# Unlike -I, --nonlatin does not accept a font name
 		--nonlatin)
 			if [ -z "$USR_FONT_MINCHO" ]; then
-				font_filename=$FF_NONLATIN
+				NONLATIN_FILENAMES=1
+				USR_NONLATIN_FILENAMES=1
 				set_extended_font
 				inf "Filename font set to '$FONT_MINCHO'"
 			fi
@@ -4126,7 +4170,8 @@ while true ; do
 			fi
 			# It isn't tested for existence because it could also be a font
 			# which convert would understand without giving the full path
-			font_filename=$FF_NONLATIN
+			NONLATIN_FILENAMES=1
+			USR_NONLATIN_FILENAMES=1
 			if [ ${#2} -gt 1 ]; then
 				# j=, k= syntax
 				FONT_MINCHO="${2:2}"
@@ -4428,7 +4473,7 @@ while true ; do
 						t=${ovname#*:}
 						if [ "$t" -a "$t" != "=" ]; then f="$t" ; fi
 						eval v=\$USR_$f
-						[ -z "$v" ] || echo "$f=$v"
+						[ -z "$v" ] || echo "$(tolower $f)=$v"
 					done
 					exit 0
 					;;

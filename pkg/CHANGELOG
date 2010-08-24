@@ -1,7 +1,18 @@
-1.12.1:
+1.12.2 (2010-08-24):
+   * BUGFIX: Fix cleanup of temporary files (regression since 1.11.2). [#167]
+             Submitted by Jason Tackaberry.
+   * FEATURES:
+     - Added 'fg_all', 'bg_all' and 'font_all' config variables. [#156]
+     - Added 'nonlatin_filenames' config variable. [#159]
+     - Added identification for VP8 (WebM). [#166]
+   * OTHER:
+     - Print variable names in lowercase when using --generate.
+
+1.12.1 (2010-04-23):
    * BUGFIXES:
      - Workaround for cases in which GAWK uses comma as decimal separator.
-       Any OS with GAWK 3.1.3 to 3.1.5 was affected (e.g. Debian Lenny)
+       Any OS with GAWK 3.1.3 to 3.1.5 was affected (where the environment
+       language uses commas, e.g. Debian Lenny with many European languages)
      - Don't try to go on in DVD mode with unreadable ISOs
 
 1.12: (2010-04-10)
