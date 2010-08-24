@@ -1,0 +1,382 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+
+<!--
+
+$Id: manpage.xml 1651 2010-08-24 18:44:40Z toni $
+This file based on the default template for debian packages.
+
+Generation of man page:
+
+$ xmlto man manpage.xml
+
+Will generate vcs.1.
+
+View with:
+
+$ nroff -man vcs.1 | less
+or
+$ man vcs.1
+
+To disable the automatic creation of the AUTHOR(S) and COPYRIGHT sections
+read /usr/share/doc/docbook-xsl/doc/manpages/authors.html. This file can be
+found in the docbook-xsl-doc-html package.
+
+Validation can be done using: `xmllint -''-noout -''-valid manpage.xml`
+
+General documentation about man-pages and man-page-formatting:
+man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
+
+-->
+
+  <!-- Fill in your name for FIRSTNAME and SURNAME. -->
+  <!ENTITY dhfirstname "Toni">
+  <!ENTITY dhsurname   "Corvera">
+  <!-- dhusername could also be set to "&dhfirstname; &dhsurname;". -->
+  <!ENTITY dhusername  "Toni Corvera">
+  <!ENTITY dhemail     "outlyer@gmail.com">
+  <!ENTITY dhsection   "1">
+  <!-- TITLE should be something like "User commands" or similar (see
+       http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
+  <!ENTITY dhtitle     "vcs User Manual">
+  <!ENTITY dhucpackage "VCS">
+  <!ENTITY dhpackage   "vcs">
+]>
+
+<refentry>
+  <refentryinfo>
+    <title>&dhtitle;</title>
+    <productname>&dhpackage;</productname>
+    <authorgroup>
+      <author>
+       <firstname>&dhfirstname;</firstname>
+        <surname>&dhsurname;</surname>
+        <contrib>VCS author.</contrib>
+        <address>
+          <email>&dhemail;</email>
+        </address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2007-2010</year>
+      <holder>&dhusername;</holder>
+    </copyright>
+    <legalnotice>
+      <para>Permission is granted to copy, distribute and/or modify this
+        document under the terms of the GNU Lesser General Public License,
+        Version 2 or (at your option) any later version published by
+        the Free Software Foundation.</para>
+    </legalnotice>
+    <edition>$Rev: 1651 $</edition>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>&dhucpackage;</refentrytitle>
+    <manvolnum>&dhsection;</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>&dhpackage;</refname>
+    <refpurpose>create contact sheets from videos</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+        <command>&dhpackage;</command>
+        <arg choice="opt"><option>options</option></arg>
+        <arg choice="plain"><replaceable>FILE</replaceable></arg>
+        <arg choice="opt"><replaceable>FILE</replaceable>
+                <arg choice="opt"><replaceable>...</replaceable></arg>
+        </arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+        <command>&dhpackage;</command>
+            <arg choice="opt">
+                <option>-n<parameter>20</parameter></option>
+                <option>-c<parameter>4</parameter></option>
+            </arg>
+        <arg choice="plain"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+        <command>&dhpackage;</command>
+        <arg choice="opt"><option>--output=<parameter>OUTPUT1</parameter></option></arg>
+        <arg choice="opt"><option>--output=<parameter>OUTPUT2</parameter></option></arg>
+        <arg choice="opt"><option>...</option></arg>
+        <arg choice="plain"><replaceable>INPUT1</replaceable></arg>
+        <arg choice="opt"><replaceable>INPUT2</replaceable>
+            <arg choice="opt"><replaceable>...</replaceable></arg>
+        </arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&dhpackage;</command>
+      <!-- Normally the help and version options make the programs stop
+           right after outputting the requested information. -->
+      <group choice="opt">
+        <arg choice="plain">
+          <group choice="req">
+            <arg choice="plain"><option>-h</option></arg>
+            <arg choice="plain"><option>--help</option></arg>
+          </group>
+        </arg>
+        <arg choice="plain">
+            <arg choice="plain"><option>--fullhelp</option></arg>
+        </arg>
+      </group>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1 id="description">
+      <title>DESCRIPTION</title>
+      <!-- FIXME -->
+    <para>This is a work in progress manual page for <command>&dhpackage;</command>,
+        use <parameter>--help</parameter>, <parameter>--fullhelp</parameter>
+        and the online documentation (located at <ulink url="http://p.outlyer.net/dox/vcs" />)
+        for further usage instructions.</para>
+
+    <para><command>&dhpackage;</command> is a program that creates a preview
+        image from videos in a contact sheet-like format (i.e. captures from
+        different frames in the video are placed in a mosaic).</para>
+    <para>By default the output file will be named like the input file plus the
+        png extension. Example: &quot;<filename>file.avi</filename>&quot; will produce
+        a contact sheet in the file &quot;<filename>file.avi.png</filename>&quot;.</para>
+    <para>The default mode of operation is to obtain captures every five minutes in the
+        video, so the amount of captures will vary with each file. The command-line
+        argument <parameter>--numcaps</parameter> (<parameter>-n</parameter>) can be used
+        to change this behaviour or alternatively a configuration file might
+        be used to change the mode of operation (see <citerefentry>
+            <refentrytitle>vcs.conf</refentrytitle>
+            <manvolnum>5</manvolnum>
+            </citerefentry>).
+    </para>
+  </refsect1>
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <para>The program follows the usual GNU command line syntax,
+      with long options starting with two dashes (`-').  A summary of
+      options is included below.</para>
+    <variablelist>
+      <varlistentry>
+        <term><option>-n <replaceable>number</replaceable></option></term>
+        <term><option>--numcaps=<replaceable>number</replaceable></option></term>
+        <listitem>
+            <para>Fixes the number of captures to obtain. Changes the mode of operation
+                to capture a fixed number of frames.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-i <replaceable>interval</replaceable></option></term>
+        <term><option>--interval=<replaceable>interval</replaceable></option></term>
+        <listitem>
+            <para>Sets the interval between captures. Changes the mode of operation
+                to capture at fixed intervals. The number of captures will depend
+                on the video length.</para>
+            <para>See <xref linkend="interval_format" /> for the allowed syntax.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-c <replaceable>number</replaceable></option></term>
+        <term><option>--columns=<replaceable>number</replaceable></option></term>
+        <listitem>
+            <para>Number of columns in the contact sheet. The number of rows
+                will depend on this and the number of captures (there's no
+                way to set the number of rows).</para>
+        </listitem>
+     </varlistentry>
+      <varlistentry>
+        <term><option>-H <replaceable>height</replaceable></option></term>
+        <term><option>--height=<replaceable>height</replaceable></option></term>
+        <listitem>
+            <para>Height of captures. Can be a number (of pixels) or a percentage
+                (of the video height). By default the same size as the video is used.</para>
+            <para>The width is derived from height and aspect ratio.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-o <replaceable>filename</replaceable></option></term>
+        <term><option>--output=<replaceable>filename</replaceable></option></term>
+        <listitem>
+            <para>Name of output file. By default the video file name plus the output
+                format is used (e.g. &quot;<filename>video.avi.png</filename>&quot;
+                for &quot;<filename>video.avi</filename>&quot;).</para>
+            <para>If an extension is provided, it will define the output format, otherwise
+                PNG will be used. I.e. <filename>sheet.jpg</filename> will produce
+                a JPEG file while <filename>sheet</filename> and
+                <filename>sheet.png</filename> will produce a PNG file.</para>
+        </listitem>
+      </varlistentry>
+      <!--
+      <varlistentry>
+        <term><option>-x <replaceable>t</replaceable></option></term>
+        <term><option>- -xy=<replaceable>t</replaceable></option></term>
+        <listitem>
+            <para>DESC.</para>
+        </listitem>
+    </varlistentry>
+    -->
+
+      <varlistentry>
+        <term><option>-h</option></term>
+        <term><option>--help</option></term>
+        <listitem>
+          <para>Show summary of most common options.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--fullhelp</option></term>
+        <listitem>
+          <para>Show summary of all options.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/etc/vcs.conf</filename></term>
+        <listitem>
+          <para>The system-wide configuration file to control the
+            behaviour of <application>&dhpackage;</application>. See
+            <citerefentry>
+              <refentrytitle>vcs.conf</refentrytitle>
+              <manvolnum>5</manvolnum>
+            </citerefentry> for further details.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>${HOME}/.vcs.conf</filename></term>
+        <term><filename>${HOME}/.vcs/vcs.conf</filename></term>
+        <listitem>
+          <para>The per-user configuration file to control the
+             behaviour of <application>&dhpackage;</application>. See
+             <citerefentry>
+               <refentrytitle>vcs.conf</refentrytitle>
+               <manvolnum>5</manvolnum>
+             </citerefentry> for further details.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>${PWD}/vcs.conf</filename></term>
+        <listitem>
+          <para>The per-directory configuration file to control the
+             behaviour of <application>&dhpackage;</application>. See
+             <citerefentry>
+               <refentrytitle>vcs.conf</refentrytitle>
+               <manvolnum>5</manvolnum>
+             </citerefentry> for further details.</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+</refsect1>
+  <refsect1 id="interval_format">
+     <title>INTERVALS</title>
+     <para>
+         Intervals and timestamps can be specified in seconds or in a human-readable format
+         that follows the syntax
+
+         <replaceable>HOURS</replaceable>h<replaceable>MINUTES</replaceable>m
+         <replaceable>SECONDS</replaceable>s.<replaceable>MILLISECONDS</replaceable>
+
+         where each element is optional.
+         See <ulink url="http://p.outlyer.net/dox/vcs:time_syntax" /> for more details.
+     </para>
+
+     <para>
+         <segmentedlist>
+             <segtitle>Example</segtitle><segtitle>Equivalence</segtitle>
+             <segtitle>Standard time format</segtitle>
+             <seglistitem>
+                 <seg>1h30m30</seg><seg>1h30m30s.00</seg><seg>1:30:30.00</seg>
+             </seglistitem>
+             <seglistitem>
+                 <seg>30</seg><seg>0h0m30s.00</seg><seg>0:00:30.00</seg>
+             </seglistitem>
+             <seglistitem>
+                 <seg>3600</seg><seg>1h0m0s.00</seg><seg>1:00:00.00</seg>
+             </seglistitem>
+         </segmentedlist>
+     </para>
+  </refsect1>
+  <refsect1 id="environment">
+    <title>ENVIRONMENT</title>
+    <variablelist>
+      <varlistentry>
+        <term><envar>TEMPDIR</envar></term>
+        <listitem>
+            <para>Fallback temporary directory when <filename>/dev/shm</filename> is not avaiable.
+                Due to the big size of temporary files, it is recommended to use
+                a temporary directory on a fast filesystem.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="diagnostics">
+    <title>DIAGNOSTICS</title>
+    <para>The default verbosity level will print <package>vcs</package>' progress
+        and any errors or warnings on <filename class="devicefile">stderr</filename>.</para>
+    <para><option>--quiet</option> can be used to reduce verbosity.</para>
+    <para>The verbosity level and <filename class="devicefile">stderr</filename> can be
+        controlled through configuration files, see <citerefentry>
+            <refentrytitle>vcs.conf</refentrytitle>
+            <manvolnum>5</manvolnum>
+        </citerefentry>.
+    </para>
+    <para><command>&dhpackage;</command> provides some return codes, they follow
+        the semi-standardised values defined in <filename>sysexits.h</filename>:</para>
+    <segmentedlist>
+      <segtitle>Code</segtitle>
+      <segtitle>Diagnostic</segtitle>
+      <seglistitem>
+          <seg><errorcode>0</errorcode> (<errorcode>EX_OK</errorcode>)</seg>
+        <seg>Program exited successfully.</seg>
+      </seglistitem>
+      <seglistitem>
+          <seg><errorcode>64</errorcode> (<errorcode>EX_USAGE</errorcode>)</seg>
+        <seg>Error in the arguments.</seg>
+      </seglistitem>
+      <seglistitem>
+          <seg><errorcode>66</errorcode> (<errorcode>EX_NOINPUT</errorcode>)</seg>
+        <seg>Can't access some input file or it has an incorrect format.</seg>
+      </seglistitem>
+      <seglistitem>
+          <seg><errorcode>69</errorcode> (<errorcode>EX_UNAVAILABLE</errorcode>)</seg>
+        <seg>Unsatisfied dependency.</seg>
+      </seglistitem>
+      <seglistitem>
+          <seg><errorcode>70</errorcode> (<errorcode>EX_SOFTWARE</errorcode>)</seg>
+          <seg>Internal inconsistency (bug).</seg>
+      </seglistitem>
+      <seglistitem>
+          <seg><errorcode>73</errorcode> (<errorcode>EX_CANTCREAT</errorcode>)</seg>
+        <seg>Error creating temporary or output files.</seg>
+      </seglistitem>
+    </segmentedlist>
+  </refsect1>
+  <refsect1 id="bugs">
+    <!-- Or use this section to tell about upstream BTS. -->
+    <title>BUGS</title>
+    <para>Recent versions of <package>ImageMagick</package>, <command>mplayer</command> and
+        <command>ffmpeg</command> should be used
+        for maximum compatibility.</para>
+    <para>The upstream's <acronym>BTS</acronym> can be found
+      at <ulink url="http://b.outlyer.net"/>.</para>
+  </refsect1>
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <!-- In alpabetical order. -->
+    <para><citerefentry>
+        <refentrytitle>vcs.conf</refentrytitle>
+        <manvolnum>5</manvolnum>
+      </citerefentry>, <citerefentry>
+        <refentrytitle>convert</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry>, <citerefentry>
+        <refentrytitle>ffmpeg</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry>, <citerefentry>
+        <refentrytitle>mplayer</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry></para>
+  </refsect1>
+</refentry>
+

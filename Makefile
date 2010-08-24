@@ -7,6 +7,9 @@ VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.
 all:
 	@echo "Use $(MAKE) dist"
 
+pkg/vcs.1: manpage.xml
+	xmlto -o pkg man $<
+
 tgz: vcs-$(VER).tar.gz
 
 vcs-$(VER).tar.gz:
