@@ -31,7 +31,7 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.12.2"
+declare -r VERSION="1.12.3"
 declare -r RELEASE=1
 
 set -e
@@ -3716,7 +3716,7 @@ internal_integrity_test() {
 show_vcs_info() { # Won't be printed in quiet modes
 	local inff=inf
 	[ "$HAS_COLORS" ] && inff=infplain
-	$inff "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2010 Toni Corvera" "sgr0"
+	$inff "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2010 Toni Corvera"
 }
 
 # Prints the list of options to stdout
@@ -4107,8 +4107,8 @@ while true ; do
 			;;
 		-h|--help) show_help ; exit $EX_OK ;;
 		--fullhelp) show_help 'full' ; exit $EX_OK ;;
-		-F) decoder=$DEC_FFMPEG ;  USR_decoder=$decoder ;;
-		-M) decoder=$DEC_MPLAYER ; USR_decoder=$decoder ;;
+		-F|--ffmpeg) decoder=$DEC_FFMPEG ;  USR_decoder=$decoder ;;
+		-M|--mplayer) decoder=$DEC_MPLAYER ; USR_decoder=$decoder ;;
 		-H|--height)
 			check_constraint 'height' "$2" "$1" || die
 			th_height="$2"

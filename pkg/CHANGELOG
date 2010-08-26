@@ -1,3 +1,6 @@
+1.12.3:
+   * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
+
 1.12.2 (2010-08-24):
    * BUGFIX: Fix cleanup of temporary files (regression since 1.11.2). [#167]
              Submitted by Jason Tackaberry.
