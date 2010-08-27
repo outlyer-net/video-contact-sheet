@@ -512,7 +512,6 @@ declare -ra OVERRIDE_MAP=(
 	"DEFAULT_END_OFFSET:end_offset:deprecated=end_offset:I"
 
 	# TODO TBA:
-	#"use_nonlatinfont::"
 	#"noboldfeedback::" # Colour but not bold
 
 	"shoehorned::striked"
@@ -1658,7 +1657,7 @@ seqr() {
 # TODO: Limit usage to values that will expand correctly always (i.e. not with quotes)
 assert() {
 	[ $RELEASE -eq 1 ] && return
-	LINE=$1
+	local LINE=$1
 	shift
 	eval "$@" || {
 		error "Internal error at line $LINE: $@"
@@ -2830,7 +2829,7 @@ identify_video() {
 				[ $reqs -ge 3 ] && reqs=" -WS" || { # Third try => Recommend -WS
 					[ $reqs -eq 1 ] && reqs=" -Ws" || reqs=" -Ws$reqs"
 				}
-				assert 'fptest "$QUIRKS_MAX_REWIND" -gt 0'
+				assert $LINENO 'fptest "$QUIRKS_MAX_REWIND" -gt 0'
 				local offby=$(pretty_stamp $QUIRKS_MAX_REWIND)
 				warn "  Capturing won't work, video is at least $offby shorter than reported."
 				local dname='ffmpeg'
@@ -4523,7 +4522,7 @@ EOD
 			title="$(basename "$0") $ARGS"
 			;;
 		--) shift ; break ;;
-		*) error "Internal error! (remaining opts: $@)" ; exit $EX_SOFTWARE ;
+		*) error "Internal error! (remaining opts: $*)" ; exit $EX_SOFTWARE ;
 	esac
 	shift
 done
