@@ -49,14 +49,11 @@ export LC_NUMERIC=C
 # syntax
 # See the "Bash syntax notes" section for details
 [ "$BASH_VERSINFO" ] && {
-	# Absolute minimum right now is 2.05b
-	if [ "${BASH_VERSINFO[0]}" -le 2 ]; then # Only bash <=2 needs extra testing
-		# I guess we can't expect any new bash2 release
-		if [ "${BASH_VERSINFO[0]}" -lt 2 ] ||
-		   ( [ "${BASH_VERSINFO[0]}" -eq 2 ] && [ "${BASH_VERSINFO[1]}" != '05b' ] ); then
-			echo "Bash 2.05b or higher is required" >&2
+	# Absolute minimum right now is 3.1
+	if [ "${BASH_VERSINFO[0]}" -lt 3 ] ||
+		[ "${BASH_VERSINFO[0]}" -eq 3 -a "${BASH_VERSINFO[1]}" -lt 1 ]; then
+			echo "Bash 3.1 or higher is required" >&2
 			exit 1
-		fi
 	fi
 }
 
