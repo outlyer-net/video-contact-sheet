@@ -32,7 +32,7 @@
 
 
 declare -r VERSION="1.12.3"
-declare -r RELEASE=1
+declare -r RELEASE=0
 
 set -e
 
@@ -58,23 +58,23 @@ export LC_NUMERIC=C
 }
 
 # {{{ # TO-DO
-# * (1.12 or 1.13) Start replacing 'grep' with bash's '[[ =~ ]]'. Will break bash 2 compatibility
-#   for good
+# * Replace 'grep' with bash's '[[ =~ ]]' where possible (no forking => much faster).
+#   +Requires bash 3 (3.2 changed semantics)
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
 # * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace. =>
 #+         SUS v2: egrep is deprecated, grep -E replaces it
 # * Change default DVD_TITLE to 0
 # * Deprecations:
 #     OPTION/VAR    -> ALTERNATIVE              DEPRECATED FROM VERSION   REMOVAL ETA
-#     --undocumented shoehorn -> NONE            1.12                      1.13 or 1.14
+#     --undocumented shoehorn -> NONE            1.12                      1.13
 #     --funky       -> --profile                 ?                         ?+1
 #     --end_offset  -> --end-offset              1.12 (silent), 1.13 (warn) 1.14
+#     (new var names introduced in 1.12)         1.12                      1.14
 #    > Usage of ./vcs.conf is also deprecated since it doesn't mesh well with profiles
 #      (and it was a bad placeholder for them). Will remain to be loadable with
 #      -C:pwd.
-#      Loaded by default in 1.12 and maybe 1.13.
-#      Not loaded from 1.14 onwards (maybe 1.13), a warning may be shown if the file
-#      exists
+#      Loaded by default up to 1.13 (with warning in 1.13).
+#      Not loaded from 1.14 onwards
 # * Variables cleanup:
 #   Variables will use a more uniform scheme, with prefixes where appropriate:
 #   - INTERNAL_*: Used internally to adapt messages and the like to the input
@@ -235,8 +235,8 @@ declare stdout=/dev/null stderr=/dev/null
 # Override-able since 1.11:
 # Height of the thumbnails, by default use same as input
 declare th_height='100%'
-declare interval=$DEFAULT_INTERVAL	# Interval of captures (=numsecs/numcaps)
-declare -i numcaps=$DEFAULT_NUMCAPS	# Number of captures (=numsecs/interval)
+declare interval=$DEFAULT_INTERVAL	# Interval of captures (~length/numcaps)
+declare -i numcaps=$DEFAULT_NUMCAPS	# Number of captures (~length/interval)
 # This is the horizontal padding added to each capture.
 # Beware when changing this since extended set's alignment might break.
 # When shadows are enabled this is ignored since they already add padding.
@@ -528,14 +528,16 @@ declare -ra OVERRIDE_MAP=(
 #+(making it equivalent to '#'), there's no way to include a literal ';'
 # load_config_file($1 = file, [$2 = type (description) = 'Settings'])
 load_config_file() {
+	trace $@
 	local cfgfile=$1
 	local desc=$2
-	[ "$desc" ] || desc='Settings'
+	[[ $desc ]] || desc='Settings'
 
 	local por= # Parsed override
 	local varname= tmp= flag= bashcode= feedback= ov=
 	while read line ; do # auto variable $line
-		parse_override "$line" # Feeding it comments should be harmless
+		[[ ! $line =~ ^[[:space:]]*# ]] || continue # Don't feed comments
+		parse_override "$line"
 		por=$RESULT
 		if [ "$por" ]; then
 			varname=${por/% *} # Everything up to the first space...
@@ -580,6 +582,7 @@ load_config() {
 #+i.e. files in ~/.vcs/ will prevent loading files named like them in /usr
 # load_profile($1 = profile name)
 load_profile() {
+	trace $@
 	local p=$1 prof=
 	local -a PATHS=( ~/.vcs/profiles/ /usr/local/share/vcs/profiles/ /usr/share/vcs/profiles/ )
 
@@ -640,9 +643,9 @@ check_constraint() {
 	local n=$1 v=$2 p=$3
 	# Get constraint
 	local map=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$n:")
-	[ "$map" ] || return 0
+	[[ $map ]] || return 0
 	local ct=$(cut -d':' -f4 <<<"$map")
-	[ "$ct" ] || return 0
+	[[ $ct ]] || return 0
 	local checkfn= domain=
 	case $ct in
 		n) checkfn=is_number ; domain=numbers ;;
@@ -656,8 +659,8 @@ check_constraint() {
 		V) checkfn=is_vlevel ; domain='verbosity levels ($V_.*)' ;;
 		I) checkfn=is_interv_or_percent ; domain='intervals or percentages' ;;
 	esac
-	if [ "$checkfn" ] && ! $checkfn "$v" ; then
-		[ "$p" ] || p=$n
+	if [[ $checkfn ]] && ! $checkfn "$v" ; then
+		[[ $p ]] || p=$n
 		ERROR_MSG="Illegal value for '$p', only $domain are accepted"
 		ERROR_CODE=$EX_USAGE
 		return $ERROR_CODE
@@ -676,10 +679,14 @@ check_constraint() {
 # This function always returns true
 # parse_override($1 = override assignment)
 parse_override() {
+	trace $@
 	local o="$1"
 	RESULT=''
 	
-	if ! egrep -q '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*=.*' <<<"$o" ; then
+	# bash 3.1 and 3.2 handle quoted eres differently, using a variable fixes this
+	local ERE="^[[:space:]]*[[:alpha:]_][[:alnum:]_]*[[:space:]]*=.*"
+
+	if [[ ! $o =~ $ERE ]] ; then
 		return
 	fi
 	local varname=$(echo "${o/=*}" | sed 's/[[:space:]]//g') # Trim var name
@@ -846,25 +853,26 @@ cmdline_overrides_flush() {
 
 ## Natural number
 is_number() {
-	#egrep -q '^[0-9]+$' <<<"$1" ;
-	# From [[abs]], test if '[ ]' can parse input as numbers
+	# From [[abs]], test if '[ ]' can parse input as numbers.
+	# Can't use '[[' since parses non-numbers as 0
 	# Returns 2 for failed test, expected to return 1
 	[ "$1" -ne 0 -o "$1" -eq 0 ] 2>/dev/null || return 1
 }
 ## Number > 0
-is_positive() { is_number "$1" && [ $1 -gt 0 ]; }
+is_positive() { is_number "$1" && [[ $1 -gt 0 ]]; }
 ## Bool (0 or 1)
-is_bool() { [ "$1" == "0" -o "$1" == "1" ] 2>/dev/null ; }
+is_bool() { [[ ($1 == '0') || ($1 == '1') ]] 2>/dev/null ; }
 ## Float (XX.YY; XX.; ;.YY) (.24=0.24)
-is_float() { egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))$'<<<"$1" ; }
+is_float() { local P='^([0-9]+\.?([0-9])?+|(\.[0-9]+))$' ; [[ $1 =~ $P ]] ; }
 ## Percentage (xx% or xx.yy%)
 is_percentage() {
-	egrep -q '^([0-9]+\.?([0-9])?+|(\.[0-9]+))%$'<<<"$1"
+	local P='^([0-9]+\.?([0-9])?+|(\.[0-9]+))%$'
+	[[ $1 =~ $P ]]
 }
 ## Interval
 is_interval() {
 	local i=$(get_interval "$1" || true)
-	[ "$i" ] && fptest $i -gt 0
+	[[ $i ]] && fptest $i -gt 0
 }
 ## Interval or percentage
 is_interv_or_percent() {
@@ -872,7 +880,7 @@ is_interv_or_percent() {
 }
 ## Positive or percentage
 is_pos_or_percent() {
-	is_number "$1" && [ "$1" -gt 0 ] || is_percentage "$1"
+	is_number "$1" && [[ $1 -gt 0 ]] || is_percentage "$1"
 }
 ## Float (>=0) or fraction
 is_float_or_frac() {
@@ -880,20 +888,21 @@ is_float_or_frac() {
 }
 ## Fraction, strictly (X/Y, but no X; Y!=0)
 is_fraction() {
-	egrep -q '^[0-9]+/[0-9]+$'<<<"$1" && {
+	local P='^[0-9]+/[0-9]+$'
+	[[ $1 =~ $P ]] && {
 		local d=$(echo "$1" | cut -d'/' -f2)
 		[ "$d" -ne 0 ]
 	}
 }
 ## Decoder ($DEC_* constants)
-is_decoder() { [ "$1" == $DEC_FFMPEG -o "$1" == $DEC_MPLAYER ]; }
+is_decoder() { [[ $1 == $DEC_FFMPEG || $1 == $DEC_MPLAYER ]]; }
 ## Time calculation source ($TC_* constants)
-is_tcfrom() { [ "$1" == $TC_INTERVAL -o "$1" == $TC_NUMCAPS ]; }
+is_tcfrom() { [[ $1 == $TC_INTERVAL || $1 == $TC_NUMCAPS ]]; }
 ### Verbosity level ($V_* constants)
 is_vlevel() {
 	is_number "$1" && \
-		[ $1 -eq $V_ALL -o $1 -eq $V_NONE -o $1 -eq $V_ERROR -o \
-			$1 -eq $V_WARN -o $1 -eq $V_INFO ]
+		[[ ($1 -eq $V_ALL) || ($1 -eq $V_NONE) || ($1 -eq $V_ERROR) || \
+			($1 -eq $V_WARN) || ($1 -eq $V_INFO) ]]
 }
 
 #### }}}} # End of type checkers
@@ -1117,14 +1126,12 @@ get_interval() {
 	local s=$(tolower "$1") t r n
 
 	# Only allowed characters
-	if ! egrep -qi '^[0-9smh.]+$' <<<"$s"; then
-		return $EX_USAGE;
-	fi
+	local ERE='^[0-9smhSMH.]+$'
+	[[ $s =~ $ERE ]] || return $EX_USAGE
 
 	# Two consecutive dots are no longer accepted
-	if egrep -q '\.\.' <<<"$s" ; then
-		return $EX_USAGE
-	fi
+	# ([.] required for bash 3.1 + bash 3.2 compat)
+	[[ ! $s =~ [.][.] ]] || return $EX_USAGE
 
 	# Newer parsing code: replaces units by a product
 	# and feeds the resulting string to awk for evaluation
@@ -1169,7 +1176,7 @@ get_interval() {
 pad() {
 	# printf "%0${1}d\n" "$2" # [[R1#18]] # Can't be used with non-numbers
 	local str=$2
-	while [ "${#str}" -lt $1 ]; do
+	while [[ ${#str} -lt $1 ]]; do
 		str="0$str"
 	done
 	echo $str
@@ -1258,13 +1265,13 @@ get_pretty_file_size() {
 # Since safe_rename() is called from $() it won't be able to affect global variables directly
 # Hopefully soon this won't be needed
 sanitise_rename_pattern() {
-	if  ! grep -q '%e' <<<"$safe_rename_pattern" ||
-		! grep -q '%N' <<<"$safe_rename_pattern" ||
-		! grep -q '%b' <<<"$safe_rename_pattern" ; then
+	# No quoting! => Regex
+	if [[ ! $safe_rename_pattern =~ %e || ! $safe_rename_pattern =~ %N || \
+			! $safe_rename_pattern =~ %b ]]; then
 		safe_rename_pattern=$DEFAULT_SAFE_REN_PATT
 	fi
 	# Hashmarks will break the regex used in safe_rename()
-	if grep -q '#' <<<"$safe_rename_pattern" ; then
+	if [[ $safe_rename_pattern =~ \# ]]; then
 		warn "Illegal character \"#\" found in safe renaming pattern, resetting it"
 		safe_rename_pattern=$DEFAULT_SAFE_REN_PATT
 	fi
@@ -1293,14 +1300,12 @@ safe_rename() {
 	local b=${to%.$ext}
 
 	local n=1
-	while [ -f "$to" ]; do # Only executes if $2 exists
+	while [[ -f $to ]]; do # Only executes if $2 exists
 		# Bash 2 and Bash 3 behave differently with substring replacement (${//}) and '%'
 		# Sed is a safer bet
-		to=$(sed "s#%b#$b#g" <<<"$safe_rename_pattern")
-		to=$(sed "s#%N#$n#g" <<<"$to")
-		to=$(sed "s#%e#$ext#g" <<<"$to")
+		to=$(sed -e "s#%b#$b#g" -e "s#%N#$n#g" -e "s#%e#$ext#g" <<<"$safe_rename_pattern")
 
-		let 'n++';
+		(( n++ ));
 	done
 
 	mvq "$from" "$to"
@@ -1657,8 +1662,26 @@ assert() {
 	local LIN=${c% *} FN=${c#* }
 	eval "$@" || {
 		error "Internal error at $FN:$LIN: $@"
+		local cal=$(caller 1)
+		[[ $level ]] && error "  Stack trace:"
+		local level=2
+		while [[ $cal ]]; do
+			cal=${cal% *}
+			error "      ${cal#* }:${cal% *}"
+			cal=$(caller $level)
+			(( level++ ))
+		done
 		exit $EX_SOFTWARE
 	}
+}
+
+# Conditional assertion
+# assert_if($1 = condition, $2 = assert if $1 true)
+assert_if() {
+	[[ $RELEASE -eq 1 ]] && return
+	if eval "$1" ; then
+		assert "$2"
+	fi
 }
 
 # }}} # Convenience functions
@@ -3182,8 +3205,6 @@ process() {
 	fi
 	local vidcap_width=$(compute_width $vidcap_height)
 
-	local numsecs=$(grep ID_LENGTH <<<$MPLAYER_CACHE| cut -d'=' -f2 | cut -d. -f1)
-	
 	local nc=$numcaps
 
 	unset TIMECODES
@@ -3226,7 +3247,7 @@ process() {
 		local hlcapfile= pretty=
 		local -a capfiles
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
-			if fptest $stamp -gt $numsecs ; then let 'n++' && continue ; fi
+			if fptest $stamp -gt ${VID[$LEN]} ; then (( n++ )) && continue ; fi
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating highlight #${n}/${#HLTIMECODES[@]} ($pretty)..."
 
@@ -3679,8 +3700,13 @@ internal_integrity_test() {
 		"is_float 1/3 1 #Non-float recognition"
 
 		"is_fraction 1/1 0 #Fraction recognition"
-		"is_fraction 1 1 #non-fraction recognition"
+		"is_fraction 1 1 #Non-fraction recognition"
 		"is_fraction 1.1 1 #Non-fraction recognition"
+
+		"is_pos_or_percent 33 0 #Positive recognition"
+		"is_pos_or_percent 33% 0 #Percent recognition"
+		"is_pos_or_percent 4/4% 1 #Percent recognition"
+		"is_pos_or_percent % 1 #Percent recognition"
 	)
 	for t in "${TESTS[@]}"; do
 		comm=$(sed 's!.* #!!g' <<<$t)
