@@ -2,6 +2,9 @@
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
    * OTHER:
      - Fix printing of remaining options on command-line error
+     - Switch to a minimum of bash 3.1
+   * INTERNAL:
+     - Use of Bash's 'caller' in 'assert' and 'trace'
 
 1.12.2 (2010-08-24):
    * BUGFIX: Fix cleanup of temporary files (regression since 1.11.2). [#167]
