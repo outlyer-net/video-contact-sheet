@@ -566,7 +566,7 @@ load_config() {
 	local -a CONFIGS=( /etc/vcs.conf ~/.vcs.conf ~/.vcs/vcs.conf ./vcs.conf )
 
 	for cfgfile in "${CONFIGS[@]}" ;do
-		[ -f "$cfgfile" ] || continue
+		[[ -f "$cfgfile" ]] || continue
 		load_config_file "$cfgfile"
 	done
 }
@@ -605,7 +605,7 @@ load_profile() {
 				| while read profname ; do
 					for path in "${PATHS[@]}" ; do
 						path=$path$profname.conf
-						[ -f "$path" ] || continue
+						[[ -f $path ]] || continue
 						echo -n "$profname"
 						# [ ] here contains <space><tab>. Mawk doesn't understand
 						# [[:space:]]
@@ -627,7 +627,7 @@ load_profile() {
 
 	for prof in "${PATHS[@]}" ; do
 		prof="$prof$p.conf"
-		[ -f "$prof" ] || continue
+		[[ -f $prof ]] || continue
 		load_config_file "$prof" 'Profile'
 		return 0
 	done
@@ -1339,7 +1339,7 @@ dur() {
 # Gets the size of the dvd device, in DVD mode
 get_dvd_size() {
 	# FIXME: Case sensivity might break with iso9660
-	if [ -f "$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_1.VOB" ]; then
+	if [[ -f "$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_1.VOB" ]]; then
 		# Some VOBs available
 		local vfiles="$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_*.VOB"
 		# Print all sizes, each on a line, add '+' to the end of each line, add 0 to the end.
@@ -1936,7 +1936,7 @@ capture_ffmpeg() {
 	"$FFMPEG" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
 		  -dframes 1 -vframes 1 -vcodec png \
 		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
-	[ -f "$o" ] && [ "0" != "$(du "$o" | cut -f1)" ]
+	[[ -f $o ]] && [[ '0' != "$(du "$o" | cut -f1)" ]]
 }
 
 # Capture a frame with mplayer
@@ -1965,7 +1965,7 @@ capture_mplayer() {
 
 	} >"$stdout" 2>"$stderr"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
-	[ -f "$o" ] &&  [ "0" != "$(du "$o" | cut -f1)" ]
+	[[ -f $o ]] &&  [[ '0' != "$(du "$o" | cut -f1)" ]]
 }
 
 # Capture a frame
@@ -2008,7 +2008,7 @@ filter_vidcap() {
 	local t=$(new_temp_file .png)
 	eval "convert '$1' $cmdopts '$t'"
 	# If $t doesn't exist returns non-zero
-	[ -f "$t" ] && mvq "$t" "$1"
+	[[ -f $t ]] && mvq "$t" "$1"
 }
 
 # Applies all global vidcap filters
@@ -2476,7 +2476,8 @@ get_acodec_name() {
 	local acid="$1"
 	local acodec=
 
-	if grep -q '[ -]' <<<"$acid" ; then
+	local ERE='[ -]'
+	if [[ $acid =~ $ERE ]]; then
 		# Won't be recognised anyway
 		echo "$acid"
 		return
@@ -3112,7 +3113,7 @@ process() {
 	if [ $DVD_MODE -eq 1 ]; then
 		local dvdn=$(realpathr "$f")
 		# Is it an ISO?
-		if [ -f "$dvdn" ]; then
+		if [[ -f $dvdn ]]; then
 			DVD_MOUNTP=$(get_dvd_image_mountpoint "$dvdn")
 			if [ -z "$DVD_MOUNTP" ]; then
 				# Only in Linux does this matter
@@ -3232,7 +3233,7 @@ process() {
 	# mplayer will re-write also 00000001.png-00000004.png
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
 		for f_ in 1 2 3 4; do
-			if [ -f "0000000${f_}.png" ]; then
+			if [[ -f "0000000${f_}.png" ]]; then
 				error "File 0000000${f_}.png exists and would be overwritten, move it out before running."
 				return $EX_CANTCREAT
 			fi
@@ -4212,11 +4213,12 @@ while true ; do
 			;;
 		-O|--override)
 			# Rough test
-			if ! egrep -q '[a-zA-Z_]+=[^;]*' <<<"$2"; then
+			RE='[a-zA-Z_]+=[^;]*'
+			if [[ ! $2 =~ $RE ]]; then
 				error "Wrong override format, it should be variable=value. Got '$2'."
 				exit $EX_USAGE
 			fi
-			if grep -q 'GETOPT=' <<<"$2" ; then
+			if [[ $2 =~ 'GETOPT=' ]] ; then
 				# If we're here, getopt has already been found and works, so it makes no
 				# sense to override it; on the other hand, if it hasn't been correctly
 				# set/detected we won't reach here
@@ -4244,9 +4246,9 @@ while true ; do
 				#  - Can be repeated, will double for each instance
 				#  - -Ws -Ws -Ws = -Ws3
 				s|s[0-9]|s[0-9][0-9])
-				  [ ${#2} -gt 1 ] && n=${2:1} || n=1
+				  [[ ${#2} -gt 1 ]] && n=${2:1} || n=1
 				  QUIRKS_MAX_REWIND=$(awkexf "$QUIRKS_MAX_REWIND * (2^$n)")
-				  let 'INTERNAL_WS_C+=n,1'
+				  (( INTERNAL_WS_C+=n ,1 ))
 				  ;;
 				# Brute force -Ws: Test all the length of the file if required
 				S) QUIRKS_MAX_REWIND=-1 ;;
@@ -4255,7 +4257,7 @@ while true ; do
 				p|p[0-9]|p[0-9][0-9])
 				  [ ${#2} -gt 1 ] && n=${2:1} || n=1
 				  QUIRKS_LEN_STEP=$(awkexf "$QUIRKS_LEN_STEP / (2^$n)")
-				  let 'INTERNAL_WP_C+=n,1'
+				  (( INTERNAL_WP_C+=n ,1 ))
 				  ;;
 				# Inverse of -Wp: Decrease precission of safe length measuring
 				# i.e.: will try less times <-> will be quicker but less accurate
@@ -4264,7 +4266,7 @@ while true ; do
 				P|P[0-9]|P[0-9][0-9])
 				  [ ${#2} -gt 1 ] && n=${2:1} || n=1
 				  QUIRKS_LEN_STEP=$(awkexf "$QUIRKS_LEN_STEP * (2^$n)")
-				  let 'INTERNAL_WP_C-=n,1'
+				  (( INTERNAL_WP_C-=n ,1 ))
 				  ;;
 				# -Wb (Semi-undocumented): Disable safe mode. Use this to force accepting
 				#+broken/partial files. Only makes sense when testing or in combination
@@ -4360,7 +4362,7 @@ while true ; do
 				exit $EX_USAGE
 			}
 			# ./vcs.conf doesn't need the vcs:conf: mark
-			if [ $2 != ':pwd' ]; then
+			if [[ $2 != ':pwd' ]]; then
 				head -5 "$cfg" | grep -q '#[[:space:]]*vcs:conf[[:space:]]*:' || \
 				tail -5 "$cfg" | grep -q '#[[:space:]]*vcs:conf[[:space:]]*:' || {
 					error "No vcs:conf: mark found in '$cfg'"
@@ -4371,7 +4373,7 @@ while true ; do
 			shift
 			;;
 		-R|--randomsource)
-			if [ ! -r "$2" ]; then
+			if [[ ! -r $2 ]]; then
 				error "Random source file '$2' can't be read"
 				exit $EX_USAGE
 			fi
@@ -4384,21 +4386,21 @@ while true ; do
 			case $(tolower "$2") in
 				# timestamp (with no final s) is undocumented but will stay
 				t|timestamps|timestamp)
-					if [ $DISABLE_TIMESTAMPS -eq 0 ]; then
+					if [[ $DISABLE_TIMESTAMPS -eq 0 ]]; then
 						inf "Timestamps disabled."
 						# They'll be removed from the filter chain in coherence_check
 						DISABLE_TIMESTAMPS=1
 					fi
 					;;
 				s|shadows|shadow)
-					if [ $DISABLE_SHADOWS -eq 0 ]; then
+					if [[ $DISABLE_SHADOWS -eq 0 ]]; then
 						inf "Shadows disabled."
 						# They will be removed from the filter chain in coherence_check
 						DISABLE_SHADOWS=1
 					fi
 					;;
 				p|padding)
-					if [ $HPAD -ne 0 ] ; then
+					if [[ $HPAD -ne 0 ]] ; then
 						inf "Padding disabled." # Kinda...
 						HPAD=0
 					fi
@@ -4433,7 +4435,7 @@ while true ; do
 		-q|--quiet)
 			# -q to only show errors
 			# -qq to be completely quiet
-			if [ $verbosity -gt $V_ERROR ]; then
+			if [[ $verbosity -gt $V_ERROR ]]; then
 				verbosity=$V_ERROR
 			else
 				verbosity=$V_NONE
