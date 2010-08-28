@@ -1851,7 +1851,7 @@ compute_timecodes() {
 	done
 	inf "Capturing in range [$(pretty_stamp $inc)-$(pretty_stamp $last)]. Total length: $(pretty_stamp ${VID[$LEN]})"
 	unset LTC[0] # Discard initial cap (=$st)
-	TIMECODES=( ${TIMECODES[@]} ${LTC[@]} ) # Don't quote or extra empty stamp!
+	TIMECODES=( "${TIMECODES[@]}" "${LTC[@]}" )
 }
 
 # Tries to guess an aspect ratio comparing width and height to some
@@ -3167,34 +3167,34 @@ process() {
 	fi
 	# -2: DVD Mode autodetection => If ffmpeg/mplayer was unable autodetect, otherwise
 	#+ honor detected value
-	[ "-2" == "$aspect_ratio" ] && [ -z "${VID[$ASPECT]}" ] && aspect_ratio=-1
-	[ "-2" == "$aspect_ratio" ] && [ "${VID[$ASPECT]}" ] && aspect_ratio=0
-	if [ "0" == "$aspect_ratio" ]; then
-		if [ "${VID[$ASPECT]}" ]; then
+	if [[ $aspect_ratio -eq -2 ]]; then
+		[[ ${VID[$ASPECT]} ]] && aspect_ratio=0 || aspect_ratio=-1
+	elif [[ $aspect_ratio -eq 0 ]]; then
+		if [[ ${VID[$ASPECT]} ]]; then
 			# Aspect ratio in file headers, honor it
 			aspect_ratio=$(awkexf "${VID[$ASPECT]}")
 		else
 			aspect_ratio=$(awkexf "${VID[$W]} / ${VID[$H]}")
 		fi
-	elif [ "-1" == "$aspect_ratio" ]; then
+	elif [[ $aspect_ratio -eq -1 ]]; then
 		aspect_ratio=$(guess_aspect ${VID[$W]} ${VID[$H]})
 		inf "Aspect ratio set to $aspect_ratio."
 	fi
 	local vidcap_width=$(compute_width $vidcap_height)
 
-	local numsecs=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2 | cut -d. -f1)
+	local numsecs=$(grep ID_LENGTH <<<$MPLAYER_CACHE| cut -d'=' -f2 | cut -d. -f1)
 	
 	local nc=$numcaps
 
 	unset TIMECODES
 	# Compute the stamps (if in auto mode)...
-	if [ $manual_mode -eq 1 ]; then
+	if [[ $manual_mode -eq 1 ]]; then
 		# Note TIMECODES must be set as an array to get the correct count in
 		# manual mode; in automatic mode it will be set correctly inside
 		# compute_timecodes()
-		TIMECODES=( ${initial_stamps[@]} )
+		TIMECODES=( "${initial_stamps[@]}" )
 	else
-		TIMECODES=${initial_stamps[@]}
+		TIMECODES=( "${initial_stamps[@]}" )
 		compute_timecodes $timecode_from $interval $numcaps || {
 			return $?
 		}
@@ -3204,12 +3204,12 @@ process() {
 	local VIDCAPFILE=00000005.png
 
 	# If the temporal vidcap already exists, abort
-	if [ -f $VIDCAPFILE ]; then
+	if [[ -f $VIDCAPFILE ]]; then
 		error "File $VIDCAPFILE exists and would be overwritten, move it out before running."
 		return $EX_CANTCREAT
 	fi
 	# mplayer will re-write also 00000001.png-00000004.png
-	if [ $decoder -eq $DEC_MPLAYER ]; then
+	if [[ $decoder -eq $DEC_MPLAYER ]]; then
 		for f_ in 1 2 3 4; do
 			if [ -f "0000000${f_}.png" ]; then
 				error "File 0000000${f_}.png exists and would be overwritten, move it out before running."
@@ -3222,7 +3222,7 @@ process() {
 
 	# Highlights
 	local hlfile n=1 # hlfile Must be outside the if!
-	if [ "$HLTIMECODES" ]; then
+	if [[ $HLTIMECODES ]]; then
 		local hlcapfile= pretty=
 		local -a capfiles
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
@@ -3240,11 +3240,11 @@ process() {
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 			mvq "$VIDCAPFILE" "$hlcapfile"
 			capfiles=( "${capfiles[@]}" "$hlcapfile" )
-			let 'n++'
+			(( n++ ))
 		done
 
-		let 'n--' # There's an extra inc
-		if [ "$n" -lt "$cols" ]; then
+		(( n-- )) # There's an extra inc
+		if [[ $n -lt $cols ]]; then
 			numcols=$n
 		else
 			numcols=$cols
@@ -3292,7 +3292,7 @@ process() {
 		# Number of captures. Always rounded to a multiplier of *double* the
 		# number of columns (the extended caps are half width, this way they
 		# match approx with the standard caps width)
-		local hlnc=$(rtomult $(awkex "int(${#TIMECODES[@]} * $extended_factor)") $((2*$numcols)))
+		local hlnc=$(rtomult $(awkex "int(${#TIMECODES[@]} * $extended_factor)") $((2*numcols)))
 
 		unset TIMECODES # required step to get the right count
 		declare -a TIMECODES # Note the manual stamps are not included anymore
@@ -3312,11 +3312,11 @@ process() {
 			capfile=$(new_temp_file "-excap-$(pad 6 $n).png")
 			mvq "$VIDCAPFILE" "$capfile"
 			capfiles=( "${capfiles[@]}" "$capfile" )
-			let 'n++'
+			(( n++ ))
 		done
 
-		let 'n--' # There's an extra inc
-		if [ $n -lt $(( $cols * 2 )) ]; then
+		(( n-- )) # There's an extra inc
+		if [[ $n -lt 'cols*2' ]]; then
 			numcols=$n
 		else
 			numcols=$(( $cols * 2 ))
@@ -3331,8 +3331,8 @@ process() {
 	local vcodec=${VID[$VCNAME]}
 	local acodec=${VID[$ACNAME]}
 
-	if [ "${VID[$CHANS]}" ] && is_number "${VID[$CHANS]}" &&[ ${VID[$CHANS]} -ne 2 ]; then
-		if [ ${VID[$CHANS]} -eq 1 ]; then
+	if [[ ${VID[$CHANS]} ]] && is_number "${VID[$CHANS]}" && [[ ${VID[$CHANS]} -ne 2 ]]; then
+		if [[ ${VID[$CHANS]} -eq 1 ]]; then
 			acodec="$acodec (mono)"
 		else
 			acodec="$acodec (${VID[$CHANS]}ch)"
@@ -3357,9 +3357,10 @@ process() {
 		# Expand the standard set to the maximum width of the sets by padding both sides
 		# For some reason the more obvious (to me) convert command-lines lose
 		# the transparency
-		convert \( -size $(( ($width - $csw) / 2 ))x$csh xc:transparent \) "$output" \
-				\( -size $(( ($width - $csw) / 2 ))x$csh xc:transparent \) +append "$output"
-		unset csh
+		local csw2= ; (( csw2 = (width-csw) / 2 ))
+		convert \( -size ${csw2}x$csh xc:transparent \) "$output" \
+				\( -size ${csw2}x$csh xc:transparent \) +append "$output"
+		unset csh csw2
 	fi
 
 	# If there were highlights then mix them in
@@ -3370,9 +3371,11 @@ process() {
 		# replacing it with a "-composite" operation apparently works
 		# Expand the highlights to the correct size by padding
 		local hlh=$(imh "$hlfile")
-		if [ $hlw -lt $width ]; then
-			convert \( -size $(( ($width - $hlw) / 2 ))x$hlh xc:transparent \) "$hlfile" \
-					\( -size $(( ($width - $hlw) / 2 ))x$hlh xc:transparent \) +append "$hlfile"
+		if [[ $hlw -lt $width ]]; then
+			local hlw2= ; (( hlw2=(width - hlw) / 2 ))
+			convert \( -size ${hlw2}x$hlh xc:transparent \) "$hlfile" \
+					\( -size ${hlw2}x$hlh xc:transparent \) +append "$hlfile"
+			unset hlw2
 		fi
 		convert \( -size ${width}x${hlh} xc:LightGoldenRod "$hlfile" -composite \) \
 			\( -size ${width}x1 xc:black \) \
@@ -3385,8 +3388,9 @@ process() {
 		local exh=$(imh "$extoutput")
 		if [[ $exw -lt $width ]]; then
 			# Expand the extended set to be the correct size
-			convert \( -size $(( ($width - $exw) / 2 ))x$exh xc:transparent \) "$extoutput" \
-					\( -size $(( ($width - $exw) / 2 ))x$exh xc:transparent \) +append "$extoutput"
+			local exw2 = ; (( exw2=(width - exv) / 2 ))
+			convert \( -size ${exw2}x$exh xc:transparent \) "$extoutput" \
+					\( -size ${exw2}x$exh xc:transparent \) +append "$extoutput"
 		fi
 		convert "$output" -background Transparent "$extoutput" -append "$output"
 	fi
@@ -3403,7 +3407,7 @@ process() {
 Format: $vcodec / $acodec
 FPS: ${VID[$FPS]}"
 	local signature
-	if [ $anonymous_mode -eq 0 ]; then
+	if [[ $anonymous_mode -eq 0 ]]; then
 		signature="$user_signature $user
 with $PROGRAM_SIGNATURE"
 	else
@@ -3426,7 +3430,7 @@ with $PROGRAM_SIGNATURE"
 		unset tlheight
 	fi
 	local fn_font=	# see $NONLATIN_FILENAMES
-	if [ $NONLATIN_FILENAMES -ne 1 ]; then
+	if [[ $NONLATIN_FILENAMES -ne 1 ]]; then
 		fn_font="$font_heading"
 	else
 		fn_font="$FONT_MINCHO"
@@ -3435,13 +3439,13 @@ with $PROGRAM_SIGNATURE"
 	#+which character is used it's always the same height.
 	local lineheight=$(line_height "$font_heading" "$pts_meta")
 	# Since filename can be set in a different font check it too
-	if [ "$fn_font" != "$font_heading" ]; then
+	if [[ $fn_font != $font_heading ]]; then
 		local fnlineheight=$lineheight
 		fnlineheight=$(line_height "$fn_font" "$pts_meta")
-		[ $fnlineheight -le $lineheight ] || lineheight=$fnlineheight
+		[[ $fnlineheight -le $lineheight ]] || lineheight=$fnlineheight
 		unset fnlineheight
 	fi
-	headheight=$(( $lineheight * 3 ))
+	headheight=$(( lineheight * 3 ))
 	# Talk about voodoo... feel the power of IM... let's try to explain what's this:
 	# It might technically be wrong but it seems to work as I think it should
 	# (hence the voodoo I was talking)
@@ -3494,10 +3498,10 @@ with $PROGRAM_SIGNATURE"
 	fi
 
 	local signlh=$(line_height "$font_sign" "$pts_sign")
-	local signheight=$(( 4 + ( $signlh * 2 ) ))
+	local signheight=$(( 4 + ( signlh * 2 ) ))
 	convert \
 		\( \
-			-size $(( ${headwidth} -18 ))x1 "xc:$bg_heading" +size \
+			-size $(( headwidth - 18 ))x1 "xc:$bg_heading" +size \
 			-font "$font_heading" -pointsize "$pts_meta" \
 			-background "$bg_heading" -fill "$fg_heading" \
 			\( \
