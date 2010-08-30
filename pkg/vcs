@@ -1921,51 +1921,6 @@ guess_aspect() {
 	echo $ar
 }
 
-# Capture a frame with ffmpeg
-# capture_ffmpeg($1 = inputfile, $2 = outputfile, $3 = timestamp[, $4 = extra opts])
-capture_ffmpeg() {
-	trace $@
-	local f=$1
-	local o=$2
-	local ts=$3
-	
-	# XXX: It would be nice to show a message if it takes too long
-	# See wa_ss_* declarations at the start of the file for details
-	"$FFMPEG" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
-		  -dframes 1 -vframes 1 -vcodec png \
-		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
-	[[ -f $o ]] && [[ '0' != "$(du "$o" | cut -f1)" ]]
-}
-
-# Capture a frame with mplayer
-# capture_mplayer($1 = inputfile, $2 = UNUSED, $3 = timestamp[, $4 = extra opts])
-capture_mplayer() {
-	trace $@
-	# Note mplayer CAN'T set the output filename, newer mplayer can set output
-	#+dir though.
-	local f="$1"
-	local o=00000005.png
-	local ts=$3
-
-	# No point in passing ms to mplayer
-	ts=$(cut -d'.' -f1 <<<"$ts")
-	# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
-
-	{
-	if [[ $DVD_MODE -eq 1 ]]; then
-		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
-			   $4 "dvd://$DVD_TITLE"
-	else
-		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			   -frames 5 -ss "$ts" $4 $shoehorned "$f"
-	fi
-
-	} >"$stdout" 2>"$stderr"
-	rm -f 0000000{1,2,3,4}.png # Remove the first four
-	[[ -f $o ]] &&  [[ '0' != "$(du "$o" | cut -f1)" ]]
-}
-
 # Capture a frame
 # capture($1 = filename, $2 = second)
 capture() {
@@ -2547,6 +2502,8 @@ translate_ffmpeg_acodec_id() {
 
 ##### }}}} # Codec names
 
+# {{{{ # Mplayer support
+
 # Try to identify video properties using mplayer
 # Fills $MPLAYER_CACHE with the relevant output and $VID_MPLAYER with
 # the actual values. See identify_video()
@@ -2607,6 +2564,39 @@ mplayer_identify() {
 	# Array assignment
 	VID_MPLAYER=("${mi[@]}")
 }
+
+# Capture a frame with mplayer
+# capture_mplayer($1 = inputfile, $2 = UNUSED, $3 = timestamp[, $4 = extra opts])
+capture_mplayer() {
+	trace $@
+	# Note mplayer CAN'T set the output filename, newer mplayer can set output
+	#+dir though.
+	local f="$1"
+	local o=00000005.png
+	local ts=$3
+
+	# No point in passing ms to mplayer
+	ts=$(cut -d'.' -f1 <<<"$ts")
+	# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
+
+	{
+	if [[ $DVD_MODE -eq 1 ]]; then
+		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+			   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
+			   $4 "dvd://$DVD_TITLE"
+	else
+		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+			   -frames 5 -ss "$ts" $4 $shoehorned "$f"
+	fi
+
+	} >"$stdout" 2>"$stderr"
+	rm -f 0000000{1,2,3,4}.png # Remove the first four
+	[[ -f $o ]] &&  [[ '0' != "$(du "$o" | cut -f1)" ]]
+}
+
+# }}}} # Mplayer support
+
+# {{{{ # FFmpeg support
 
 # Try to identify video properties using ffmpeg
 # Fills $FFMPEG_CACHE with the relevant output and $VID_FFMPEG with
@@ -2725,6 +2715,24 @@ ffmpeg_identify() {
 	fi[$ACNAME]=$(get_acodec_name $(translate_ffmpeg_acodec_id "${fi[$ACODEC]}"))
 	VID_FFMPEG=("${fi[@]}")
 }
+
+# Capture a frame with ffmpeg
+# capture_ffmpeg($1 = inputfile, $2 = outputfile, $3 = timestamp[, $4 = extra opts])
+capture_ffmpeg() {
+	trace $@
+	local f=$1
+	local o=$2
+	local ts=$3
+	
+	# XXX: It would be nice to show a message if it takes too long
+	# See wa_ss_* declarations at the start of the file for details
+	"$FFMPEG" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
+		  -dframes 1 -vframes 1 -vcodec png \
+		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
+	[[ -f $o ]] && [[ '0' != "$(du "$o" | cut -f1)" ]]
+}
+
+# }}}} # FFmpeg support
 
 # Use the available tools to identify video meta-data
 # fills $VID with the values
