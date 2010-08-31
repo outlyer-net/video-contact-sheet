@@ -691,7 +691,7 @@ parse_override() {
 	local lcvarname=$(echo "$varname" | tr '[A-Z]' '[a-z]')
 	local mapping=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$lcvarname:")
 
-	[ "$mapping" ] || return 0
+	[[ $mapping ]] || return 0
 
 	local varval=${o#*=} # No trimming here (yet)
 	#  1) Trim from ; (if present) to finish
@@ -701,13 +701,13 @@ parse_override() {
 	varval=$(sed -e 's/;.*//' -e 's/\([^$]\)#.*/\1/g' -e 's/\$#/#/g' \
 				-e 's/^[[:space:]]*//;s/[[:space:]]*$//' <<<"$varval")
 	# Is varval empty?
-	[ "$varval" ] || return 0
+	[[ $varval ]] || return 0
 
 	local mvar=$(cut -d':' -f1 <<<"$mapping")
 	local ivar=$(cut -d':' -f2 <<<"$mapping")
 	local flags=$(cut -d':' -f3 <<<"$mapping")
 	local constraints=$(cut -d':' -f4 <<<"$mapping")
-	{ [ "$ivar" ] && [ "$ivar" != "=" ] ; } || ivar="$mvar"
+	{ [[ $ivar && ( $ivar != '=' ) ]] ; } || ivar="$mvar"
 
 	# Note using "\$(echo $varval)" would allow a more flexible syntax but
 	#+enforce special handling of escaping, which with the currently available
@@ -718,11 +718,12 @@ parse_override() {
 		return 0
 	}
 
-	[ "$varval" ] || return 0 # If empty value, ignore it
+	[[ $varval ]] || return 0 # If empty value, ignore it
 
 	local evcode=''
-	if [ "$flags" ] && [ $flags != "=" ] && [ $flags != 'alias' ]; then
-		if echo "$flags" | grep -q '^deprecated=' ; then
+	if [[ $flags && ( $flags != '=' ) && ( $flags != 'alias' ) ]]; then
+		local ERE='^deprecated='
+		if [[ $flags =~ $ERE ]]; then
 			local new=$(echo "$flags" | sed 's/^deprecated=//')
 			buffered warn "Variable '$varname' will be removed in the future,$NL please use '$new' instead."
 		else
@@ -745,16 +746,16 @@ parse_override() {
 		fi
 	fi
 
-	[ -z "$constraints" ] || check_constraint $ivar "$varval" $varname || {
+	[[ -z $constraints ]] || check_constraint $ivar "$varval" $varname || {
 		buffered error "$ERROR_MSG"
 		return 0
 	}
 
 	eval local curvarval='$'"$ivar" retflag='+'
-	if [ "$curvarval" == "$varval" ]; then
+	if [[ $curvarval == "$varval" ]]; then
 		retflag='='
 	else
-		if [ "$constraints" == "t" ]; then
+		if [[ $constraints == 't' ]]; then
 			varval=$(get_interval "$varval")
 		fi
 		# Escape single quotes, since it will be single-quoted:
@@ -804,12 +805,12 @@ cmdline_override() {
 	trace $@
 	parse_override "$1"
 	local r=$RESULT
-	[ "$r" ] || return 0
+	[[ $r ]] || return 0
 	local varname=${r/% *} # See load_config()
 	local tmp=${r#* }
 	local flag=${tmp/% *}
 
-	if [ "$flag" == '=' ]; then
+	if [[ $flag == '=' ]]; then
 		varname="$varname(=)"
 	fi
 
@@ -825,7 +826,7 @@ post_getopt_hooks() {
 	for cback in $funcs ; do
 		local fn=${cback/:*}
 		local arg=${cback/*:}
-		[ "$arg" != "$cback" ] || arg=''
+		[[ $arg != $cback ]] || arg=''
 		$fn $arg
 	done
 }
@@ -833,11 +834,11 @@ post_getopt_hooks() {
 # Print the list of command-line overrides
 cmdline_overrides_flush() {
 	trace $@
-	if [ "$CMDLINE_OVERRIDES" ]; then
+	if [[ $CMDLINE_OVERRIDES ]]; then
 		inf "Overridden settings from command line:$NL ${CMDLINE_OVERRIDES:2}"
 	fi
-	if [ "$BUFFER" ]; then
-		[ "$CMDLINE_OVERRIDES" ] || warn "In command-line overrides:"
+	if [[ $BUFFER ]]; then
+		[[ $CMDLINE_OVERRIDES ]] || warn "In command-line overrides:"
 		flush_buffered ' '
 	fi
 }
@@ -1921,28 +1922,33 @@ guess_aspect() {
 	echo $ar
 }
 
+CAPTURES=
+
 # Capture a frame
-# capture($1 = filename, $2 = second)
+# capture($1 = filename, $2 = second, $3 = output file)
 capture() {
 	trace $@
-	local f=$1 stamp=$2
+	local f=$1 stamp=$2 ofile=$3
 	local VIDCAPFILE=00000005.png
 	# globals: $shoehorned $decoder
 
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
-		capture_mplayer "$f" 'IGNOREME' "$stamp"
+		mplayer_capture "$f" 'IGNOREME' "$stamp"
 	elif [[ $decoder -eq $DEC_FFMPEG ]]; then
 		# FIXME: ffmpeg can put the temporary file anywhere
-		capture_ffmpeg "$f" "$VIDCAPFILE" "$stamp"
+		ffmpeg_capture "$f" "$VIDCAPFILE" "$stamp"
 	else
 		error "Internal error!"
 		return $EX_SOFTWARE
 	fi || true
-	if [[ ( ! -f $VIDCAPFILE ) || ( '0' == "$(du "$VIDCAPFILE" | cut -f1)" ) ]]; then
+	local fs=$(du "$VIDCAPFILE" | cut -f1)
+	if [[ ( ! -f $VIDCAPFILE ) || ( $fs == '0' ) ]]; then
 		[[ $decoder -eq $DEC_MPLAYER ]] && stamp=${stamp/%.*}
 		error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
 		return $EX_SOFTWARE
 	fi
+	CAPTURES="$CAPTURES$stamp:$ofile$NL"
+	echo "$CAPTURES"
 
 	return 0
 }
@@ -2258,12 +2264,12 @@ probe_video() {
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
 		tempfile=00000005.png
 		TEMPSTUFF=( "${TEMPSTUFF[@]}" "$tempfile" )
-		if ! capture_mplayer "$f" "IGNOREME" "$ts" "-vf scale=96:96"; then
+		if ! mplayer_capture "$f" "IGNOREME" "$ts" "-vf scale=96:96"; then
 			ret=1
 		fi
 	elif [[ $decoder -eq $DEC_FFMPEG ]]; then
 		tempfile=$(new_temp_file '-safelen.png')
-		if ! capture_ffmpeg "$f" "$tempfile" "$ts" "-s 96x96"; then
+		if ! ffmpeg_capture "$f" "$tempfile" "$ts" "-s 96x96"; then
 			ret=1
 		fi
 	else
@@ -2566,8 +2572,8 @@ mplayer_identify() {
 }
 
 # Capture a frame with mplayer
-# capture_mplayer($1 = inputfile, $2 = UNUSED, $3 = timestamp[, $4 = extra opts])
-capture_mplayer() {
+# mplayer_capture($1 = inputfile, $2 = UNUSED, $3 = timestamp[, $4 = extra opts])
+mplayer_capture() {
 	trace $@
 	# Note mplayer CAN'T set the output filename, newer mplayer can set output
 	#+dir though.
@@ -2717,8 +2723,8 @@ ffmpeg_identify() {
 }
 
 # Capture a frame with ffmpeg
-# capture_ffmpeg($1 = inputfile, $2 = outputfile, $3 = timestamp[, $4 = extra opts])
-capture_ffmpeg() {
+# ffmpeg_capture($1 = inputfile, $2 = outputfile, $3 = timestamp[, $4 = extra opts])
+ffmpeg_capture() {
 	trace $@
 	local f=$1
 	local o=$2
@@ -2766,9 +2772,12 @@ identify_video() {
 		[[ ( -n ${VID_MPLAYER[$FPS]} ) && ( -n ${VID_FFMPEG[$FPS]} ) ]] && {
 			# Trust ffmpeg if it has three decimals OR if mplayer is probably-wrong
 			local ffps=${VID_FFMPEG[$FPS]}
-			echo $ffps | grep -q '\.[0-9][0-9][0-9]' && VID[$FPS]=$ffps || {
-				fptest "${VID_MPLAYER[$FPS]}" -gt 500 && VID[$FPS]=$ffps
-			}
+			local ERE='\.[0-9][0-9][0-9]'
+			if [[ $ffps =~ $ERE ]]; then
+				VID[$FPS]=$ffps
+			elif fptest "${VID_MPLAYER[$FPS]}" -gt 500; then
+				VID[$FPS]=$ffps
+			fi
 		}
 		# It doesn't appear to need any workarounds for num. channels either
 		[[ ${VID_FFMPEG[$CHANS]} ]] && VID[$CHANS]=${VID_FFMPEG[$CHANS]}
@@ -2949,11 +2958,14 @@ set_extended_font() {
 	fi
 
 	# Bias towards the Sazanami family
-	if grep -qi 'sazanami' <<<"$candidates" ; then
+	shopt -s nocasematch
+	local ERE='sazanami'
+	if [[ $candidates =~ $ERE ]]; then
 		FONT_MINCHO=$(grep -i 'sazanami' <<<"$candidates" | head -1)
 	else
 		FONT_MINCHO=$(head -1 <<<"$candidates")
 	fi
+	shopt -u nocasematch
 }
 
 # Checks if the provided arguments make sense and are allowed to be used
@@ -3121,7 +3133,7 @@ process() {
 		# Is it an ISO?
 		if [[ -f $dvdn ]]; then
 			DVD_MOUNTP=$(get_dvd_image_mountpoint "$dvdn")
-			if [ -z "$DVD_MOUNTP" ]; then
+			if [[ -z $DVD_MOUNTP ]]; then
 				# Only in Linux does this matter
 				if ! is_linux ; then
 					warn "Video properties detection for ISO files is not accurate"
@@ -3188,11 +3200,11 @@ process() {
 
 	# Vidcap/Thumbnail height
 	local vidcap_height=$th_height
-	if is_percentage "$th_height" && [ "$th_height" != '100%' ]; then
+	if is_percentage "$th_height" && [[ $th_height != '100%' ]]; then
 		vidcap_height=$(rpercent ${VID[$H]} ${th_height})
 		inf "Height: $th_height of ${VID[$H]} = $vidcap_height"
 	fi
-	if ! is_number "$vidcap_height" || [ "$vidcap_height" -eq 0 ]; then
+	if ! is_number "$vidcap_height" || [[ $vidcap_height -eq 0 ]]; then
 		vidcap_height=${VID[$H]}
 	fi
 	# -2: DVD Mode autodetection => If ffmpeg/mplayer was unable autodetect, otherwise
@@ -3271,6 +3283,7 @@ process() {
 			(( n++ ))
 		done
 
+		assert "[[ '"$n"' -gt 1 ]]"
 		(( n-- )) # There's an extra inc
 		if [[ $n -lt $cols ]]; then
 			numcols=$n
@@ -3287,12 +3300,13 @@ process() {
 	# Normal captures
 	# TODO: Don't reference $VIDCAPFILE
 	local capfile pretty n=1
-	unset capfiles ; local -a capfiles
+	unset capfiles ; local -a capfiles ; local tfile=
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
 		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
+		tfile=$(new_temp_file '.png')
 
-		capture "$f" $stamp || return $?
+		capture "$f" $stamp "$tfile" || return $?
 		filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height $CTX_STD $n || return $?
 
 		# identified by capture number, padded to 6 characters
@@ -3303,6 +3317,7 @@ process() {
 	done
 	#filter_all_vidcaps "${capfiles[@]}"
 
+	assert "[[ '"$n"' -gt 1 ]]"
 	(( n-- )) # there's an extra inc
 	if [[ $n -lt $cols ]]; then
 		numcols=$n
@@ -3330,7 +3345,8 @@ process() {
 		local n=1 w= h= capfile= pretty=
 		unset capfiles ; local -a capfiles
 		# The image size of the extra captures is 1/4, adjusted to compensante the padding
-		let 'w=vidcap_width/2-HPAD, h=vidcap_height*w/vidcap_width'
+		(( w=vidcap_width/(2-HPAD), h=vidcap_height*w/vidcap_width ,1 ))
+		assert "[[ ( '"$w"' -gt 0 ) && ( '"$h"' -gt 0 ) ]]"
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
@@ -3431,13 +3447,11 @@ process() {
 
 	# Let's add meta inf and signature
 	inf "Adding header and footer..."
-	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}
-Format: $vcodec / $acodec
-FPS: ${VID[$FPS]}"
+	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}"
+	meta2="$meta2${NL}Format: $vcodec / $acodec${NL}FPS: ${VID[$FPS]}"
 	local signature
 	if [[ $anonymous_mode -eq 0 ]]; then
-		signature="$user_signature $user
-with $PROGRAM_SIGNATURE"
+		signature="$user_signature $user${NL}with $PROGRAM_SIGNATURE"
 	else
 		signature="Created with $PROGRAM_SIGNATURE"
 	fi
@@ -3676,9 +3690,7 @@ internal_integrity_test() {
 		# Expected value
 		val=$(grep -o "[^ ]* #$comm\$"<<<$t | cut -d' ' -f1)
 		op=$(sed "s! $val #$comm\$!!g" <<<$t)
-		if [[ -z $comm ]]; then
-			comm=unnamed
-		fi
+		[[ -n $comm ]] || comm=unnamed
 		ret=$($op) || true
 
 		if [[ $ret != "$val" ]] && fptest "$ret" -ne "$val" ; then
