@@ -1922,8 +1922,6 @@ guess_aspect() {
 	echo $ar
 }
 
-CAPTURES=
-
 # Capture a frame
 # capture($1 = filename, $2 = second, $3 = output file)
 capture() {
@@ -1931,6 +1929,23 @@ capture() {
 	local f=$1 stamp=$2 ofile=$3
 	local VIDCAPFILE=00000005.png
 	# globals: $shoehorned $decoder
+
+	# Avoid recapturing if timestamp is already captured.
+	# The extended set includes the standard set so when using the extended mode
+	#+this will avoid some captures, specially with mplayer, since it doesn't
+	#+have ms precission
+	local key=
+	# Normalise key values' decimals
+	if [[ $decoder -eq $DEC_MPLAYER ]]; then
+		key=$(awkex "int($stamp)")
+	else
+		key=$(awkex $stamp)
+	fi
+	local cached=$(grep "^$key:" <<<"$CAPTURES")
+	if [[ $cached ]]; then
+		cp "${cached#*:}" "$ofile" # TODO: Is 'cp -s' safe?
+		return $?
+	fi
 
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
 		mplayer_capture "$f" 'IGNOREME' "$stamp"
@@ -1947,10 +1962,8 @@ capture() {
 		error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
 		return $EX_SOFTWARE
 	fi
-	CAPTURES="$CAPTURES$stamp:$ofile$NL"
-	echo "$CAPTURES"
-
-	return 0
+	CAPTURES="$CAPTURES$key:$ofile$NL"
+	mvq "$VIDCAPFILE" "$ofile"
 }
 
 # Applies all individual vidcap filters
@@ -3126,6 +3139,7 @@ process() {
 	local pre_aspect_ratio=$aspect_ratio
 	local pre_output_format="$output_format"
 	INTERNAL_MAXREWIND_REACHED=0 # Reset for each file
+	CAPTURES=''
 
 	DVD_MOUNTP= DVD_TITLE= # Re-set for each file
 	if [[ $DVD_MODE -eq 1 ]]; then
@@ -3269,16 +3283,15 @@ process() {
 			if fptest $stamp -gt ${VID[$LEN]} ; then (( n++ )) && continue ; fi
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating highlight #${n}/${#HLTIMECODES[@]} ($pretty)..."
+			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 
-			capture "$f" $stamp || return $?
-			filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height $CTX_HL $n || {
+			capture "$f" $stamp "$hlcapfile" || return $?
+			filter_vidcap "$hlcapfile" $pretty $vidcap_width $vidcap_height $CTX_HL $n || {
 				local r=$?
 				error "Failed to apply transformations to the capture."
 				return $r
 			}
 	
-			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
-			mvq "$VIDCAPFILE" "$hlcapfile"
 			capfiles=( "${capfiles[@]}" "$hlcapfile" )
 			(( n++ ))
 		done
@@ -3304,15 +3317,13 @@ process() {
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 		pretty=$(pretty_stamp $stamp)
 		inf "Generating capture #${n}/${#TIMECODES[*]} ($pretty)..."
-		tfile=$(new_temp_file '.png')
+		# identified by capture number, padded to 6 characters
+		tfile=$(new_temp_file "-cap-$(pad 6 $n).png")
 
 		capture "$f" $stamp "$tfile" || return $?
-		filter_vidcap "$VIDCAPFILE" $pretty $vidcap_width $vidcap_height $CTX_STD $n || return $?
+		filter_vidcap "$tfile" $pretty $vidcap_width $vidcap_height $CTX_STD $n || return $?
 
-		# identified by capture number, padded to 6 characters
-		capfile=$(new_temp_file "-cap-$(pad 6 $n).png")
-		mvq "$VIDCAPFILE" "$capfile"
-		capfiles=( "${capfiles[@]}" "$capfile" )
+		capfiles=( "${capfiles[@]}" "$tfile" )
 		(( n++ ))
 	done
 	#filter_all_vidcaps "${capfiles[@]}"
@@ -3345,16 +3356,15 @@ process() {
 		local n=1 w= h= capfile= pretty=
 		unset capfiles ; local -a capfiles
 		# The image size of the extra captures is 1/4, adjusted to compensante the padding
-		(( w=vidcap_width/(2-HPAD), h=vidcap_height*w/vidcap_width ,1 ))
+		(( w=vidcap_width/2-HPAD, h=vidcap_height*w/vidcap_width ,1 ))
 		assert "[[ ( '"$w"' -gt 0 ) && ( '"$h"' -gt 0 ) ]]"
 		for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
 			pretty=$(pretty_stamp $stamp)
-			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
-			capture "$f" $stamp || return $?
-			filter_vidcap "$VIDCAPFILE" $pretty $w $h $CTX_EXT $n || return $?
-
 			capfile=$(new_temp_file "-excap-$(pad 6 $n).png")
-			mvq "$VIDCAPFILE" "$capfile"
+			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
+			capture "$f" $stamp "$capfile" || return $?
+			filter_vidcap "$capfile" $pretty $w $h $CTX_EXT $n || return $?
+
 			capfiles=( "${capfiles[@]}" "$capfile" )
 			(( n++ ))
 		done
