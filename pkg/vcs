@@ -1932,7 +1932,6 @@ guess_aspect() {
 capture() {
 	trace $@
 	local f=$1 stamp=$2 ofile=$3
-	local VIDCAPFILE=00000005.png
 	# globals: $shoehorned $decoder
 
 	# Avoid recapturing if timestamp is already captured.
@@ -1952,23 +1951,18 @@ capture() {
 		return $?
 	fi
 
+	assert '[[ $decoder -eq $DEC_MPLAYER || $decoder -eq $DEC_FFMPEG ]]'
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
-		mplayer_capture "$f" 'IGNOREME' "$stamp"
+		mplayer_capture "$f" "$ofile" "$stamp"
 	elif [[ $decoder -eq $DEC_FFMPEG ]]; then
 		# FIXME: ffmpeg can put the temporary file anywhere
-		ffmpeg_capture "$f" "$VIDCAPFILE" "$stamp"
-	else
-		error "Internal error!"
-		return $EX_SOFTWARE
-	fi || true
-	local fs=$(du "$VIDCAPFILE" | cut -f1)
-	if [[ ( ! -f $VIDCAPFILE ) || ( $fs == '0' ) ]]; then
-		[[ $decoder -eq $DEC_MPLAYER ]] && stamp=${stamp/%.*}
+		ffmpeg_capture "$f" "$ofile" "$stamp"
+	fi || {
+		[[ $decoder -ne $DEC_MPLAYER ]] || stamp=${stamp/%.*}
 		error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
 		return $EX_SOFTWARE
-	fi
+	}
 	CAPTURES="$CAPTURES$key:$ofile$NL"
-	mvq "$VIDCAPFILE" "$ofile"
 }
 
 # Applies all individual vidcap filters
@@ -2590,13 +2584,13 @@ mplayer_identify() {
 }
 
 # Capture a frame with mplayer
-# mplayer_capture($1 = inputfile, $2 = UNUSED, $3 = timestamp[, $4 = extra opts])
+# mplayer_capture($1 = inputfile, $2 = output file, $3 = timestamp[, $4 = extra opts])
 mplayer_capture() {
 	trace $@
 	# Note mplayer CAN'T set the output filename, newer mplayer can set output
 	#+dir though.
 	local f="$1"
-	local o=00000005.png
+	local cap=00000005.png o=$2
 	local ts=$3
 
 	# No point in passing ms to mplayer
@@ -2615,7 +2609,9 @@ mplayer_capture() {
 
 	} >"$stdout" 2>"$stderr"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
-	[[ -f $o ]] &&  [[ '0' != "$(du "$o" | cut -f1)" ]]
+	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
+		mvq "$cap" "$o"
+	}
 }
 
 # }}}} # Mplayer support
@@ -2753,7 +2749,7 @@ ffmpeg_capture() {
 	"$FFMPEG" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
 		  -dframes 1 -vframes 1 -vcodec png \
 		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
-	[[ -f $o ]] && [[ '0' != "$(du "$o" | cut -f1)" ]]
+	[[ ( -f $o ) && ( '0' != "$(du "$o" | cut -f1)" ) ]]
 }
 
 # }}}} # FFmpeg support
@@ -3260,16 +3256,10 @@ process() {
 	fi
 
 	local output=$(new_temp_file '-preview.png')
-	local VIDCAPFILE=00000005.png
 
-	# If the temporal vidcap already exists, abort
-	if [[ -f $VIDCAPFILE ]]; then
-		error "File $VIDCAPFILE exists and would be overwritten, move it out before running."
-		return $EX_CANTCREAT
-	fi
-	# mplayer will re-write also 00000001.png-00000004.png
+	# If the temporal vidcaps for mplayer already exist, abort
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
-		for f_ in 1 2 3 4; do
+		for f_ in 1 2 3 4 5; do
 			if [[ -f "0000000${f_}.png" ]]; then
 				error "File 0000000${f_}.png exists and would be overwritten, move it out before running."
 				return $EX_CANTCREAT
@@ -3277,7 +3267,7 @@ process() {
 		done
 	fi
 
-	TEMPSTUFF=( "${TEMPSTUFF[@]}" "$VIDCAPFILE" )
+	TEMPSTUFF=( "${TEMPSTUFF[@]}" '00000005.png' )
 
 	# Highlights
 	local hlfile n=1 # hlfile Must be outside the if!
@@ -3285,7 +3275,7 @@ process() {
 		local hlcapfile= pretty=
 		local -a capfiles
 		for stamp in $(clean_timestamps "${HLTIMECODES[*]}"); do
-			if fptest $stamp -gt ${VID[$LEN]} ; then (( n++ )) && continue ; fi
+			if fptest $stamp -gt ${VID[$LEN]} ; then (( ++n )) && continue ; fi
 			pretty=$(pretty_stamp $stamp)
 			inf "Generating highlight #${n}/${#HLTIMECODES[@]} ($pretty)..."
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
@@ -3298,7 +3288,7 @@ process() {
 			}
 	
 			capfiles=( "${capfiles[@]}" "$hlcapfile" )
-			(( n++ ))
+			(( ++n ))
 		done
 
 		assert "[[ '"$n"' -gt 1 ]]"
@@ -3316,7 +3306,6 @@ process() {
 	unset n
 
 	# Normal captures
-	# TODO: Don't reference $VIDCAPFILE
 	local capfile pretty n=1
 	unset capfiles ; local -a capfiles ; local tfile=
 	for stamp in $(clean_timestamps "${TIMECODES[*]}"); do
@@ -3458,7 +3447,6 @@ process() {
 	local dotrim=
 	[[ ( $DISABLE_SHADOWS -eq 1 ) && ( -z $HLTIMECODES ) ]] && dotrim=-trim
 	convert -background "$bg_contact" "$output" -flatten $dotrim "$output"
-
 
 	# Let's add meta inf and signature
 	inf "Adding header and footer..."
