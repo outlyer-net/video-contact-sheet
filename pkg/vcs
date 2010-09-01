@@ -2772,6 +2772,7 @@ identify_video() {
 	# Fail early if none detected length
 	[[ ( -z ${MPLAYER_ID[$LEN]} ) && ( -z ${FFMPEG_ID[$LEN]} ) ]] && return $RET_NOLEN
 
+	assert '[[ $MPLAYER_BIN || $FFMPEG_BIN ]]'
 	# Classic mode, use both mplayer and ffmpeg when available
 	if [[ $MPLAYER_BIN && $FFMPEG_BIN ]]; then
 		# By default take mplayer's values
@@ -2836,8 +2837,6 @@ identify_video() {
 		# Must do with mplayer only...
 		VID=("${FFMPEG_ID[@]}")
 		# So far I know of no weird results. Yet.
-	else
-		assert 'false'
 	fi
 
 	# Ensure sanity of the most important values
