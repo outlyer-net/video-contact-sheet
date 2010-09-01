@@ -337,8 +337,8 @@ declare -a OUTPUT_FILES=( )
 # $ env PATH=/whatever:$PATH vcs ...
 # or use the undocumented (and unchecked!) appropriate option:
 # $ vcs --undocumented set_ffmpeg=/mypath/ffmpeg
-declare MPLAYER=
-declare FFMPEG=
+declare MPLAYER_BIN=
+declare FFMPEG_BIN=
 
 # When set to 1 the reported length by mplayer and ffmpeg won't be trusted
 # and will trigger some custom tests.
@@ -1374,30 +1374,30 @@ test_programs() {
 	local retval=0 last=0
 	local nopng=0
 
-	MPLAYER=$(type -pf mplayer) || true
-	FFMPEG=$(type -pf ffmpeg)   || true
+	MPLAYER_BIN=$(type -pf mplayer) || true
+	FFMPEG_BIN=$(type -pf ffmpeg)   || true
 
 	# Test we can actually use FFmpeg
-	[[ $FFMPEG ]] && {
+	[[ $FFMPEG_BIN ]] && {
 		# Newer FF has -codecs, -formats, -protocols, older has only -formats
 		#+png is a codec so it's on different lists on newer and older
-		if ! "$FFMPEG" -formats 2>/dev/null | grep -q 'EV.* png' && \
-			! "$FFMPEG" -codecs 2>/dev/null | grep -q 'EV.* png' ; then
+		if ! "$FFMPEG_BIN" -formats 2>/dev/null | grep -q 'EV.* png' && \
+			! "$FFMPEG_BIN" -codecs 2>/dev/null | grep -q 'EV.* png' ; then
 			warn "FFmpeg can't output to png, won't be able to use it."
-			FFMPEG=''
+			FFMPEG_BIN=''
 			nopng=1
 		fi
 	}
 	# Same for Mplayer
-	[[ $MPLAYER ]] && {
-		if ! "$MPLAYER" -vo help 2>&1 | grep -q 'png' ; then
+	[[ $MPLAYER_BIN ]] && {
+		if ! "$MPLAYER_BIN" -vo help 2>&1 | grep -q 'png' ; then
 			warn "MPlayer can't output to png, won't be able to use it."
-			MPLAYER=''
+			MPLAYER_BIN=''
 			nopng=1
 		fi
 	}
 
-	[[ ( -n $MPLAYER ) || ( -n $FFMPEG ) ]] || {
+	[[ ( -n $MPLAYER_BIN ) || ( -n $FFMPEG_BIN ) ]] || {
 		local pngwarn=
 		[[ $nopng -eq 1 ]] && pngwarn=', with PNG output support,'
 		error "mplayer and/or ffmpeg$pngwarn are required!"
@@ -1405,9 +1405,9 @@ test_programs() {
 	}
 
 
-	if [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG ) ]]; then
+	if [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG_BIN ) ]]; then
 		decoder=$DEC_MPLAYER
-	elif [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER ) ]]; then
+	elif [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
 		decoder=$DEC_FFMPEG
 	fi
 
@@ -2528,15 +2528,15 @@ translate_ffmpeg_acodec_id() {
 # mplayer_identify($1 = file)
 mplayer_identify() {
 	trace $@
-	[[ $MPLAYER ]] || return
+	[[ $MPLAYER_BIN ]] || return
 	local f="$1"
 	local mi=( )
 	# Note to self: Don't change the -vc as it would affect $vdec
 	if [[ $DVD_MODE -eq 0 ]]; then
-		MPLAYER_CACHE=$("$MPLAYER" -benchmark -ao null -vo null -identify -frames 0 \
+		MPLAYER_CACHE=$("$MPLAYER_BIN" -benchmark -ao null -vo null -identify -frames 0 \
 							-quiet "$f" 2>"$stderr" | grep ^ID)
 	else
-		MPLAYER_CACHE=$("$MPLAYER" -benchmark -ao null -vo null -identify -frames 0 \
+		MPLAYER_CACHE=$("$MPLAYER_BIN" -benchmark -ao null -vo null -identify -frames 0 \
 							-quiet -dvd-device "$f" dvd://$DVD_TITLE \
 							2>"$stderr" | grep ^ID)
 	fi
@@ -2599,11 +2599,11 @@ mplayer_capture() {
 
 	{
 	if [[ $DVD_MODE -eq 1 ]]; then
-		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+		"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
 			   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
 			   $4 "dvd://$DVD_TITLE"
 	else
-		"$MPLAYER" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+		"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
 			   -frames 5 -ss "$ts" $4 $shoehorned "$f"
 	fi
 
@@ -2624,7 +2624,7 @@ mplayer_capture() {
 # mplayer_identify($1 = file)
 ffmpeg_identify() {
 	trace $@
-	[[ $FFMPEG ]] || return
+	[[ $FFMPEG_BIN ]] || return
 	local f="$1"
 	# DVD Devices *MUST* be mounted for the identifying process to even start
 	assert '[[ ( $DVD_MODE -eq 0 ) || ( $DVD_MOUNTP ) ]]'
@@ -2640,7 +2640,7 @@ ffmpeg_identify() {
 
 	local fi=( ) vs= as= obs= vsid=
 	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
-	FFMPEG_CACHE=$("$FFMPEG" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
+	FFMPEG_CACHE=$("$FFMPEG_BIN" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
 	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
 	vs=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Video:' | head -1)
 	as=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Audio:' | head -1)
@@ -2746,7 +2746,7 @@ ffmpeg_capture() {
 	
 	# XXX: It would be nice to show a message if it takes too long
 	# See wa_ss_* declarations at the start of the file for details
-	"$FFMPEG" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
+	"$FFMPEG_BIN" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
 		  -dframes 1 -vframes 1 -vcodec png \
 		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
 	[[ ( -f $o ) && ( '0' != "$(du "$o" | cut -f1)" ) ]]
@@ -2764,16 +2764,16 @@ identify_video() {
 	trace $@
 	local RET_NOLEN=3 RET_NODIM=4
 
-	[[ $MPLAYER ]] && mplayer_identify "$1"
+	[[ $MPLAYER_BIN ]] && mplayer_identify "$1"
 	# ffmpeg_identify in DVD mode only works when the DVD is mounted:
-	[[ ( $DVD_MODE -eq 0 ) && ( $FFMPEG ) ]] && ffmpeg_identify "$1"
-	[[ ( $DVD_MODE -eq 1 ) && ( $FFMPEG ) && ( $DVD_MOUNTP ) ]] && ffmpeg_identify "$1"
+	[[ ( $DVD_MODE -eq 0 ) && ( $FFMPEG_BIN ) ]] && ffmpeg_identify "$1"
+	[[ ( $DVD_MODE -eq 1 ) && ( $FFMPEG_BIN ) && ( $DVD_MOUNTP ) ]] && ffmpeg_identify "$1"
 
 	# Fail early if none detected length
 	[[ ( -z ${VID_MPLAYER[$LEN]} ) && ( -z ${VID_FFMPEG[$LEN]} ) ]] && return $RET_NOLEN
 
 	# Classic mode, use both mplayer and ffmpeg when available
-	if [[ $MPLAYER && $FFMPEG ]]; then
+	if [[ $MPLAYER_BIN && $FFMPEG_BIN ]]; then
 		# By default take mplayer's values
 		VID=("${VID_MPLAYER[@]}")
 		# FFmpeg seems better at getting the correct number of FPS, specially with
@@ -2820,7 +2820,7 @@ identify_video() {
 				QUIRKS=1
 			fi
 		fi
-	elif [[ $MPLAYER ]]; then
+	elif [[ $MPLAYER_BIN ]]; then
 		# Must do with mplayer only...
 		VID=("${VID_MPLAYER[@]}")
 		# Warn if a known pitfall is found
@@ -2832,7 +2832,7 @@ identify_video() {
 		[[ ${VID[$CHANS]} == '0' ]] && \
 			warn "Failed to detect number of audio channels." && \
 			warn "    Install both mplayer and ffmpeg for better detection."
-	elif [[ $FFMPEG ]]; then
+	elif [[ $FFMPEG_BIN ]]; then
 		# Must do with mplayer only...
 		VID=("${VID_FFMPEG[@]}")
 		# So far I know of no weird results. Yet.
@@ -2844,7 +2844,7 @@ identify_video() {
 	is_float "${VID[$LEN]}" || return $RET_NOLEN
 	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
 
-	if [[ $FFMPEG ]]; then
+	if [[ $FFMPEG_BIN ]]; then
 		# FPS at least with two decimals
 		if [[ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]]; then
 			VID[$FPS]="${VID[$FPS]}.00"
@@ -2852,7 +2852,7 @@ identify_video() {
 	fi
 
 	local mfps="${VID_MPLAYER[$FPS]}"
-	if [[ ( $QUIRKS -eq 0 ) && ( -n $MPLAYER ) ]] && fptest "$mfps" -eq 1000 ; then
+	if [[ ( $QUIRKS -eq 0 ) && ( -n $MPLAYER_BIN ) ]] && fptest "$mfps" -eq 1000 ; then
 		warn "Suspect file. Safe measuring enabled."
 		QUIRKS=1
 	fi
@@ -2899,9 +2899,9 @@ identify_video() {
 
 dump_idinfo() {
 	trace $@
-	[[ $MPLAYER ]] && echo "Mplayer: $MPLAYER"
-	[[ $FFMPEG  ]] && echo "FFmpeg:  $FFMPEG"
-	[[ $MPLAYER ]] && cat <<-EODUMP
+	[[ $MPLAYER_BIN ]] && echo "Mplayer: $MPLAYER_BIN"
+	[[ $FFMPEG_BIN  ]] && echo "FFmpeg:  $FFMPEG_BIN"
+	[[ $MPLAYER_BIN ]] && cat <<-EODUMP
 	=========== Mplayer Identification ===========
 	Length: $(pretty_stamp ${VID_MPLAYER[$LEN]})
 	Video
@@ -2920,7 +2920,7 @@ EODUMP
 	if [[ ( -z $ffl ) && ( $DVD_MODE -eq 1 ) ]]; then
 		ffl="(unavailable in DVD mode)"
 	fi
-	[[ $FFMPEG ]] && cat <<-EODUMP
+	[[ $FFMPEG_BIN ]] && cat <<-EODUMP
 	=========== FFmpeg Identification ===========
 	Length: $ffl
 	Video
@@ -2998,10 +2998,10 @@ coherence_check() {
 		extended_factor=0
 	fi
 
-	if [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER ) ]]; then
+	if [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
 		inf "No mplayer available. Using ffmpeg only."
 		decoder=$DEC_FFMPEG
-	elif [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG ) ]]; then
+	elif [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG_BIN ) ]]; then
 		inf "No ffmpeg available. Using mplayer only."
 		decoder=$DEC_MPLAYER
 	fi
@@ -3013,7 +3013,7 @@ coherence_check() {
 		# the DVD mode option is found, so if it's ffmpeg at this point,
 		# it's by user request (i.e. -F after -V)
 		if [[ $decoder -ne $DEC_MPLAYER ]]; then
-			if [[ $MPLAYER ]]; then
+			if [[ $MPLAYER_BIN ]]; then
 				warn "DVD mode requires the use of mplayer, falling back to it"
 				decoder=$DEC_MPLAYER
 			else
@@ -3772,10 +3772,10 @@ show_help() {
 	local P=$(basename $0)
 	local showlong=$1
 	local mpchosen= ffchosen= longhelp= funkyex=
-	[[ -z $MPLAYER ]] && mpchosen=' [Not available]'
-	[[ $MPLAYER ]] && [[ $decoder == $DEC_MPLAYER ]] && mpchosen=' [Selected]'
-	[[ -z $FFMPEG ]] && ffchosen=', Not available'
-	[[ $FFMPEG ]] && [[ $decoder == $DEC_FFMPEG ]] && ffchosen=', Selected'
+	[[ -z $MPLAYER_BIN ]] && mpchosen=' [Not available]'
+	[[ $MPLAYER_BIN && ( $decoder == $DEC_MPLAYER ) ]] && mpchosen=' [Selected]'
+	[[ -z $FFMPEG_BIN ]] && ffchosen=', Not available'
+	[[ $FFMPEG_BIN && ( $decoder == $DEC_FFMPEG ) ]] && ffchosen=', Selected'
 	# This portion of help is only shown when in full help mode (--fullhelp)
 	[[ $showlong ]] && longhelp=\
 "  --anonymous           Disable the 'Preview created by' line in the footer.
@@ -4477,27 +4477,27 @@ while true ; do
 				idonly) UNDFLAG_IDONLY="On" ; warn "[U] Id only" ;;
 				# ffmpeg path
 				set_ffmpeg=*)
-					FFMPEG=$(realpathr "$(cut -d'=' -f2<<<"$2")")
-					assert 'test -x "$FFMPEG"'
-					warn "[U] FFMPEG=$FFMPEG"
+					FFMPEG_BIN=$(realpathr "$(cut -d'=' -f2<<<"$2")")
+					assert '[[ -x $FFMPEG_BIN ]]'
+					warn "[U] FFMPEG_BIN=$FFMPEG_BIN"
 					;;
 				# mplayer path
 				set_mplayer=*)
-					MPLAYER=$(realpathr "$(cut -d'=' -f2<<<"$2")")
-					assert 'test -x "$MPLAYER"'
-					warn "[U] MPLAYER=$MPLAYER"
+					MPLAYER_BIN=$(realpathr "$(cut -d'=' -f2<<<"$2")")
+					assert '[[ -x $MPLAYER_BIN ]]'
+					warn "[U] MPLAYER_BIN=$MPLAYER_BIN"
 					;;
 				# Ignore one of the players
 				disable_ffmpeg)
-					FFMPEG=''
+					FFMPEG_BIN=''
 					warn "FFmpeg disabled"
-					assert "[[ '$MPLAYER' -o '$FFMPEG' ]]"
+					assert '[[ $MPLAYER_BIN ]]'
 					decoder=$DEC_MPLAYER
 					;;
 				disable_mplayer)
-					MPLAYER=''
+					MPLAYER_BIN=''
 					warn "Mplayer disabled"
-					assert "[[ '$MPLAYER' -o '$FFMPEG' ]]"
+					assert '[[ $FFMPEG_BIN ]]'
 					decoder=$DEC_FFMPEG
 					;;
 				# This is an old option from the first versions when the script
@@ -4550,8 +4550,8 @@ while true ; do
 				cat >&2 <<-EOD
 					=== Setup ===
 					GETOPT:      $GETOPT
-					MPLAYER:     $MPLAYER
-					FFMPEG:      $FFMPEG
+					MPLAYER:     $MPLAYER_BIN
+					FFMPEG:      $FFMPEG_BIN
 					AWK:         $(realpathr $(type -pf awk))
 					Filterchain: [ ${FILTERS_IND[*]} ]
 					Decoder:     $d
@@ -4629,9 +4629,9 @@ for arg do process "$arg" ; done
 #          inside let
 # * bash2: [*] expands as a string while [@] expands as an array. Both have trouble with spaces
 #          in elements though
-# * bash3: |& (inherited from csh?) pipes both stdout and stderr
 # * bash3: [[ STR =~ EREGEX ]] is faster than grep/egrep (no forking)
 #          bash 3.2 changed semantics vs bash 3.1
+# * bash4: |& (inherited from csh?) pipes both stdout and stderr
 # * performance: bash loops are often slower than awk or perl
 # * performance: grep + cut proved faster than an equivalent sed -r s// replacement
 # }}} # Bash syntax notes
