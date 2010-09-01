@@ -309,6 +309,10 @@ declare -a FILTERS_CS
 # It is executed by create_contact_sheet()
 declare CSHEET_DELEGATE=csheet_montage
 
+# Holds a list of captured frames (to avoid recapturing)
+# Format <timestamp>:<filename>[NL]<timestamp>:<filename>...
+declare CAPTURES=
+
 # Gravity of the timestamp (will be override-able in the future)
 declare grav_timestamp=SouthEast
 
@@ -537,7 +541,7 @@ load_config_file() {
 		[[ ! $line =~ ^[[:space:]]*# ]] || continue # Don't feed comments
 		parse_override "$line"
 		por=$RESULT
-		if [ "$por" ]; then
+		if [[ $por ]]; then
 			varname=${por/% *} # Everything up to the first space...
 			tmp=${por#* } # Rest of string
 			flag=${tmp/% *}
@@ -852,10 +856,9 @@ cmdline_overrides_flush() {
 
 ## Natural number
 is_number() {
-	# From [[abs]], test if '[ ]' can parse input as numbers.
-	# Can't use '[[' since parses non-numbers as 0
-	# Returns 2 for failed test, expected to return 1
-	[ "$1" -ne 0 -o "$1" -eq 0 ] 2>/dev/null || return 1
+	# With '[[...]]', strings '-eq'uals 0, test if it's actually 0
+	#+or otherwise a valid number. Must return 1 on error.
+	[[ ( $1 == '0' ) || ( $1 -gt 0 ) ]] 2>/dev/null || return 1
 }
 ## Number > 0
 is_positive() { is_number "$1" && [[ $1 -gt 0 ]]; }
@@ -889,8 +892,8 @@ is_float_or_frac() {
 is_fraction() {
 	local P='^[0-9]+/[0-9]+$'
 	[[ $1 =~ $P ]] && {
-		local d=$(echo "$1" | cut -d'/' -f2)
-		[ "$d" -ne 0 ]
+		local d=${1#*/} # .../X
+		[[ $d -ne 0 ]]
 	}
 }
 ## Decoder ($DEC_* constants)
@@ -938,8 +941,8 @@ abs() { awk "BEGIN { if (($1) < (0)) print (($1) * -1) ; else print ($1) }" ; }
 rtomult() {
 	local n=$1 d=$2
 	local r=$(( $n % $d ))
-	if [ $r -ne 0 ]; then
-		let 'n += ( d - r )'
+	if [[ $r -ne 0 ]]; then
+		(( n += ( d - r ) , 1 ))
 	fi
 	echo $n
 }
@@ -955,11 +958,11 @@ fptest() {
 		-le) op='<=' ;;
 		-eq) op='==' ;;
 		-ne) op='!=' ;;
-		*) assert "[ \"'$1' '$2' '$3'\" ] && false" && return $EX_SOFTWARE
+		*) assert "[[ \"'$1' '$2' '$3'\" ]] && false" && return $EX_SOFTWARE
 	esac
  	# Empty operands
-	if [ -z "$1" ] || [ -z "$3" ]; then
-		assert "[ \"'$1' '$2' '$3'\" ] && false"
+	if [[ ( -z $1 ) || ( -z $3 ) ]]; then
+		assert "[[ \"'$1'\" && \"'$3'\" ]] && false"
 	else
 		awk "BEGIN { if ($1 $op $3) exit 0 ; else exit 1 }"
 	fi
@@ -973,7 +976,8 @@ keepdecimals() {
 
 # Keep a number of decimals, last decimal rounded to lower
 keepdecimals_lower() {
-	grep -q '\.' <<<"$1" || { echo "$1" ; return ; }
+	local ERE='\.'
+	[[ $1 =~ $ERE ]] || { echo "$1" ; return ; }
 	local D=${1/#*.} # Decimals only
 	echo ${1/%.*}.${D:0:$2} # Integer part + . + Number of decimals
 }
@@ -1000,7 +1004,7 @@ awkex() {
 # converts spaces to newlines in a x-platform way [[FNL]]
 # stonl([$1 = string])
 stonl() {
-	if [ "$1" ]; then
+	if [[ $1 ]]; then
 		awk '{gsub(" ", "\n");print}' <<<"$1" | egrep -v '^$'
 	else
 		awk '{gsub(" ", "\n");print}' | egrep -v '^$'
@@ -1010,7 +1014,7 @@ stonl() {
 # Converts newlines to spaces portably
 # nltos([$1 = string])
 nltos() {
-	if [ "$1" ]; then
+	if [[ $1 ]]; then
 		awk '{printf "%s ",$0}' <<<"$1" | sed 's/ *//'
 	else
 		awk '{printf "%s ",$0}' | sed 's/ *//'
@@ -1025,7 +1029,8 @@ ord() {
 
 # Get file extension
 filext() {
-	grep -o '\.[^.]*$' <<<"$1" | cut -d. -f2
+	#grep -o '\.[^.]*$' <<<"$1" | cut -d. -f2
+	expr match "$1" '.*\.\(.*\)'
 }
 
 # Wrapper around $RANDOM, not called directly, wrapped again in rand().
@@ -1073,7 +1078,7 @@ hash_string() {
 	local v="$1"
 	local -i hv=15031
 	local c=
-	if [ "$v" ]; then
+	if [[ $v ]]; then
 		for i in $(seqr 0 ${#v} ); do
 			c=$( ord ${v:$i:1} )
 			hv=$(( ( ( $hv << 1 ) + $c ) % $HASH_LIMIT ))
@@ -1152,9 +1157,10 @@ get_interval() {
 	# Seconds without unit. They must be preceded by h, m or s at this point
 	local secs=$(echo $s | egrep -o '.?[0-9]*$')
 	# When preceded by '.', they're ms
-	[ "$secs" ] && grep -q '\.'<<<"$secs" && secs=
+	local ERE='\.'
+	[[ $secs && ( $secs =~ $ERE ) ]] && secs=
 	# Quote and addition. Note BSD grep/egrep wants the anchor ($) or won't match
-	[ "$secs" ] && secs=" \"$(egrep -o '[0-9]*$'<<<"$secs")\" + "
+	[[ $secs ]] && secs=" \"$(egrep -o '[0-9]*$'<<<"$secs")\" + "
 	t=${t//h/ * 3600 + }
 	t=${t//m/ * 60 + }
 	t=${t//s/ + }
@@ -1163,7 +1169,7 @@ get_interval() {
 	r=$(awkexf "$t" 2>/dev/null)
 
 	# Negative and empty intervals
-	assert "[ '$r' -a '$t' ]"
+	assert "[[ '$r' && '$t' ]]"
 	assert "fptest $r -gt 0"
 
 	echo $r
@@ -1372,7 +1378,7 @@ test_programs() {
 	FFMPEG=$(type -pf ffmpeg)   || true
 
 	# Test we can actually use FFmpeg
-	[ "$FFMPEG" ] && {
+	[[ $FFMPEG ]] && {
 		# Newer FF has -codecs, -formats, -protocols, older has only -formats
 		#+png is a codec so it's on different lists on newer and older
 		if ! "$FFMPEG" -formats 2>/dev/null | grep -q 'EV.* png' && \
@@ -1383,7 +1389,7 @@ test_programs() {
 		fi
 	}
 	# Same for Mplayer
-	[ "$MPLAYER" ] && {
+	[[ $MPLAYER ]] && {
 		if ! "$MPLAYER" -vo help 2>&1 | grep -q 'png' ; then
 			warn "MPlayer can't output to png, won't be able to use it."
 			MPLAYER=''
@@ -1391,17 +1397,17 @@ test_programs() {
 		fi
 	}
 
-	[ "$MPLAYER" ] || [ "$FFMPEG" ] || {
+	[[ ( -n $MPLAYER ) || ( -n $FFMPEG ) ]] || {
 		local pngwarn=
-		[ $nopng -eq 1 ] && pngwarn=', with PNG output support,'
+		[[ $nopng -eq 1 ]] && pngwarn=', with PNG output support,'
 		error "mplayer and/or ffmpeg$pngwarn are required!"
-		let 'retval++,1'
+		(( retval++ ,1 ))
 	}
 
 
-	if [ $decoder -eq $DEC_FFMPEG ] && [ -z "$FFMPEG" ]; then
+	if [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG ) ]]; then
 		decoder=$DEC_MPLAYER
-	elif [ $decoder -eq $DEC_MPLAYER ] && [ -z "$MPLAYER" ]; then
+	elif [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER ) ]]; then
 		decoder=$DEC_FFMPEG
 	fi
 
@@ -1409,13 +1415,13 @@ test_programs() {
 	for prog in convert montage identify mktemp grep egrep cut sed awk ; do
 		if ! type -pf "$prog" ; then
 			error "Required program $prog not found!"
-			let 'retval++,1'
+			(( retval++ ,1 ))
 		fi >/dev/null
 	done
 	# TODO: [[x2]]
 
 	# Early exit
-	[ $retval -eq 0 ] || return $EX_UNAVAILABLE
+	[[ $retval -eq 0 ]] || return $EX_UNAVAILABLE
 
 	# ImageMagick version. 6 is a must, I'm probably using some
 	# features that require a higher minor version
@@ -1424,29 +1430,29 @@ test_programs() {
 	local ver
 	ver=$(identify -version | head -n1  | grep -o 'ImageMagick[[:space:]]*[^ ]*' |\
 		  cut -f 2 -d' ')
-	if [ "$ver" ]; then
+	if [[ $ver ]]; then
 		local verx=${ver//-/.}.0 # Extra .0 in case rev doesn't exist
 		local major=$(cut -d'.' -f1 <<<"$verx")
 		local minor=$(cut -d'.' -f2 <<<"$verx")
 		local micro=$(cut -d'.' -f3 <<<"$verx")
 		local rev=$(cut -d'.' -f4 <<<"$verx")
 		local serial=$(( $major * 100000 + $minor * 10000 + $micro * 100 + $rev))
-		if [ "$serial" -lt 630507 ]; then
+		if [[ $serial -lt 630507 ]]; then
 			error "ImageMagick 6.3.5-7 or higher is required. Found $ver." ;
-			let 'retval++,1'
+			(( retval++ ,1 ))
 		fi
 	else
 		error "Failed to check ImageMagick version."
-		let 'retval++,1'
+		(( retval++ ,1 ))
 	fi
 
-	[ $retval -eq 0 ] || return $EX_UNAVAILABLE
+	[[ $retval -eq 0 ]] || return $EX_UNAVAILABLE
 }
 
 # Test wether $GETOP is a compatible version; try to choose an alternate if
 # possible
 choose_getopt() {
-	if ! type -pf $GETOPT ; then
+	if ! type -pf "$GETOPT" ; then
 		#  getopt not in path
 		error "Required program getopt not found!"
 		return $EX_UNAVAILABLE
@@ -1455,13 +1461,13 @@ choose_getopt() {
 	# Try getopt. If there's more than one in the path, try all of them
 	for goe in $(type -paf $GETOPT) ; do
 		"$goe" -T || gor=$?
-		if [ $gor -eq 4 ]; then
+		if [[ $gor -eq 4 ]]; then
 			# Correct getopt found
 			GETOPT="$goe"
 			break;
 		fi
 	done >/dev/null
-	if [ $gor -ne 4 ]; then
+	if [[ $gor -ne 4 ]]; then
 		error "No compatible version of getopt in path, can't continue."
 		error " For details on how to correct this problems, see <http://p.outlyer.net/vcs#getopt>"
 		return $EX_UNAVAILABLE
@@ -1473,7 +1479,7 @@ choose_getopt() {
 # Does nothing if none has been created so far
 # cleanup()
 cleanup() {
-	if [ -z $TEMPSTUFF ]; then return 0 ; fi
+	if [[ -z $TEMPSTUFF ]]; then return 0 ; fi
 	inf "Cleaning up..."
 	rm -rf "${TEMPSTUFF[@]}"
 	unset VCSTEMPDIR
@@ -1485,7 +1491,7 @@ cleanup() {
 # exithdlr()
 exithdlr() {
 	# I don't think that's really required anyway
-	if [ "$RANDFUNCTION" == "filerand" ]; then
+	if [[ $RANDFUNCTION == 'filerand' ]]; then
 		7<&-	# Close FD 7
 	fi
 	cleanup
@@ -1498,8 +1504,8 @@ exithdlr() {
 #
 # error($1 = text)
 error() {
-	if [ $verbosity -ge $V_ERROR ]; then
-		[ $plain_messages -eq 0 ] && echo -n "$prefix_err"
+	if [[ $verbosity -ge $V_ERROR ]]; then
+		[[ $plain_messages -eq 0 ]] && echo -n "$prefix_err"
 		# sgr0 is always used, this way if
 		# a) something prints inbetween messages it isn't affected
 		# b) if plain_messages is overridden colour stops after the override
@@ -1512,8 +1518,8 @@ error() {
 # Print a non-fatal error or warning
 # warning($1 = text)
 warn() {
-	if [ $verbosity -ge $V_WARN ]; then
-		[ $plain_messages -eq 0 ] && echo -n "$prefix_warn"
+	if [[ $verbosity -ge $V_WARN ]]; then
+		[[ $plain_messages -eq 0 ]] && echo -n "$prefix_warn"
 		echo "$1$suffix_fback"
 	fi >&2
 }
@@ -1521,8 +1527,8 @@ warn() {
 # Print an informational message
 # inf($1 = text)
 inf() {
-	if [ $verbosity -ge $V_INFO ]; then
-		[ $plain_messages -eq 0 ] &&  echo -n "$prefix_inf"
+	if [[ $verbosity -ge $V_INFO ]]; then
+		[[ $plain_messages -eq 0 ]] &&  echo -n "$prefix_inf"
 		echo "$1$suffix_fback"
 	fi >&2
 }
@@ -1531,7 +1537,7 @@ inf() {
 # Same as inf but with no colour ever.
 # infplain($1 = text)
 infplain() {
-	if [ $verbosity -ge $V_INFO ]; then
+	if [[ $verbosity -ge $V_INFO ]]; then
 		echo "$1" >&2
 	fi
 }
@@ -1544,7 +1550,6 @@ infplain() {
 # buffered($1 = feedback function, $2 = arguments)
 buffered() {
 	local grab=$( $1 "$2" 2>&1 )
-#	BUFFER=( "${BUFFER[@]}" -- "$grab" )
 	BUFFER=$BUFFER$grab$NL
 }
 
@@ -1552,7 +1557,7 @@ buffered() {
 # Print buffered feedback to stderr
 # flush_buffered([$1 = indentation])
 flush_buffered() {
-	[ "${BUFFER[*]}" ] || return 0
+	[[ ${BUFFER[*]} ]] || return 0
 	echo "$BUFFER" | sed -e '$d' -e "s/^/$1/g" >&2 # sed: delete last line, indent with $1
 	BUFFER=''
 }
@@ -1570,9 +1575,9 @@ trace() {
 #  If no exit_code is provided, use $ERROR_CODE
 die() {
 	local m=$1 ec=$2
-	[ "$ec" ] || ec=$ERROR_CODE
-	[ "$ec" ] || ec=1
-	[ "$m" ] || m=$ERROR_MSG
+	[[ $ec ]] || ec=$ERROR_CODE
+	[[ $ec ]] || ec=1
+	[[ $m  ]] || m=$ERROR_MSG
 	error "$m"
 	exit $ec
 }
@@ -1583,7 +1588,7 @@ die() {
 has_filter() {
 	local filter= ref=$1
 	for filter in ${FILTERS_IND[@]} ; do
-		[ "$filter" == "$ref" ] || continue
+		[[ $filter == $ref ]] || continue
 		return 0
 	done
 	return 1
@@ -1618,7 +1623,7 @@ init_feedback() {
 		fi >/dev/null
 	fi
 
-	if [ -z "$HAS_COLORS" ]; then
+	if [[ -z $HAS_COLORS ]]; then
 		# tput was not an option, let's try ANSI escape codes instead [[AEC]]
 		# TODO: Detect support
 		# Alternatively: $ perl -e 'print "\e[31m\e[1m"'
@@ -1632,7 +1637,7 @@ init_feedback() {
 	fi
 
 	# Finally, if there's no colour support, use prefixes instead
-	if [ -z "$HAS_COLORS" ]; then
+	if [[ -z $HAS_COLORS ]]; then
 		set_feedback_prefixes
 	fi
 }
@@ -1645,7 +1650,7 @@ init_feedback() {
 # seqr($1 = from, $2 = to, $3 = increment)
 seqr() {
 	local from=$1 to=$2 inc=$3
-	[ "$inc" ] || inc=1
+	[[ $inc ]] || inc=1
 	awk "BEGIN { for (i=$from;i<=$to;i+=$inc) print i }"
 }
 
@@ -1828,7 +1833,7 @@ compute_timecodes() {
 		local runlen=$(awkexf "$end - $st")
 
 		if fptest "($end-$eo-$st)" -le 0 ; then
-			if fptest "$eo" -gt 0 && [ -z "$USR_end_offset" ] ; then
+			if fptest "$eo" -gt 0 && [[ -z $USR_end_offset ]] ; then
 				warn "Default end offset was too high for the video, ignoring it."
 				eo=0
 			else
@@ -2551,31 +2556,31 @@ mplayer_identify() {
 	# For some reason my (one track) samples have two ..._NCH, first one 0
 	#+Also multichannel is detected as 2 ch
 	mi[$CHANS]=$(grep ID_AUDIO_NCH <<<"$MPLAYER_CACHE"| grep -v '=0' | cut -d'=' -f2|head -1)
-	if [ $DVD_MODE -eq 0 ]; then
+	if [[ $DVD_MODE -eq 0 ]]; then
 		# For DVDs it prints ID_DVD_TITLE_x_LENGTH and ID_LENGTH.
 		#+Both appear valid.
 		mi[$LEN]=$(grep ID_DVD_TITLE_${DVD_TITLE}_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2)
-		[ "${mi[$LEN]}" ] || mi[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
+		[[ ${mi[$LEN]} ]] || mi[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
 	else
 		mi[$LEN]=$(grep ID_DVD_TITLE_${DVD_TITLE}_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
 	fi
 	# Voodoo :P Remove (one) trailing zero
-	if [ "${mi[$FPS]:$(( ${#mi[$FPS]} - 1 ))}" == "0" ]; then
+	if [[ "${mi[$FPS]:$(( ${#mi[$FPS]} - 1 ))}" == '0' ]]; then
 		mi[$FPS]="${mi[$FPS]:0:$(( ${#mi[$FPS]} - 1 ))}"
 	fi
 	mi[$ASPECT]=$(grep ID_VIDEO_ASPECT <<<"$MPLAYER_CACHE" | egrep -v '^0.0000$' | cut -d'=' -f2 | tail -1)
 	# If none set, delete it
-	[ "${mi[$ASPECT]}" ] && fptest "${mi[$ASPECT]}" -eq 0.0 && mi[$ASPECT]=''
+	[[ ${mi[$ASPECT]} ]] && fptest "${mi[$ASPECT]}" -eq 0.0 && mi[$ASPECT]=''
 	mi[$VCNAME]=$(get_vcodec_name "${mi[$VCODEC]}")
-	if [ "${mi[$VDEC]}" == "ffodivx" ] && [ "${mi[$VCNAME]}" != "MPEG-4" ]; then
+	if [[ ( ${mi[$VDEC]} == 'ffodivx' ) && ( ${mi[$VCNAME]} != 'MPEG-4' ) ]]; then
 		mi[$VCNAME]="${mi[$VCNAME]} (MPEG-4)"
-	elif [ "${mi[$VDEC]}" == "ffh264" ]; then # At least two different fourccs use h264, maybe more
+	elif [[ ${mi[$VDEC]} == 'ffh264' ]]; then # At least two different fourccs use h264, maybe more
 		mi[$VCNAME]="${mi[$VCNAME]} (h.264)"
 	fi
 	mi[$ACNAME]=$(get_acodec_name "${mi[$ACODEC]}")
-	if [ "${mi[$ACODEC]}" == "samr" ] ; then
+	if [[ ${mi[$ACODEC]} == 'samr' ]] ; then
 		local adec=$(grep ID_AUDIO_CODEC <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
-		if [ "$adec" == "ffamrnb" ]; then
+		if [[ $adec == 'ffamrnb' ]]; then
 			mi[$ACNAME]="AMR-NB";
 		fi
 	fi
@@ -2679,7 +2684,7 @@ ffmpeg_identify() {
 	# Newer CHANS and some older...
 	fi[$CHANS]=$(egrep -o '[0-9]* channels' <<<"$as" | cut -d' ' -f1)
 	# ...fallback for older
-	if [ -z "${fi[$CHANS]}" ]; then
+	if [[ -z ${fi[$CHANS]} ]]; then
 		local chans=$(egrep -o 'Hz, [^,]*' <<<"$as"   | cut -d' ' -f2)
 		case $chans in
 			mono) fi[$CHANS]=1 ;;
@@ -2698,11 +2703,11 @@ ffmpeg_identify() {
 	# can be re-calculated.
 	fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]*k? tb(r|\(r\))' <<<"$vs" | cut -d' ' -f1)
 	# Let's convert e.g. 23.98 into 23.976...:
-	if [ "${fi[$FPS]}" ] && grep -q '\.' <<<"${fi[$FPS]}" ; then
+	if [[ ${fi[$FPS]} ]] && grep -q '\.' <<<"${fi[$FPS]}" ; then
 		# Decimals, see if we got better values available
 		local vsobs=$(grep "stream $vsid" <<<"$obs")
 		# Observations regarding video stream found
-		if [ "$vsobs" ] && grep -q " -> ${fi[$FPS]} (.*)" <<<"$vsobs" ; then
+		if [[ $vsobs ]] && grep -q " -> ${fi[$FPS]} (.*)" <<<"$vsobs" ; then
 			# FPS candidate
 			local newfps=$(egrep -o -- '-> [^ ]* \([0-9]*/[0-9]*' <<<"$vsobs" | cut -d'(' -f2)
 			is_fraction $newfps && fi[$FPS]=$(keepdecimals "$newfps" 3)
@@ -2710,17 +2715,17 @@ ffmpeg_identify() {
 	fi
 	# ...fallback for older. The older version I tried seems to round further, i.e.
 	# 23.976 became 24 so no fix for this one
-	if [ -z "${fi[$FPS]}" ]; then
+	if [[ -z ${fi[$FPS]} ]]; then
 		# No k suffix here, 1000 is 1000
 		fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]* fps' <<<"$vs" | cut -d' ' -f1)
 	fi
 	# Be consistent with mplayer's output: at least two decimals
-	[ "${fi[$FPS]}" ] && {
+	[[ ${fi[$FPS]} ]] && {
 		fi[$FPS]=$(keepdecimals "${fi[$FPS]}" 3)
 		fi[$FPS]=${fi[$FPS]/%0} # Strip 0$
 	}
 	fi[$LEN]=$(egrep -o 'Duration: [^,]*' <<<"$FFMPEG_CACHE" | cut -d' ' -f2)
-	if [ "${fi[$LEN]}" == "N/A" ]; then # It might be unable to detect
+	if [[ ${fi[$LEN]} == 'N/A' ]]; then # It might be unable to detect
 		fi[$LEN]=""
 	fi
 	fi[$LEN]=$( get_interval $(echo "${fi[$LEN]}" | sed -e 's/:/h/' -e 's/:/m/') )
@@ -2729,7 +2734,7 @@ ffmpeg_identify() {
 	# TODO: Replace tail -1 with some better option (see the double DAR example above)
 	fi[$ASPECT]=$(egrep -o 'DAR [0-9]*:[0-9]*'<<<"$FFMPEG_CACHE" | tail -1 | cut -d' ' -f2 | sed 's#:#/#')
 	# Due to calling ffmpeg on a single VOB when in DVD Device mode, the length will be partial
-	[ $DVD_MODE -eq 0 ] || fi[$LEN]=''
+	[[ $DVD_MODE -eq 0 ]] || fi[$LEN]=''
 	fi[$VCNAME]=$(get_vcodec_name $(translate_ffmpeg_vcodec_id "${fi[$VCODEC]}"))
 	fi[$ACNAME]=$(get_acodec_name $(translate_ffmpeg_acodec_id "${fi[$ACODEC]}"))
 	VID_FFMPEG=("${fi[@]}")
@@ -2845,7 +2850,7 @@ identify_video() {
 
 	if [[ $FFMPEG ]]; then
 		# FPS at least with two decimals
-		if [ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]; then
+		if [[ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]]; then
 			VID[$FPS]="${VID[$FPS]}.00"
 		fi
 	fi
@@ -3980,12 +3985,12 @@ EOM
 			case "$t" in
 				timecode_from)
 					x='$TC_NUMCAPS'
-					[ $v -eq $TC_NUMCAPS ] || x='$TC_INTERVAL'
+					[[ $v -eq $TC_NUMCAPS ]] || x='$TC_INTERVAL'
 					v=$x
 					;;
 				decoder)
 					x='$DEC_FFMPEG'
-					[ $v -eq $DEC_FFMPEG ] || x='$DEC_MPLAYER'
+					[[ $v -eq $DEC_FFMPEG ]] || x='$DEC_MPLAYER'
 					v=$x
 					;;
 				verbosity)
