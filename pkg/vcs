@@ -2523,7 +2523,7 @@ translate_ffmpeg_acodec_id() {
 # {{{{ # Mplayer support
 
 # Try to identify video properties using mplayer
-# Fills $MPLAYER_CACHE with the relevant output and $VID_MPLAYER with
+# Fills $MPLAYER_CACHE with the relevant output and $MPLAYER_ID with
 # the actual values. See identify_video()
 # mplayer_identify($1 = file)
 mplayer_identify() {
@@ -2580,7 +2580,7 @@ mplayer_identify() {
 	fi
 
 	# Array assignment
-	VID_MPLAYER=("${mi[@]}")
+	MPLAYER_ID=("${mi[@]}")
 }
 
 # Capture a frame with mplayer
@@ -2619,7 +2619,7 @@ mplayer_capture() {
 # {{{{ # FFmpeg support
 
 # Try to identify video properties using ffmpeg
-# Fills $FFMPEG_CACHE with the relevant output and $VID_FFMPEG with
+# Fills $FFMPEG_CACHE with the relevant output and $FFMPEG_ID with
 # the actual values. See identify_video()
 # mplayer_identify($1 = file)
 ffmpeg_identify() {
@@ -2733,7 +2733,7 @@ ffmpeg_identify() {
 	[[ $DVD_MODE -eq 0 ]] || fi[$LEN]=''
 	fi[$VCNAME]=$(get_vcodec_name $(translate_ffmpeg_vcodec_id "${fi[$VCODEC]}"))
 	fi[$ACNAME]=$(get_acodec_name $(translate_ffmpeg_acodec_id "${fi[$ACODEC]}"))
-	VID_FFMPEG=("${fi[@]}")
+	FFMPEG_ID=("${fi[@]}")
 }
 
 # Capture a frame with ffmpeg
@@ -2770,35 +2770,35 @@ identify_video() {
 	[[ ( $DVD_MODE -eq 1 ) && ( $FFMPEG_BIN ) && ( $DVD_MOUNTP ) ]] && ffmpeg_identify "$1"
 
 	# Fail early if none detected length
-	[[ ( -z ${VID_MPLAYER[$LEN]} ) && ( -z ${VID_FFMPEG[$LEN]} ) ]] && return $RET_NOLEN
+	[[ ( -z ${MPLAYER_ID[$LEN]} ) && ( -z ${FFMPEG_ID[$LEN]} ) ]] && return $RET_NOLEN
 
 	# Classic mode, use both mplayer and ffmpeg when available
 	if [[ $MPLAYER_BIN && $FFMPEG_BIN ]]; then
 		# By default take mplayer's values
-		VID=("${VID_MPLAYER[@]}")
+		VID=("${MPLAYER_ID[@]}")
 		# FFmpeg seems better at getting the correct number of FPS, specially with
 		# WMVs, where mplayer often accepts 1000fps while ffmpeg notices the
 		# inconsistency in container vs codec and guesses better, *but* it only
 		# uses two decimals so 23.976 becomes 23.98. So it is only used when
 		# the number of decimals seems right.
 		# When a "Seems..." line is printed the correct FPS can be obtained though.
-		[[ -z ${VID_MPLAYER[$FPS]} ]] && VID[$FPS]=${VID_FFMPEG[$FPS]}
-		[[ ( -n ${VID_MPLAYER[$FPS]} ) && ( -n ${VID_FFMPEG[$FPS]} ) ]] && {
+		[[ -z ${MPLAYER_ID[$FPS]} ]] && VID[$FPS]=${FFMPEG_ID[$FPS]}
+		[[ ( -n ${MPLAYER_ID[$FPS]} ) && ( -n ${FFMPEG_ID[$FPS]} ) ]] && {
 			# Trust ffmpeg if it has three decimals OR if mplayer is probably-wrong
-			local ffps=${VID_FFMPEG[$FPS]}
+			local ffps=${FFMPEG_ID[$FPS]}
 			local ERE='\.[0-9][0-9][0-9]'
 			if [[ $ffps =~ $ERE ]]; then
 				VID[$FPS]=$ffps
-			elif fptest "${VID_MPLAYER[$FPS]}" -gt 500; then
+			elif fptest "${MPLAYER_ID[$FPS]}" -gt 500; then
 				VID[$FPS]=$ffps
 			fi
 		}
 		# It doesn't appear to need any workarounds for num. channels either
-		[[ ${VID_FFMPEG[$CHANS]} ]] && VID[$CHANS]=${VID_FFMPEG[$CHANS]}
-		[[ ${VID_FFMPEG[$ASPECT]} ]] && VID[$ASPECT]=${VID_FFMPEG[$ASPECT]}
+		[[ ${FFMPEG_ID[$CHANS]} ]] && VID[$CHANS]=${FFMPEG_ID[$CHANS]}
+		[[ ${FFMPEG_ID[$ASPECT]} ]] && VID[$ASPECT]=${FFMPEG_ID[$ASPECT]}
 		# There's a huge inconsistency with some files, both mplayer vs ffmpeg
 		# same application on different OSes
-		local fflen=${VID_FFMPEG[$LEN]} mplen=${VID_MPLAYER[$LEN]} # Shorthands
+		local fflen=${FFMPEG_ID[$LEN]} mplen=${MPLAYER_ID[$LEN]} # Shorthands
 		[[ -z $fflen ]] && fflen=0
 		# If both report 0, there's no good value...
 		fptest "$fflen" -eq 0 && fptest "$mplen" -eq 0 && return $RET_NOLEN
@@ -2822,7 +2822,7 @@ identify_video() {
 		fi
 	elif [[ $MPLAYER_BIN ]]; then
 		# Must do with mplayer only...
-		VID=("${VID_MPLAYER[@]}")
+		VID=("${MPLAYER_ID[@]}")
 		# Warn if a known pitfall is found
 		# See above for 1000 fps
 		[[ ${VID[$FPS]} == '1000.00' ]] && \
@@ -2834,7 +2834,7 @@ identify_video() {
 			warn "    Install both mplayer and ffmpeg for better detection."
 	elif [[ $FFMPEG_BIN ]]; then
 		# Must do with mplayer only...
-		VID=("${VID_FFMPEG[@]}")
+		VID=("${FFMPEG_ID[@]}")
 		# So far I know of no weird results. Yet.
 	else
 		assert 'false'
@@ -2851,7 +2851,7 @@ identify_video() {
 		fi
 	fi
 
-	local mfps="${VID_MPLAYER[$FPS]}"
+	local mfps="${MPLAYER_ID[$FPS]}"
 	if [[ ( $QUIRKS -eq 0 ) && ( -n $MPLAYER_BIN ) ]] && fptest "$mfps" -eq 1000 ; then
 		warn "Suspect file. Safe measuring enabled."
 		QUIRKS=1
@@ -2903,19 +2903,19 @@ dump_idinfo() {
 	[[ $FFMPEG_BIN  ]] && echo "FFmpeg:  $FFMPEG_BIN"
 	[[ $MPLAYER_BIN ]] && cat <<-EODUMP
 	=========== Mplayer Identification ===========
-	Length: $(pretty_stamp ${VID_MPLAYER[$LEN]})
+	Length: $(pretty_stamp ${MPLAYER_ID[$LEN]})
 	Video
-	    Codec: ${VID_MPLAYER[$VCODEC]} (${VID_MPLAYER[$VCNAME]})
-	    Dimensions: ${VID_MPLAYER[$W]}x${VID_MPLAYER[$H]}
-	    FPS: ${VID_MPLAYER[$FPS]}
-	    Aspect: ${VID_MPLAYER[$ASPECT]}
+	    Codec: ${MPLAYER_ID[$VCODEC]} (${MPLAYER_ID[$VCNAME]})
+	    Dimensions: ${MPLAYER_ID[$W]}x${MPLAYER_ID[$H]}
+	    FPS: ${MPLAYER_ID[$FPS]}
+	    Aspect: ${MPLAYER_ID[$ASPECT]}
 	Audio
-	    Codec: ${VID_MPLAYER[$ACODEC]} (${VID_MPLAYER[$ACNAME]})
-	    Channels: ${VID_MPLAYER[$CHANS]}
+	    Codec: ${MPLAYER_ID[$ACODEC]} (${MPLAYER_ID[$ACNAME]})
+	    Channels: ${MPLAYER_ID[$CHANS]}
 	==============================================
 
 EODUMP
-	local ffl="${VID_FFMPEG[$LEN]}"
+	local ffl="${FFMPEG_ID[$LEN]}"
 	[[ $ffl ]] && ffl=$(pretty_stamp "$ffl")
 	if [[ ( -z $ffl ) && ( $DVD_MODE -eq 1 ) ]]; then
 		ffl="(unavailable in DVD mode)"
@@ -2924,13 +2924,13 @@ EODUMP
 	=========== FFmpeg Identification ===========
 	Length: $ffl
 	Video
-	    Codec: ${VID_FFMPEG[$VCODEC]} (${VID_FFMPEG[$VCNAME]})
-	    Dimensions: ${VID_FFMPEG[$W]}x${VID_FFMPEG[$H]}
-	    FPS: ${VID_FFMPEG[$FPS]}
-	    Aspect: ${VID_FFMPEG[$ASPECT]}
+	    Codec: ${FFMPEG_ID[$VCODEC]} (${FFMPEG_ID[$VCNAME]})
+	    Dimensions: ${FFMPEG_ID[$W]}x${FFMPEG_ID[$H]}
+	    FPS: ${FFMPEG_ID[$FPS]}
+	    Aspect: ${FFMPEG_ID[$ASPECT]}
 	Audio
-	    Codec: ${VID_FFMPEG[$ACODEC]} (${VID_FFMPEG[$ACNAME]})
-	    Channels: ${VID_FFMPEG[$CHANS]}
+	    Codec: ${FFMPEG_ID[$ACODEC]} (${FFMPEG_ID[$ACNAME]})
+	    Channels: ${FFMPEG_ID[$CHANS]}
 	=============================================
 
 EODUMP
