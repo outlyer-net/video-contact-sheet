@@ -13,7 +13,7 @@ pkgdesc="tool to create contact sheets (previews) from videos"
 arch=('any')
 url="http://p.outlyer.net/vcs/"
 license=('LGPL')
-depends=('bash>=2.05b' 'imagemagick>=6.3.5.7' 'mplayer' 'ffmpeg')
+depends=('bash>=3.1' 'imagemagick>=6.3.5.7' 'mplayer' 'ffmpeg')
 makedepends=('bzip2')
 optdepends=('lsdvd: for DVD support'
             'perl: for DVD support')
