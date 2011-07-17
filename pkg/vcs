@@ -4066,18 +4066,25 @@ while true ; do
 		-U|--fullname)
 			# -U accepts an optional argument, 0, to make an anonymous signature
 			# --fullname accepts no argument
-			if [[ $2 ]]; then # With argument, special handling
-				if [[ $2 != '0' ]]; then
-					error "Use '-U0' to make an anonymous contact sheet or '-u \"My Name\"'"
-					error "    to sign as My Name. Got -U$2"
-					exit $EX_USAGE
+			if [[ $1 = '-U' ]]; then # -U always provides an argument
+				if [[ -n $2 ]]; then # With argument, special handling
+					if [[ $2 != '0' ]]; then
+						error "Use '-U0' to make an anonymous contact sheet or '-u \"My Name\"'"
+						error "    to sign as My Name. Got -U$2"
+						exit $EX_USAGE
+					fi
+					anonymous_mode=1
 				fi
-				anonymous_mode=1
 				shift
 			else # No argument, default handling (try to guess real name)
-				user=$(grep ^$(id -un): /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
+				username=$(id -un)
+				if type -p getent >/dev/null ; then
+					user=$(getent passwd "$username" | cut -d':' -f5 |sed 's/,.*//g')
+				else
+					user=$(grep "^$username:" /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
+				fi
 				if [[ -z $user ]]; then
-					user=$(id -un)
+					user=$username
 					error "No fullname found, falling back to default ($user)"
 				fi
 			fi
