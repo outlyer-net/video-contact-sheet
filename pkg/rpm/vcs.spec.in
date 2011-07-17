@@ -39,7 +39,7 @@
 Name: vcs
 Summary: Tool to create contact sheets (previews) from videos
 Version: @VERSION@
-Release: 1%{?disttag},upstream
+Release: 1%{?disttag}
 License: LGPL
 Packager: @PACKAGER@
 Group: Applications/Multimedia
