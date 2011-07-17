@@ -32,7 +32,7 @@
 
 
 declare -r VERSION="1.12.3"
-declare -r RELEASE=0
+declare -r RELEASE=1
 
 set -e
 

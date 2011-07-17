@@ -1,4 +1,4 @@
-1.12.3:
+1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
    * BUGFIX: Correct parsing of -U [#187]
    * OTHER:
