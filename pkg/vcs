@@ -5,7 +5,7 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007, 2008, 2009, 2010, 2011 Toni Corvera
+# Copyright (C) 2007, 2008, 2009, 2010 Toni Corvera
 #   with patches from Phil Grundig and suggestions/corrections from
 #   many others (see homepage)
 #
@@ -31,7 +31,7 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.12.3"
+declare -r VERSION="1.13"
 declare -r RELEASE=1
 
 set -e
@@ -64,9 +64,8 @@ export LC_NUMERIC=C
 # * Change default DVD_TITLE to 0
 # * Deprecations:
 #     OPTION/VAR    -> ALTERNATIVE              DEPRECATED FROM VERSION   REMOVAL ETA
-#     --undocumented shoehorn -> NONE            1.12                      1.13
 #     --funky       -> --profile                 ?                         ?+1
-#     --end_offset  -> --end-offset              1.12 (silent), 1.13 (warn) 1.14
+#     --end_offset  -> --end-offset              1.13                      1.14
 #     (new var names introduced in 1.12)         1.12                      1.14
 #    > Usage of ./vcs.conf is also deprecated since it doesn't mesh well with profiles
 #      (and it was a bad placeholder for them). Will remain to be loadable with
@@ -114,8 +113,16 @@ declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
 # These can't be overriden, modify this line if you feel the need
 declare -r PROGRAM_SIGNATURE="Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
-# see $safe_rename_pattern
-declare -r DEFAULT_SAFE_REN_PATT="%b-%N.%e"
+# Filename pattern for safe renaming (appending numbers until finding a name
+#+not in use).
+# Since 1.13 no longer configurable. Don't mess with it too much.
+# By default "%b-%N.%e" where:
+# %b is the basename (file name without extension)
+# %N is the appended number
+# %e is the extension
+# Will first try %b.%e, then %b-1.%e, %b-2.%e and so on, i.e.
+#+creates outputs like "output.avi-1.png"
+declare -r SAFE_RENAME_PATTERN="%b-%N.%e"
 # see $extended_factor
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $verbosity
@@ -154,7 +161,11 @@ declare -i timecode_from=$TC_INTERVAL
 # mplayer seems to fail for mpeg or WMV9 files, at least on my system
 # also, ffmpeg allows better seeking: ffmpeg allows exact second.fraction
 # seeking while mplayer apparently only seeks to nearest keyframe
-declare -i decoder=$DEC_FFMPEG
+declare -i decoder=$DEC_FFMPEG # Deprecated
+# New in 1.13. Replaced the old 'decoder' symbolic option.
+# The value is *not* the name of the executable, but a supported capturer,
+#+right now 'ffmpeg' or 'mplayer'. Equivalent configuration option: 'capturer'
+declare preferred_capturer=ffmpeg
 # Options used in imagemagick, these options set the final aspect
 # of the contact sheet
 declare output_format=png     # ImageMagick decides the type from the extension
@@ -172,7 +183,7 @@ declare fg_tstamps=White        # Font colour for timestamps
 declare fg_title=Black          # Font colour for the title
 # Fonts, use identify -list font to get the list, up to IM 6.3.5-7 was '-list type' [[IM1]]
 # If a font is not available IM will pick a sane default. In theory it will be silent
-# although in practica it prints an error
+# although in practice it prints an error
 declare font_tstamps=DejaVu-Sans-Book  # Used for timestamps over the thumbnails
 declare font_heading=DejaVu-Sans-Book  # Used for the meta info heading
 declare font_sign=$font_heading # Used for the signature box
@@ -186,20 +197,6 @@ declare -i pts_title=33            # Used for the title (see -T)
 declare shoehorned=
 # See -E / $end_offset
 declare -r DEFAULT_END_OFFSET="5.5%"
-# This can only be changed in the configuration file
-# Change it to change the safe renanimg:
-# When writing the output file, the input name + output extension is
-# used (e.g.: "some video.avi.png"), if it already exists, though,
-# a number if appended to the name. This variable dictates where the number is
-# placed.
-# By default "%b-%N.%e" where:
-# %b is the basename (file name without extension)
-# %N is the appended number
-# %e is the extension
-# The default creates outputs like "output.avi-1.png"
-#
-# If overridden with an incorrect value it will be silently set to the default
-declare safe_rename_pattern="$DEFAULT_SAFE_REN_PATT"
 # Controls how many extra captures will be created in the extended mode
 # (see -e), 0 is the same as disabling the extended mode
 # This number is multiplied by the total number of captures to get
@@ -389,6 +386,45 @@ declare -a DVD_TITLES=( ) # Titles for each input DVD, filled by --dvd-title
 declare DVD_MOUNTP= # Mountpoint for DVD, detected & reset for each DVD
 declare DVD_VTS=    # VTS, detected & reset for each DVD
 
+# New in 1.13: Modularisation of video decoders and identifiers, to ease additions
+# There's two types of video tools supported: capturers and identifiers
+# A capturer is used to extract video frames
+# An identifier is used to extract video information
+# This abstraction provides an interface to allow easy addition of tools and
+#+to handle missing tools with more ease than before. Each tool has a set of
+#+associated functions, some of them optional that provide the same interface.
+# Capturer functions:
+#   <name>_capture(in, ts, out): Capture the frame from 'in' at 'ts' to 'out'
+#   <name>_dvd_capture(in, ts, out) [optional]: Same for DVDs
+# Identifier functions:
+#   <name>_identify(f): Extract information from 'f', fill <NAME>_ID with it
+#        also fills RESULT with the same values
+#   <name>_probe(file, ts): Try reaching 'ts' (test for video length)
+
+# Supported capturers. In order of preference.
+# An associated <name>_capturer must be defined
+CAPTURERS=( ffmpeg mplayer )
+# Supported identifiers. In order of preference
+# An associated <name>_identify must be defined
+# 'classic' is a combination of ffmpeg and mplayer
+IDENTIFIERS=( classic ffmpeg mplayer )
+# Will be filled with the elements from CAPTURERS found on the system
+# Lookup is done with <name>_check_avail, an associated <NAME>_BIN is to be
+# defined there, i.e. mplayer_test_avail sets MPLAYER_BIN
+CAPTURERS_AVAIL=( )
+# Like CAPTURERS_AVAIL, for IDENTIFIERS
+IDENTIFIERS_AVAIL=( )
+# Set to the first available element in CAPTURERS, unless the user explicitly
+#+picks a different one
+CAPTURER=''
+# Same for IDENTIFIERS
+IDENTIFIER=''
+# If 1, the selected CAPTURER understands the use of milliseconds
+CAPTURER_HAS_MS=0
+
+MPLAYER_BIN=
+FFMPEG_BIN=
+
 # }}} # Variables
 
 # {{{ # Configuration handling
@@ -411,7 +447,7 @@ declare DVD_VTS=    # VTS, detected & reset for each DVD
 #+           modifies all font_ variables.
 #+  "=": ignore
 #+ type constraints: a character indicating accepted values:
-#     n  -> Number (Natural, positive Integer)
+#     n  -> Number (Natural, positive Integer or zero)
 #     p  -> Number, not zero
 #     t  -> Timestamp
 #     b  -> Bool
@@ -421,6 +457,7 @@ declare DVD_VTS=    # VTS, detected & reset for each DVD
 #     T  -> only $TC_* constants
 #     V  -> only $V_* constants
 #     I  -> interval or percentage
+#     x  -> Special, variable with a set of possible values
 # Note during the switch to the new system most variables will remain unchanged
 # Also, the new system is case insensitive to variable names
 # TODO: Allow 'y', 'n' in booleans
@@ -490,6 +527,8 @@ declare -ra OVERRIDE_MAP=(
 	#"capture_mode:timecode_from:alias:T"
 	"timecode_from:=:=:T"
 	"verbosity:=:=:V"
+	"preferred_capturer:=:=:x"
+	"capturer:preferred_capturer:=:x"
 
 	"format:output_format:"
 	"output_format:=:deprecated=format"
@@ -508,14 +547,14 @@ declare -ra OVERRIDE_MAP=(
 	"NONLATIN_FILENAMES:=:=:b"
 
 	"end_offset:=:=:I" # New, used to have a two-variables assignment before USR_*
-	"DEFAULT_END_OFFSET:end_offset:deprecated=end_offset:I"
 
 	# TODO TBA:
 	#"noboldfeedback::" # Colour but not bold
 
-	"shoehorned::striked"
-	"safe_rename_pattern::striked"
+	"shoehorned::gone"
+	"safe_rename_pattern::gone"
 	"MIN_LENGTH_FOR_END_OFFSET::gone:"
+	"DEFAULT_END_OFFSET::gone:"
 )
 
 # Load a configuration file
@@ -571,6 +610,10 @@ load_config() {
 		[[ -f "$cfgfile" ]] || continue
 		load_config_file "$cfgfile"
 	done
+	if [[ -f "./vcs.conf" ]]; then
+		warn "'./vcs.conf' won't be loaded automatically starting with vcs 1.14"
+		warn "  use '-C :pwd' to manually load it or convert it to a profile"
+	fi
 }
 
 # Load a profile, if found; fail otherwise
@@ -660,6 +703,13 @@ check_constraint() {
 		T) checkfn=is_tcfrom ; domain='$TC_INTERVAL or $TC_INTERVAL' ;;
 		V) checkfn=is_vlevel ; domain='verbosity levels ($V_.*)' ;;
 		I) checkfn=is_interv_or_percent ; domain='intervals or percentages' ;;
+		x)
+			case "$v" in
+				preferred_capturer|capturer)
+					checkfn=is_known_capturer
+					domain='mplayer or ffmpeg'
+				;;
+			esac
 	esac
 	if [[ $checkfn ]] && ! $checkfn "$v" ; then
 		[[ $p ]] || p=$n
@@ -756,17 +806,18 @@ parse_override() {
 	}
 
 	eval local curvarval='$'"$ivar" retflag='+'
+	if [[ $constraints == 't' ]]; then
+		varval=$(get_interval "$varval")
+	fi
+	# Escape single quotes, since it will be single-quoted:
+	varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
+	evcode="USR_$ivar='$varval'"
 	if [[ $curvarval == "$varval" ]]; then
 		retflag='='
 	else
-		if [[ $constraints == 't' ]]; then
-			varval=$(get_interval "$varval")
-		fi
-		# Escape single quotes, since it will be single-quoted:
-		varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
-		evcode="$ivar='$varval'; USR_$ivar='$varval'"
-		eval "$evcode"
+		evcode="$ivar='$varval'; $evcode"
 	fi
+	eval "$evcode"
 
 	# varname, as found in the config file
 	RESULT="$varname $retflag"
@@ -898,6 +949,9 @@ is_fraction() {
 }
 ## Decoder ($DEC_* constants)
 is_decoder() { [[ $1 == $DEC_FFMPEG || $1 == $DEC_MPLAYER ]]; }
+is_known_capturer() {
+	[[ ( $1 == 'mplayer' ) || ( $1 == 'ffmpeg' ) ]]
+}
 ## Time calculation source ($TC_* constants)
 is_tcfrom() { [[ $1 == $TC_INTERVAL || $1 == $TC_NUMCAPS ]]; }
 ### Verbosity level ($V_* constants)
@@ -1031,6 +1085,19 @@ ord() {
 filext() {
 	#grep -o '\.[^.]*$' <<<"$1" | cut -d. -f2
 	expr match "$1" '.*\.\(.*\)'
+}
+
+# Checks if a 'command' is defined either as an available binary, a function
+#+or an alias
+# is_defined($1 = command)
+is_defined() {
+	type "$@" >/dev/null 2>&1
+}
+
+# Checks if a command is an available binary in the path.
+# is_executable($1 = command)
+is_executable() {
+	type -pf "$@" >/dev/null 2>&1
 }
 
 # Wrapper around $RANDOM, not called directly, wrapped again in rand().
@@ -1264,22 +1331,6 @@ get_pretty_file_size() {
 	get_pretty_size "$bytes"
 }
 
-# Clean $safe_rename_pattern, which is override-able
-# Since safe_rename() is called from $() it won't be able to affect global variables directly
-# Hopefully soon this won't be needed
-sanitise_rename_pattern() {
-	# No quoting! => Regex
-	if [[ ! $safe_rename_pattern =~ %e || ! $safe_rename_pattern =~ %N || \
-			! $safe_rename_pattern =~ %b ]]; then
-		safe_rename_pattern=$DEFAULT_SAFE_REN_PATT
-	fi
-	# Hashmarks will break the regex used in safe_rename()
-	if [[ $safe_rename_pattern =~ \# ]]; then
-		warn "Illegal character \"#\" found in safe renaming pattern, resetting it"
-		safe_rename_pattern=$DEFAULT_SAFE_REN_PATT
-	fi
-}
-
 # mv quiet
 # Move a file, be quiet about errors.
 # Ownership preservation is a common error on vfs, for example
@@ -1289,7 +1340,7 @@ mvq() {
 
 # Rename a file, if the target exists, try with appending numbers to the name
 # And print the output name to stdout
-# See $safe_rename_pattern
+# See $SAFE_RENAME_PATTERN
 # safe_rename($1 = original file, $2 = target file)
 # XXX: Note it fails if target has no extension
 safe_rename() {
@@ -1376,40 +1427,7 @@ test_programs() {
 
 	MPLAYER_BIN=$(type -pf mplayer) || true
 	FFMPEG_BIN=$(type -pf ffmpeg)   || true
-
-	# Test we can actually use FFmpeg
-	[[ $FFMPEG_BIN ]] && {
-		# Newer FF has -codecs, -formats, -protocols, older has only -formats
-		#+png is a codec so it's on different lists on newer and older
-		if ! "$FFMPEG_BIN" -formats 2>/dev/null | grep -q 'EV.* png' && \
-			! "$FFMPEG_BIN" -codecs 2>/dev/null | grep -q 'EV.* png' ; then
-			warn "FFmpeg can't output to png, won't be able to use it."
-			FFMPEG_BIN=''
-			nopng=1
-		fi
-	}
-	# Same for Mplayer
-	[[ $MPLAYER_BIN ]] && {
-		if ! "$MPLAYER_BIN" -vo help 2>&1 | grep -q 'png' ; then
-			warn "MPlayer can't output to png, won't be able to use it."
-			MPLAYER_BIN=''
-			nopng=1
-		fi
-	}
-
-	[[ ( -n $MPLAYER_BIN ) || ( -n $FFMPEG_BIN ) ]] || {
-		local pngwarn=
-		[[ $nopng -eq 1 ]] && pngwarn=', with PNG output support,'
-		error "mplayer and/or ffmpeg$pngwarn are required!"
-		(( retval++ ,1 ))
-	}
-
-
-	if [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG_BIN ) ]]; then
-		decoder=$DEC_MPLAYER
-	elif [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
-		decoder=$DEC_FFMPEG
-	fi
+	check_avail_tools
 
 	# awk is required by SUS/POSIX but just to be sure...
 	for prog in convert montage identify mktemp grep egrep cut sed awk ; do
@@ -1428,7 +1446,7 @@ test_programs() {
 	# Versions tested:
 	# * Fedora 9: IM 6.4.0
 	local ver
-	ver=$(identify -version | head -n1  | grep -o 'ImageMagick[[:space:]]*[^ ]*' |\
+	ver=$(convert -version | head -n1  | grep -o 'ImageMagick[[:space:]]*[^ ]*' |\
 		  cut -f 2 -d' ')
 	if [[ $ver ]]; then
 		local verx=${ver//-/.}.0 # Extra .0 in case rev doesn't exist
@@ -1692,6 +1710,325 @@ assert_if() {
 
 # {{{ # Core functionality
 
+# {{{{ # Mplayer support
+
+# Check for mplayer
+mplayer_test_avail() {
+	MPLAYER_BIN=$(type -pf mplayer 2>/dev/null)
+	[[ $MPLAYER_BIN ]] && {
+		if ! "$MPLAYER_BIN" -vo help 2>&1 | grep -q 'png' ; then
+			warn "MPlayer can't output to png, won't be able to use it."
+			unset MPLAYER_BIN
+			return $EX_UNAVAILABLE
+		fi
+	}
+}
+
+# Try to identify video properties using mplayer
+# Fills $MPLAYER_CACHE with the relevant output and $MPLAYER_ID with
+# the actual values. See identify_video()
+# mplayer_identify($1 = file)
+mplayer_identify() {
+	trace $FUNCNAME $@
+	assert '[[ $MPLAYER_BIN ]]'
+	local f="$1"
+	local mi=( )
+	# Note to self: Don't change the -vc as it would affect $vdec
+	if [[ $DVD_MODE -eq 0 ]]; then
+		MPLAYER_CACHE=$("$MPLAYER_BIN" -benchmark -ao null -vo null -identify -frames 0 \
+							-quiet "$f" 2>"$stderr" | grep ^ID)
+	else
+		MPLAYER_CACHE=$("$MPLAYER_BIN" -benchmark -ao null -vo null -identify -frames 0 \
+							-quiet -dvd-device "$f" dvd://$DVD_TITLE \
+							2>"$stderr" | grep ^ID)
+	fi
+	# Note the head -1!
+	mi[$VCODEC]=$(grep ID_VIDEO_FORMAT <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2) # FourCC
+	mi[$ACODEC]=$(grep ID_AUDIO_FORMAT <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
+	mi[$VDEC]=$(grep ID_VIDEO_CODEC <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2) # Decoder (!= Codec)
+	mi[$W]=$(grep ID_VIDEO_WIDTH <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
+	mi[$H]=$(grep ID_VIDEO_HEIGHT <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
+	mi[$FPS]=$(grep ID_VIDEO_FPS <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
+	# For some reason my (one track) samples have two ..._NCH, first one 0
+	#+Also multichannel is detected as 2 ch
+	mi[$CHANS]=$(grep ID_AUDIO_NCH <<<"$MPLAYER_CACHE"| grep -v '=0' | cut -d'=' -f2|head -1)
+	if [[ $DVD_MODE -eq 0 ]]; then
+		# For DVDs it prints ID_DVD_TITLE_x_LENGTH and ID_LENGTH.
+		#+Both appear valid.
+		mi[$LEN]=$(grep ID_DVD_TITLE_${DVD_TITLE}_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2)
+		[[ ${mi[$LEN]} ]] || mi[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
+	else
+		mi[$LEN]=$(grep ID_DVD_TITLE_${DVD_TITLE}_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
+	fi
+	# Voodoo :P Remove (one) trailing zero
+	if [[ "${mi[$FPS]:$(( ${#mi[$FPS]} - 1 ))}" == '0' ]]; then
+		mi[$FPS]="${mi[$FPS]:0:$(( ${#mi[$FPS]} - 1 ))}"
+	fi
+	mi[$ASPECT]=$(grep ID_VIDEO_ASPECT <<<"$MPLAYER_CACHE" | egrep -v '^0.0000$' | cut -d'=' -f2 | tail -1)
+	# If none set, delete it
+	[[ ${mi[$ASPECT]} ]] && fptest "${mi[$ASPECT]}" -eq 0.0 && mi[$ASPECT]=''
+	mi[$VCNAME]=$(get_vcodec_name "${mi[$VCODEC]}")
+	if [[ ( ${mi[$VDEC]} == 'ffodivx' ) && ( ${mi[$VCNAME]} != 'MPEG-4' ) ]]; then
+		mi[$VCNAME]="${mi[$VCNAME]} (MPEG-4)"
+	elif [[ ${mi[$VDEC]} == 'ffh264' ]]; then # At least two different fourccs use h264, maybe more
+		mi[$VCNAME]="${mi[$VCNAME]} (h.264)"
+	fi
+	mi[$ACNAME]=$(get_acodec_name "${mi[$ACODEC]}")
+	if [[ ${mi[$ACODEC]} == 'samr' ]] ; then
+		local adec=$(grep ID_AUDIO_CODEC <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
+		if [[ $adec == 'ffamrnb' ]]; then
+			mi[$ACNAME]="AMR-NB";
+		fi
+	fi
+
+	# Warn if a known pitfall is found
+	# See above for 1000 fps
+	[[ ${mi[$FPS]} == '1000.00' ]] && \
+		warn "Possible inaccuracy in FPS detection." && \
+		warn "    Install both mplayer and ffmpeg for better detection."
+	# Number of channels 0 happened for WMA in non-x86
+	[[ ${mi[$CHANS]} == '0' ]] && \
+		warn "Failed to detect number of audio channels." && \
+		warn "    Install both mplayer and ffmpeg for better detection."
+
+	# Array assignment
+	MPLAYER_ID=("${mi[@]}")
+	RESULT=("${mi[@]}")
+}
+
+# Capture a frame with mplayer
+# mplayer_capture($1 = inputfile, $2 = timestamp, $3 = output[, $4 = extra options])
+mplayer_capture() {
+	trace $@
+	# Note mplayer CAN'T set the output filename, newer mplayer can set output
+	#+dir though.
+	local f="$1"
+	local ts=$2
+	local cap=00000005.png o=$3
+
+	# No point in passing ms to mplayer
+	ts=$(cut -d'.' -f1 <<<"$ts")
+	# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
+
+	assert '[[ $DVD_MODE -ne 1 ]]'
+	"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+		   -frames 5 -ss "$ts" $4 $shoehorned "$f" >"$stdout" 2>"$stderr"
+	rm -f 0000000{1,2,3,4}.png # Remove the first four
+	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
+		mvq "$cap" "$o"
+	}
+}
+
+# Capture a frame with mplayer
+# mplayer_dvd_capture($1 = inputfile, $2 = timestamp, $3 = output)
+mplayer_dvd_capture() {
+	trace $FUNCNAME $@
+	# Note mplayer CAN'T set the output filename, newer mplayer can set output
+	#+dir though.
+	local f="$1"
+	local cap=00000005.png o=$3
+	local ts=$2
+
+	# No point in passing ms to mplayer
+	ts=$(cut -d'.' -f1 <<<"$ts")
+
+	assert '[[ $DVD_MODE -eq 1 ]]'
+	"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
+		   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
+		   $4 "dvd://$DVD_TITLE" >"$stdout" 2>"$stderr"
+	rm -f 0000000{1,2,3,4}.png # Remove the first four
+	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
+		mvq "$cap" "$o"
+	}
+}
+
+mplayer_probe() {
+	local r= f=00000005.png
+	if [[ $DVD_MODE -eq 1 ]]; then
+		mplayer_dvd_capture "$1" "$2" "$f" "-vf scale=96:96"
+	else
+		mplayer_capture "$1" "$2" "$f" "-vf scale=96:96"
+	fi
+	r=$?
+	rm -f "$f" # Must be manually removed since this runs before process()
+	return $r
+}
+
+# }}}} # Mplayer support
+
+# {{{{ # FFmpeg support
+
+# Check for ffmpeg
+ffmpeg_test_avail() {
+	FFMPEG_BIN=$(type -pf ffmpeg 2>/dev/null)
+	# Test we can actually use FFmpeg
+	[[ $FFMPEG_BIN ]] && {
+		# Newer FF has -codecs, -formats, -protocols, older has only -formats
+		#+png is a codec so it's on different lists on newer and older
+		if ! "$FFMPEG_BIN" -formats 2>/dev/null | grep -q 'EV.* png' && \
+			! "$FFMPEG_BIN" -codecs 2>/dev/null | grep -q 'EV.* png' ; then
+			warn "FFmpeg can't output to png, won't be able to use it."
+			unset FFMPEG_BIN
+			return $EX_UNAVAILABLE
+		fi
+	}
+}
+
+# Try to identify video properties using ffmpeg
+# Fills $FFMPEG_CACHE with the relevant output and $FFMPEG_ID with
+# the actual values. See identify_video()
+# mplayer_identify($1 = file)
+ffmpeg_identify() {
+	trace $FUNCNAME $@
+	assert '[[ $FFMPEG_BIN ]]'
+	local f="$1"
+	# DVD Devices *MUST* be mounted for the identifying process to even start
+	assert '[[ $DVD_MODE -eq 0 || $DVD_MOUNTP ]]'
+	if [[ $DVD_MODE -eq 1 ]]; then
+		local vfile="$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_0.VOB"
+		if [[ ! -r $vfile ]]; then
+			error "Failed to locate mounted DVD. Detection will be less accurate."
+			return 0 # We can continue anyway
+		fi
+		f="$vfile"
+	fi
+	# XXX: FFmpeg detects mpeg1video in DVDs??
+
+	local fi=( ) vs= as= obs= vsid=
+	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
+	FFMPEG_CACHE=$("$FFMPEG_BIN" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
+	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
+	vs=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Video:' | head -1)
+	as=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Audio:' | head -1)
+	obs=$(grep Seems <<<"$FFMPEG_CACHE")
+	# Stream #0.0: Video: mpeg4, yuv420p, 624x352 [PAR 1:1 DAR 39:22], 23.98 tbr, 23.98 tbn, 24k tbc
+	# New and old versions of ffmpeg changed their output considerably, e.g.:
+	# (same file, Robotica_720.wmv)
+	# New output:
+	#  Seems stream 1 codec frame rate differs from container frame rate: 1000.00 (1000/1) -> 23.98 (24000/1001)
+	#  [...]
+	#  Duration: 00:00:20.77, start: 3.000000, bitrate: 6250 kb/s
+	#  Stream #0.0(eng): Audio: wmapro, 48000 Hz, 6 channels, s16, 384 kb/s
+	#  Stream #0.1(eng): Video: wmv3, yuv420p, 1280x720, 6500 kb/s, 23.98 tbr, 1k tbn, 1k tbc
+	# Old output:
+	#  Duration: 00:00:20.7, start: 3.000000, bitrate: 6250 kb/s
+	#  Stream #0.0: Audio: 0x0162, 48000 Hz, 5:1, 384 kb/s
+    #  Stream #0.1: Video: wmv3, yuv420p, 1280x720, 24.00 fps(r)
+	# TODO: tbr is rounded to two decimals but the actual ratio is printed:
+	# 24000/1001 = 23.97602
+	#   (older ffmpeg prints 24 fps, 24/1 so no luck here
+	# **Also seen**: (note the 'tb(r)')
+	# Stream #0.1: Video: wmv3, yuv420p, 1440x1080 [PAR 4:3 DAR 16:9], 8000 kb/s, 23.98 tb(r)
+	# **Also seen**: (VOB, latest ffmpeg as of this writing):
+	# Stream #0.0[0x1e0]: Video: mpeg2video, yuv420p, 720x576 [PAR 64:45 DAR 16:9], 9800 kb/s, 23.53 fps, 25 tbr, 90k tbn, 50 tbc
+	# **Also seen**: (DVB TS to DX50 in MKV), note the DAR mess, the second one is the correct one
+	# Stream #0.0: Video: mpeg4, yuv420p, 640x326 [PAR 1:1 DAR 320:163], PAR 231:193 DAR 73920:31459, 25 fps, 25 tbr, 1k tbn, 25 tbc
+	vsid=$(grep -o '#0.[0-9]' <<<"$vs" | cut -d'.' -f2) # Video Stream ID
+	fi[$VCODEC]=$(egrep -o 'Video: [^,]*' <<<"$vs" | cut -d' ' -f2-)
+	# ffmpeg's codec might contain spaces in some cases, i.e. iv4 in mov (see mplayer's bestiary)
+	#+unless this turns out to be common I won't be handling it specially
+	# Note unidentified audio codecs will be printed in hexadecimal
+	fi[$ACODEC]=$(egrep -o 'Audio: [^,]*' <<<"$as" | cut -d' ' -f2)
+	fi[$VDEC]=''
+	# The comma is required for cases where the stream id is printed (in hex)
+	fi[$W]=$(egrep -o ', [0-9]*x[0-9]*' <<<"$vs" | sed 's/^, //' | cut -dx -f1)
+	fi[$H]=$(egrep -o ', [0-9]*x[0-9]*' <<<"$vs" | cut -dx -f2)
+	# Newer CHANS and some older...
+	fi[$CHANS]=$(egrep -o '[0-9]* channels' <<<"$as" | cut -d' ' -f1)
+	# ...fallback for older
+	if [[ -z ${fi[$CHANS]} ]]; then
+		local chans=$(egrep -o 'Hz, [^,]*' <<<"$as"   | cut -d' ' -f2)
+		case $chans in
+			mono) fi[$CHANS]=1 ;;
+			stereo) fi[$CHANS]=2 ;;
+			5.1|5:1) fi[$CHANS]=6 ;; # *
+			*) ;; # Other layouts use 'N channels'
+			# 5.1 was in the previous version (can't remember if it was empirical).
+		esac
+	fi
+	# Newer FPS...
+	# tbr/tbn/tbc explanation: tb stands for time base
+	#  n: AVStream, c: AVCodecContext, r: VideoStream (Guessed)
+	# tbr is the best bet. Note it's common for WMVs to contains "1k tbn, 1k tbc"
+	# tbr is rounded to two decimals, the values used to derived it might be
+	# printed in a "Seems ..." line like the one in the example above so it
+	# can be re-calculated.
+	fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]*k? tb(r|\(r\))' <<<"$vs" | cut -d' ' -f1)
+	# Let's convert e.g. 23.98 into 23.976...:
+	if [[ ${fi[$FPS]} ]] && grep -q '\.' <<<"${fi[$FPS]}" ; then
+		# Decimals, see if we got better values available
+		local vsobs=$(grep "stream $vsid" <<<"$obs")
+		# Observations regarding video stream found
+		if [[ $vsobs ]] && grep -q " -> ${fi[$FPS]} (.*)" <<<"$vsobs" ; then
+			# FPS candidate
+			local newfps=$(egrep -o -- '-> [^ ]* \([0-9]*/[0-9]*' <<<"$vsobs" | cut -d'(' -f2)
+			is_fraction $newfps && fi[$FPS]=$(keepdecimals "$newfps" 3)
+		fi
+	fi
+	# ...fallback for older. The older version I tried seems to round further, i.e.
+	# 23.976 became 24 so no fix for this one
+	if [[ -z ${fi[$FPS]} ]]; then
+		# No k suffix here, 1000 is 1000
+		fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]* fps' <<<"$vs" | cut -d' ' -f1)
+	fi
+	# Be consistent with mplayer's output: at least two decimals
+	[[ ${fi[$FPS]} ]] && {
+		fi[$FPS]=$(keepdecimals "${fi[$FPS]}" 3)
+		fi[$FPS]=${fi[$FPS]/%0} # Strip 0$
+	}
+	fi[$LEN]=$(egrep -o 'Duration: [^,]*' <<<"$FFMPEG_CACHE" | cut -d' ' -f2)
+	if [[ ${fi[$LEN]} == 'N/A' ]]; then # It might be unable to detect
+		fi[$LEN]=""
+	fi
+	fi[$LEN]=$( get_interval $(echo "${fi[$LEN]}" | sed -e 's/:/h/' -e 's/:/m/') )
+	# Aspect ratio in FFmpeg is only provided in newer ffmpeg
+	# It might be calculated for files without one (which is ok anyway)
+	# TODO: Replace tail -1 with some better option (see the double DAR example above)
+	fi[$ASPECT]=$(egrep -o 'DAR [0-9]*:[0-9]*'<<<"$FFMPEG_CACHE" | tail -1 | cut -d' ' -f2 | sed 's#:#/#')
+	# Due to calling ffmpeg on a single VOB when in DVD Device mode, the length will be partial
+	[[ $DVD_MODE -eq 0 ]] || fi[$LEN]=''
+	fi[$VCNAME]=$(get_vcodec_name $(translate_ffmpeg_vcodec_id "${fi[$VCODEC]}"))
+	fi[$ACNAME]=$(get_acodec_name $(translate_ffmpeg_acodec_id "${fi[$ACODEC]}"))
+	if [[ "${fi[$VCODEC]}" == 'h264' ]]; then
+		fi[$VCNAME]="${fi[$VCNAME]} (h.264)"
+	fi
+
+	FFMPEG_ID=("${fi[@]}")
+	RESULT=("${fi[@]}")
+}
+
+ffmpeg_probe() {
+	local tfile=$(new_temp_file '-probe.png')
+	ffmpeg_capture "$1" "$2" "$tfile" "-s 96x96"
+}
+
+# Capture a frame with ffmpeg
+# ffmpeg_capture($1 = inputfile, $2 = timestamp, $3 = output[, $4 = extra opts])
+ffmpeg_capture() {
+	trace $@
+	local f=$1
+	local ts=$2
+	local o=$3
+	
+	# XXX: It would be nice to show a message if it takes too long
+	# See wa_ss_* declarations at the start of the file for details
+	"$FFMPEG_BIN" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
+		  -dframes 1 -vframes 1 -vcodec png \
+		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
+	[[ ( -f $o ) && ( '0' != "$(du "$o" | cut -f1)" ) ]]
+}
+
+# }}}} # FFmpeg support
+
+# {{{{ # Classic identification (combined mplayer & ffmpeg)
+
+# Test availability
+classic_test_avail() {
+	mplayer_test_avail && ffmpeg_test_avail
+}
+
+# }}}} # Classic identification
+
 # Creates a new temporary directory
 # create_temp_dir()
 create_temp_dir() {
@@ -1876,7 +2213,8 @@ compute_timecodes() {
 		last=$stamp
 		stamp=$(keepdecimals_lower $(awkexf "$stamp + $inc") 3)
 	done
-	inf "Capturing in range [$(pretty_stamp $inc)-$(pretty_stamp $last)]. Total length: $(pretty_stamp ${VID[$LEN]})"
+	local lower_bound=$(awkexf "$st + $inc")
+	inf "Capturing in range [$(pretty_stamp $lower_bound)-$(pretty_stamp $last)]. Total length: $(pretty_stamp ${VID[$LEN]})"
 	unset LTC[0] # Discard initial cap (=$st)
 	TIMECODES=( "${TIMECODES[@]}" "${LTC[@]}" )
 }
@@ -1951,14 +2289,12 @@ capture() {
 		return $?
 	fi
 
-	assert '[[ $decoder -eq $DEC_MPLAYER || $decoder -eq $DEC_FFMPEG ]]'
-	if [[ $decoder -eq $DEC_MPLAYER ]]; then
-		mplayer_capture "$f" "$ofile" "$stamp"
-	elif [[ $decoder -eq $DEC_FFMPEG ]]; then
-		# FIXME: ffmpeg can put the temporary file anywhere
-		ffmpeg_capture "$f" "$ofile" "$stamp"
-	fi || {
-		[[ $decoder -ne $DEC_MPLAYER ]] || stamp=${stamp/%.*}
+	local capfn=${CAPTURER}_capture
+	if [[ $DVD_MODE -eq 1 ]]; then
+		capfn=${CAPTURER}_dvd_capture
+	fi
+
+	$capfn "$f" "$stamp" "$ofile" || {
 		error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
 		return $EX_SOFTWARE
 	}
@@ -2268,31 +2604,26 @@ clean_timestamps() {
 probe_video() {
 	local f="$1"
 	local ts="$2"
-	local tempfile=
 	local ret=0
 
 	# This time a resize filter is applied to the player to produce smaller
 	# output
 	if [[ $decoder -eq $DEC_MPLAYER ]]; then
-		tempfile=00000005.png
-		TEMPSTUFF=( "${TEMPSTUFF[@]}" "$tempfile" )
-		if ! mplayer_capture "$f" "IGNOREME" "$ts" "-vf scale=96:96"; then
+		if ! mplayer_probe "$f" "$ts"; then
 			ret=1
 		fi
 	elif [[ $decoder -eq $DEC_FFMPEG ]]; then
-		tempfile=$(new_temp_file '-safelen.png')
-		if ! ffmpeg_capture "$f" "$tempfile" "$ts" "-s 96x96"; then
+		if ! ffmpeg_probe "$f" "$ts" ; then
 			ret=1
 		fi
 	else
 		assert false
 		ret=1
 	fi
-	rm -f "$tempfile"
 	return $ret
 }
 
-# Try to guess a correct length for the video, taking the reported lengths a
+# Try to guess a correct length for the video, taking the reported length as a
 # starting point
 # safe_length_measure($1 = filename)
 safe_length_measure() {
@@ -2520,334 +2851,158 @@ translate_ffmpeg_acodec_id() {
 
 ##### }}}} # Codec names
 
-# {{{{ # Mplayer support
+### {{{ Modularisation/abstraction of video capturers, TODO: work in progress
 
-# Try to identify video properties using mplayer
-# Fills $MPLAYER_CACHE with the relevant output and $MPLAYER_ID with
-# the actual values. See identify_video()
-# mplayer_identify($1 = file)
-mplayer_identify() {
-	trace $@
-	[[ $MPLAYER_BIN ]] || return
-	local f="$1"
-	local mi=( )
-	# Note to self: Don't change the -vc as it would affect $vdec
-	if [[ $DVD_MODE -eq 0 ]]; then
-		MPLAYER_CACHE=$("$MPLAYER_BIN" -benchmark -ao null -vo null -identify -frames 0 \
-							-quiet "$f" 2>"$stderr" | grep ^ID)
-	else
-		MPLAYER_CACHE=$("$MPLAYER_BIN" -benchmark -ao null -vo null -identify -frames 0 \
-							-quiet -dvd-device "$f" dvd://$DVD_TITLE \
-							2>"$stderr" | grep ^ID)
+check_avail_tools() {
+	local capturer='' identifier='' fn=
+	for capturer in ${CAPTURERS[*]}; do
+		fn=${capturer}_test_avail
+		is_defined $fn || continue
+		if $fn ; then
+			CAPTURERS_AVAIL=( "${CAPTURERS_AVAIL[@]}" "$capturer" )
+		fi
+	done
+	for identifier in ${IDENTIFIERS[*]}; do
+		fn=${identifier}_test_avail
+		is_defined $fn || continue
+		if $fn ; then
+			IDENTIFIERS_AVAIL=( "${IDENTIFIERS_AVAIL[@]}" $identifier )
+		fi
+	done
+	CAPTURER=${CAPTURERS_AVAIL[0]}
+	IDENTIFIER=${IDENTIFIERS_AVAIL[0]}
+
+	if [[ ( -z $CAPTURER ) || ( -z $IDENTIFIER ) ]]; then
+		error "No supported video tools (mplayer, ffmpeg) available"
+		return $EX_UNAVAILABLE
 	fi
-	# Note the head -1!
-	mi[$VCODEC]=$(grep ID_VIDEO_FORMAT <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2) # FourCC
-	mi[$ACODEC]=$(grep ID_AUDIO_FORMAT <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
-	mi[$VDEC]=$(grep ID_VIDEO_CODEC <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2) # Decoder (!= Codec)
-	mi[$W]=$(grep ID_VIDEO_WIDTH <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
-	mi[$H]=$(grep ID_VIDEO_HEIGHT <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
-	mi[$FPS]=$(grep ID_VIDEO_FPS <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
-	# For some reason my (one track) samples have two ..._NCH, first one 0
-	#+Also multichannel is detected as 2 ch
-	mi[$CHANS]=$(grep ID_AUDIO_NCH <<<"$MPLAYER_CACHE"| grep -v '=0' | cut -d'=' -f2|head -1)
-	if [[ $DVD_MODE -eq 0 ]]; then
-		# For DVDs it prints ID_DVD_TITLE_x_LENGTH and ID_LENGTH.
-		#+Both appear valid.
-		mi[$LEN]=$(grep ID_DVD_TITLE_${DVD_TITLE}_LENGTH <<<"$MPLAYER_CACHE"| cut -d'=' -f2)
-		[[ ${mi[$LEN]} ]] || mi[$LEN]=$(grep ID_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
-	else
-		mi[$LEN]=$(grep ID_DVD_TITLE_${DVD_TITLE}_LENGTH <<<"$MPLAYER_CACHE"| head -1 | cut -d'=' -f2)
-	fi
-	# Voodoo :P Remove (one) trailing zero
-	if [[ "${mi[$FPS]:$(( ${#mi[$FPS]} - 1 ))}" == '0' ]]; then
-		mi[$FPS]="${mi[$FPS]:0:$(( ${#mi[$FPS]} - 1 ))}"
-	fi
-	mi[$ASPECT]=$(grep ID_VIDEO_ASPECT <<<"$MPLAYER_CACHE" | egrep -v '^0.0000$' | cut -d'=' -f2 | tail -1)
-	# If none set, delete it
-	[[ ${mi[$ASPECT]} ]] && fptest "${mi[$ASPECT]}" -eq 0.0 && mi[$ASPECT]=''
-	mi[$VCNAME]=$(get_vcodec_name "${mi[$VCODEC]}")
-	if [[ ( ${mi[$VDEC]} == 'ffodivx' ) && ( ${mi[$VCNAME]} != 'MPEG-4' ) ]]; then
-		mi[$VCNAME]="${mi[$VCNAME]} (MPEG-4)"
-	elif [[ ${mi[$VDEC]} == 'ffh264' ]]; then # At least two different fourccs use h264, maybe more
-		mi[$VCNAME]="${mi[$VCNAME]} (h.264)"
-	fi
-	mi[$ACNAME]=$(get_acodec_name "${mi[$ACODEC]}")
-	if [[ ${mi[$ACODEC]} == 'samr' ]] ; then
-		local adec=$(grep ID_AUDIO_CODEC <<<"$MPLAYER_CACHE" | head -1 | cut -d'=' -f2)
-		if [[ $adec == 'ffamrnb' ]]; then
-			mi[$ACNAME]="AMR-NB";
+}
+
+pick_tools() {
+	# User *wants* a certain decoder
+	if [[ $USR_preferred_capturer ]]; then
+		if echo "${CAPTURERS_AVAIL[@]}" | grep -qi "$preferred_capturer" ; then
+			CAPTURER=$(tolower $preferred_capturer)
+		else
+			error "User selected capturing tool ($preferred_capturer) is not available"
+			return $EX_UNAVAILABLE
 		fi
 	fi
 
-	# Array assignment
-	MPLAYER_ID=("${mi[@]}")
-}
-
-# Capture a frame with mplayer
-# mplayer_capture($1 = inputfile, $2 = output file, $3 = timestamp[, $4 = extra opts])
-mplayer_capture() {
-	trace $@
-	# Note mplayer CAN'T set the output filename, newer mplayer can set output
-	#+dir though.
-	local f="$1"
-	local cap=00000005.png o=$2
-	local ts=$3
-
-	# No point in passing ms to mplayer
-	ts=$(cut -d'.' -f1 <<<"$ts")
-	# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
-
-	{
-	if [[ $DVD_MODE -eq 1 ]]; then
-		"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
-			   $4 "dvd://$DVD_TITLE"
-	else
-		"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-			   -frames 5 -ss "$ts" $4 $shoehorned "$f"
-	fi
-
-	} >"$stdout" 2>"$stderr"
-	rm -f 0000000{1,2,3,4}.png # Remove the first four
-	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
-		mvq "$cap" "$o"
-	}
-}
-
-# }}}} # Mplayer support
-
-# {{{{ # FFmpeg support
-
-# Try to identify video properties using ffmpeg
-# Fills $FFMPEG_CACHE with the relevant output and $FFMPEG_ID with
-# the actual values. See identify_video()
-# mplayer_identify($1 = file)
-ffmpeg_identify() {
-	trace $@
-	[[ $FFMPEG_BIN ]] || return
-	local f="$1"
-	# DVD Devices *MUST* be mounted for the identifying process to even start
-	assert '[[ ( $DVD_MODE -eq 0 ) || ( $DVD_MOUNTP ) ]]'
-	if [[ $DVD_MODE -eq 1 ]]; then
-		local vfile="$DVD_MOUNTP/VIDEO_TS/VTS_${DVD_VTS}_0.VOB"
-		if [[ ! -r $vfile ]]; then
-			error "Failed to locate mounted DVD. Detection will be less accurate."
-			return 0 # We can continue anyway
-		fi
-		f="$vfile"
-	fi
-	# XXX: FFmpeg detects mpeg1video in DVDs??
-
-	local fi=( ) vs= as= obs= vsid=
-	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
-	FFMPEG_CACHE=$("$FFMPEG_BIN" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
-	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
-	vs=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Video:' | head -1)
-	as=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Audio:' | head -1)
-	obs=$(grep Seems <<<"$FFMPEG_CACHE")
-	# Stream #0.0: Video: mpeg4, yuv420p, 624x352 [PAR 1:1 DAR 39:22], 23.98 tbr, 23.98 tbn, 24k tbc
-	# New and old versions of ffmpeg changed their output considerably, e.g.:
-	# (same file, Robotica_720.wmv)
-	# New output:
-	#  Seems stream 1 codec frame rate differs from container frame rate: 1000.00 (1000/1) -> 23.98 (24000/1001)
-	#  [...]
-	#  Duration: 00:00:20.77, start: 3.000000, bitrate: 6250 kb/s
-	#  Stream #0.0(eng): Audio: wmapro, 48000 Hz, 6 channels, s16, 384 kb/s
-	#  Stream #0.1(eng): Video: wmv3, yuv420p, 1280x720, 6500 kb/s, 23.98 tbr, 1k tbn, 1k tbc
-	# Old output:
-	#  Duration: 00:00:20.7, start: 3.000000, bitrate: 6250 kb/s
-	#  Stream #0.0: Audio: 0x0162, 48000 Hz, 5:1, 384 kb/s
-    #  Stream #0.1: Video: wmv3, yuv420p, 1280x720, 24.00 fps(r)
-	# TODO: tbr is rounded to two decimals but the actual ratio is printed:
-	# 24000/1001 = 23.97602
-	#   (older ffmpeg prints 24 fps, 24/1 so no luck here
-	# **Also seen**: (note the 'tb(r)')
-	# Stream #0.1: Video: wmv3, yuv420p, 1440x1080 [PAR 4:3 DAR 16:9], 8000 kb/s, 23.98 tb(r)
-	# **Also seen**: (VOB, latest ffmpeg as of this writing):
-	# Stream #0.0[0x1e0]: Video: mpeg2video, yuv420p, 720x576 [PAR 64:45 DAR 16:9], 9800 kb/s, 23.53 fps, 25 tbr, 90k tbn, 50 tbc
-	# **Also seen**: (DVB TS to DX50 in MKV), note the DAR mess, the second one is the correct one
-	# Stream #0.0: Video: mpeg4, yuv420p, 640x326 [PAR 1:1 DAR 320:163], PAR 231:193 DAR 73920:31459, 25 fps, 25 tbr, 1k tbn, 25 tbc
-	vsid=$(grep -o '#0.[0-9]' <<<"$vs" | cut -d'.' -f2) # Video Stream ID
-	fi[$VCODEC]=$(egrep -o 'Video: [^,]*' <<<"$vs" | cut -d' ' -f2-)
-	# ffmpeg's codec might contain spaces in some cases, i.e. iv4 in mov (see mplayer's bestiary)
-	#+unless this turns out to be common I won't be handling it specially
-	# Note unidentified audio codecs will be printed in hexadecimal
-	fi[$ACODEC]=$(egrep -o 'Audio: [^,]*' <<<"$as" | cut -d' ' -f2)
-	fi[$VDEC]=''
-	# The comma is required for cases where the stream id is printed (in hex)
-	fi[$W]=$(egrep -o ', [0-9]*x[0-9]*' <<<"$vs" | sed 's/^, //' | cut -dx -f1)
-	fi[$H]=$(egrep -o ', [0-9]*x[0-9]*' <<<"$vs" | cut -dx -f2)
-	# Newer CHANS and some older...
-	fi[$CHANS]=$(egrep -o '[0-9]* channels' <<<"$as" | cut -d' ' -f1)
-	# ...fallback for older
-	if [[ -z ${fi[$CHANS]} ]]; then
-		local chans=$(egrep -o 'Hz, [^,]*' <<<"$as"   | cut -d' ' -f2)
-		case $chans in
-			mono) fi[$CHANS]=1 ;;
-			stereo) fi[$CHANS]=2 ;;
-			5.1|5:1) fi[$CHANS]=6 ;; # *
-			*) ;; # Other layouts use 'N channels'
-			# 5.1 was in the previous version (can't remember if it was empirical).
-		esac
-	fi
-	# Newer FPS...
-	# tbr/tbn/tbc explanation: tb stands for time base
-	#  n: AVStream, c: AVCodecContext, r: VideoStream (Guessed)
-	# tbr is the best bet. Note it's common for WMVs to contains "1k tbn, 1k tbc"
-	# tbr is rounded to two decimals, the values used to derived it might be
-	# printed in a "Seems ..." line like the one in the example above so it
-	# can be re-calculated.
-	fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]*k? tb(r|\(r\))' <<<"$vs" | cut -d' ' -f1)
-	# Let's convert e.g. 23.98 into 23.976...:
-	if [[ ${fi[$FPS]} ]] && grep -q '\.' <<<"${fi[$FPS]}" ; then
-		# Decimals, see if we got better values available
-		local vsobs=$(grep "stream $vsid" <<<"$obs")
-		# Observations regarding video stream found
-		if [[ $vsobs ]] && grep -q " -> ${fi[$FPS]} (.*)" <<<"$vsobs" ; then
-			# FPS candidate
-			local newfps=$(egrep -o -- '-> [^ ]* \([0-9]*/[0-9]*' <<<"$vsobs" | cut -d'(' -f2)
-			is_fraction $newfps && fi[$FPS]=$(keepdecimals "$newfps" 3)
+	# DVD mode is optional, and since 1.12 DVD mode can work with multiple inputs too
+	# DVD Mode only works with mplayer, the decoder is changed when
+	# the DVD mode option is found, so if it's ffmpeg at this point,
+	# it's by user request (i.e. -F after -V)
+	if [[ $DVD_MODE -eq 1 ]] && ! is_defined "${CAPTURER}_dvd_capture" ; then
+		# Pick the first available dvd capturer, if any
+		CAPTURER=
+		local c=
+		for c in "${CAPTURERS_AVAIL[@]}"; do
+			if is_defined "${c}_dvd_capture" ; then
+				CAPTURER="$c"
+				break;
+			fi
+		done
+		if [[ $USR_preferred_capturer && $CAPTURER ]]; then
+			# User choose one, disregard it
+			assert '[[ $USR_preferred_capturer != $CAPTURER ]]'
+			warn "$(tolower $USR_preferred_capturer) can't capture in DVD mode, switching to $CAPTURER"
+		elif [[ -z $CAPTURER ]]; then
+			# No user-selected but none available with DVD support
+			error "No available capturer has DVD support"
+			return $EX_UNAVAILABLE
 		fi
 	fi
-	# ...fallback for older. The older version I tried seems to round further, i.e.
-	# 23.976 became 24 so no fix for this one
-	if [[ -z ${fi[$FPS]} ]]; then
-		# No k suffix here, 1000 is 1000
-		fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]* fps' <<<"$vs" | cut -d' ' -f1)
+
+	if [[ $CAPTURER == 'mplayer' ]]; then
+		CAPTURER_HAS_MS=0
+		decoder=$DEC_MPLAYER
+	elif [[ $CAPTURER == 'ffmpeg' ]]; then
+		decoder=$DEC_FFMPEG
 	fi
-	# Be consistent with mplayer's output: at least two decimals
-	[[ ${fi[$FPS]} ]] && {
-		fi[$FPS]=$(keepdecimals "${fi[$FPS]}" 3)
-		fi[$FPS]=${fi[$FPS]/%0} # Strip 0$
-	}
-	fi[$LEN]=$(egrep -o 'Duration: [^,]*' <<<"$FFMPEG_CACHE" | cut -d' ' -f2)
-	if [[ ${fi[$LEN]} == 'N/A' ]]; then # It might be unable to detect
-		fi[$LEN]=""
-	fi
-	fi[$LEN]=$( get_interval $(echo "${fi[$LEN]}" | sed -e 's/:/h/' -e 's/:/m/') )
-	# Aspect ratio in FFmpeg is only provided in newer ffmpeg
-	# It might be calculated for files without one (which is ok anyway)
-	# TODO: Replace tail -1 with some better option (see the double DAR example above)
-	fi[$ASPECT]=$(egrep -o 'DAR [0-9]*:[0-9]*'<<<"$FFMPEG_CACHE" | tail -1 | cut -d' ' -f2 | sed 's#:#/#')
-	# Due to calling ffmpeg on a single VOB when in DVD Device mode, the length will be partial
-	[[ $DVD_MODE -eq 0 ]] || fi[$LEN]=''
-	fi[$VCNAME]=$(get_vcodec_name $(translate_ffmpeg_vcodec_id "${fi[$VCODEC]}"))
-	fi[$ACNAME]=$(get_acodec_name $(translate_ffmpeg_acodec_id "${fi[$ACODEC]}"))
-	FFMPEG_ID=("${fi[@]}")
 }
 
-# Capture a frame with ffmpeg
-# ffmpeg_capture($1 = inputfile, $2 = outputfile, $3 = timestamp[, $4 = extra opts])
-ffmpeg_capture() {
-	trace $@
-	local f=$1
-	local o=$2
-	local ts=$3
-	
-	# XXX: It would be nice to show a message if it takes too long
-	# See wa_ss_* declarations at the start of the file for details
-	"$FFMPEG_BIN" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
-		  -dframes 1 -vframes 1 -vcodec png \
-		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
-	[[ ( -f $o ) && ( '0' != "$(du "$o" | cut -f1)" ) ]]
-}
+### }}}
 
-# }}}} # FFmpeg support
-
+# Classic identification, uses mplayer and ffmpeg
 # Use the available tools to identify video meta-data
 # fills $VID with the values
 # Return codes:
 #   3: Failed to detect length
 #   4: Failed to detect width or height
-# identify_video($1 = file)
-identify_video() {
-	trace $@
+# classic_identify($1 = file)
+classic_identify() {
+	trace $FUNCNAME $@
 	local RET_NOLEN=3 RET_NODIM=4
 
-	[[ $MPLAYER_BIN ]] && mplayer_identify "$1"
+	assert '[[ $MPLAYER_BIN && $FFMPEG_BIN ]]'
+	assert 'is_defined mplayer_identify && is_defined ffmpeg_identify'
+
+	mplayer_identify "$1" 2>/dev/null
+
 	# ffmpeg_identify in DVD mode only works when the DVD is mounted:
 	[[ ( $DVD_MODE -eq 0 ) && ( $FFMPEG_BIN ) ]] && ffmpeg_identify "$1"
 	[[ ( $DVD_MODE -eq 1 ) && ( $FFMPEG_BIN ) && ( $DVD_MOUNTP ) ]] && ffmpeg_identify "$1"
 
+	local fid=( "${FFMPEG_ID[@]}" )
 	# Fail early if none detected length
 	[[ ( -z ${MPLAYER_ID[$LEN]} ) && ( -z ${FFMPEG_ID[$LEN]} ) ]] && return $RET_NOLEN
 
-	assert '[[ $MPLAYER_BIN || $FFMPEG_BIN ]]'
-	# Classic mode, use both mplayer and ffmpeg when available
-	if [[ $MPLAYER_BIN && $FFMPEG_BIN ]]; then
-		# By default take mplayer's values
-		VID=("${MPLAYER_ID[@]}")
-		# FFmpeg seems better at getting the correct number of FPS, specially with
-		# WMVs, where mplayer often accepts 1000fps while ffmpeg notices the
-		# inconsistency in container vs codec and guesses better, *but* it only
-		# uses two decimals so 23.976 becomes 23.98. So it is only used when
-		# the number of decimals seems right.
-		# When a "Seems..." line is printed the correct FPS can be obtained though.
-		[[ -z ${MPLAYER_ID[$FPS]} ]] && VID[$FPS]=${FFMPEG_ID[$FPS]}
-		[[ ( -n ${MPLAYER_ID[$FPS]} ) && ( -n ${FFMPEG_ID[$FPS]} ) ]] && {
-			# Trust ffmpeg if it has three decimals OR if mplayer is probably-wrong
-			local ffps=${FFMPEG_ID[$FPS]}
-			local ERE='\.[0-9][0-9][0-9]'
-			if [[ $ffps =~ $ERE ]]; then
-				VID[$FPS]=$ffps
-			elif fptest "${MPLAYER_ID[$FPS]}" -gt 500; then
-				VID[$FPS]=$ffps
-			fi
-		}
-		# It doesn't appear to need any workarounds for num. channels either
-		[[ ${FFMPEG_ID[$CHANS]} ]] && VID[$CHANS]=${FFMPEG_ID[$CHANS]}
-		[[ ${FFMPEG_ID[$ASPECT]} ]] && VID[$ASPECT]=${FFMPEG_ID[$ASPECT]}
-		# There's a huge inconsistency with some files, both mplayer vs ffmpeg
-		# same application on different OSes
-		local fflen=${FFMPEG_ID[$LEN]} mplen=${MPLAYER_ID[$LEN]} # Shorthands
-		[[ -z $fflen ]] && fflen=0
-		# If both report 0, there's no good value...
-		fptest "$fflen" -eq 0 && fptest "$mplen" -eq 0 && return $RET_NOLEN
-		if [[ ( $DVD_MODE -eq 0 ) && ( $QUIRKS -eq 0 ) ]]; then # In DVD mode ffmpeg has no length
-			# Quirks disabled, should be enabled?
-			local delta=$(abs $(awkexf "($fflen - $mplen)"))
-			# If they don't agree, take the shorter as a starting point,
-			#+if both are different than zero take min, if one of them is 0, take max to start
-			if fptest "$fflen" -ne 0 && fptest "$mplen" -ne 0 ; then
-				VID[$LEN]=$(min $fflen $mplen)
-			else
-				VID[$LEN]=$(max $fflen $mplen)
-				delta=$QUIRKS_LEN_THRESHOLD # Ensure it's considered inconsistent
-			fi
-			# If they differ too much, enter safe mode. If one reports 0, they'll differ...
-			# FIXME: If $decoder reports 0, can it seek??
-			if fptest "$delta" -ge $QUIRKS_LEN_THRESHOLD ; then
-				warn "Found inconsistency in reported length. Safe measuring enabled."
-				QUIRKS=1
-			fi
+	# By default take mplayer's values
+	VID=( "${MPLAYER_ID[@]}" )
+	# FFmpeg seems better at getting the correct number of FPS, specially with
+	# WMVs, where mplayer often accepts 1000fps while ffmpeg notices the
+	# inconsistency in container vs codec and guesses better, *but* it only
+	# uses two decimals so 23.976 becomes 23.98. So it is only used when
+	# the number of decimals seems right.
+	# When a "Seems..." line is printed the correct FPS can be obtained though.
+	[[ -z ${MPLAYER_ID[$FPS]} ]] && VID[$FPS]=${fid[$FPS]}
+	[[ ${MPLAYER_ID[$FPS]} && ${fid[$FPS]} ]] && {
+		# Trust ffmpeg if it has three decimals OR if mplayer is probably-wrong
+		local ffps=${fid[$FPS]}
+		local ERE='\.[0-9][0-9][0-9]'
+		if [[ $ffps =~ $ERE ]]; then
+			VID[$FPS]=$ffps
+		elif fptest "${MPLAYER_ID[$FPS]}" -gt 500; then
+			VID[$FPS]=$ffps
 		fi
-	elif [[ $MPLAYER_BIN ]]; then
-		# Must do with mplayer only...
-		VID=("${MPLAYER_ID[@]}")
-		# Warn if a known pitfall is found
-		# See above for 1000 fps
-		[[ ${VID[$FPS]} == '1000.00' ]] && \
-			warn "Possible inaccuracy in FPS detection." && \
-			warn "    Install both mplayer and ffmpeg for better detection."
-		# Number of channels 0 happened for WMA in non-x86
-		[[ ${VID[$CHANS]} == '0' ]] && \
-			warn "Failed to detect number of audio channels." && \
-			warn "    Install both mplayer and ffmpeg for better detection."
-	elif [[ $FFMPEG_BIN ]]; then
-		# Must do with mplayer only...
-		VID=("${FFMPEG_ID[@]}")
-		# So far I know of no weird results. Yet.
+	}
+	# It doesn't appear to need any workarounds for num. channels either
+	[[ ${fid[$CHANS]} ]] && VID[$CHANS]=${fid[$CHANS]}
+	[[ ${fid[$ASPECT]} ]] && VID[$ASPECT]=${fid[$ASPECT]}
+	# There's a huge inconsistency with some files, both mplayer vs ffmpeg
+	# same application on different OSes
+	local fflen=${fid[$LEN]} mplen=${MPLAYER_ID[$LEN]} # Shorthands
+	[[ -z $fflen ]] && fflen=0
+	# If both report 0, there's no good value...
+	fptest "$fflen" -eq 0 && fptest "$mplen" -eq 0 && return $RET_NOLEN
+
+	if [[ ( $DVD_MODE -eq 0 ) && ( $QUIRKS -eq 0 ) ]]; then # In DVD mode ffmpeg has no length
+		# Quirks disabled, should be enabled?
+		local delta=$(abs $(awkexf "($fflen - $mplen)"))
+		# If they don't agree, take the shorter as a starting point,
+		#+if both are different than zero take min, if one of them is 0, take max to start
+		if fptest "$fflen" -ne 0 && fptest "$mplen" -ne 0 ; then
+			VID[$LEN]=$(min $fflen $mplen)
+		else
+			VID[$LEN]=$(max $fflen $mplen)
+			delta=$QUIRKS_LEN_THRESHOLD # Ensure it's considered inconsistent
+		fi
+		# If they differ too much, enter safe mode. If one reports 0, they'll differ...
+		# FIXME: If $decoder reports 0, can it seek??
+		if fptest "$delta" -ge $QUIRKS_LEN_THRESHOLD ; then
+			warn "Found inconsistency in reported length. Safe measuring enabled."
+			QUIRKS=1
+		fi
 	fi
 
 	# Ensure sanity of the most important values
 	is_float "${VID[$LEN]}" || return $RET_NOLEN
 	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
 
-	if [[ $FFMPEG_BIN ]]; then
-		# FPS at least with two decimals
-		if [[ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]]; then
-			VID[$FPS]="${VID[$FPS]}.00"
-		fi
+	# FPS at least with two decimals
+	if [[ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]]; then
+		VID[$FPS]="${VID[$FPS]}.00"
 	fi
 
 	local mfps="${MPLAYER_ID[$FPS]}"
@@ -2894,6 +3049,19 @@ identify_video() {
 	# Re-check sanity of the most important values
 	is_float "${VID[$LEN]}" || return $RET_NOLEN
 	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
+
+	RESULT=( "${VID[@]}" )
+}
+
+# Use the selected identifier to extract video meta-data
+# fills $VID with the values
+# Return codes:
+#   3: Failed to detect length
+#   4: Failed to detect width or height
+# identify_video($1 = file)
+identify_video() {
+	${IDENTIFIER}_identify "$1"
+	VID=( "${RESULT[@]}" )
 }
 
 dump_idinfo() {
@@ -3005,23 +3173,6 @@ coherence_check() {
 		decoder=$DEC_MPLAYER
 	fi
 
-	if [[ $DVD_MODE -eq 1 ]]; then
-		# Since 1.12 DVD mode can work with multiple inputs too
-
-		# DVD Mode only works with mplayer, the decoder is changed when
-		# the DVD mode option is found, so if it's ffmpeg at this point,
-		# it's by user request (i.e. -F after -V)
-		if [[ $decoder -ne $DEC_MPLAYER ]]; then
-			if [[ $MPLAYER_BIN ]]; then
-				warn "DVD mode requires the use of mplayer, falling back to it"
-				decoder=$DEC_MPLAYER
-			else
-				error "DVD mode requires the use of mplayer."
-				return $EX_UNAVAILABLE
-			fi
-		fi
-	fi
-
 	local filter=
 	local -a filts=( )
 	if [[ $DISABLE_TIMESTAMPS -eq 0 ]] &&
@@ -3080,7 +3231,6 @@ coherence_check() {
 		}
 	fi
 
-	sanitise_rename_pattern
 	sanitise_fonts
 }
 
@@ -3266,6 +3416,10 @@ process() {
 		done
 	fi
 
+	# Assert sanity of decoder
+	assert_if '[[ $DVD_MODE -ne 0 ]]' 'is_defined ${CAPTURER}_dvd_capture'
+	assert 'is_defined ${CAPTURER}_capture'
+
 	TEMPSTUFF=( "${TEMPSTUFF[@]}" '00000005.png' )
 
 	# Highlights
@@ -3435,7 +3589,7 @@ process() {
 		local exh=$(imh "$extoutput")
 		if [[ $exw -lt $width ]]; then
 			# Expand the extended set to be the correct size
-			local exw2 = ; (( exw2=(width - exv) / 2 ))
+			local exw2 = ; (( exw2=(width - exw) / 2 ))
 			convert \( -size ${exw2}x$exh xc:transparent \) "$extoutput" \
 					\( -size ${exw2}x$exh xc:transparent \) +append "$extoutput"
 		fi
@@ -3484,8 +3638,7 @@ process() {
 	local lineheight=$(line_height "$font_heading" "$pts_meta")
 	# Since filename can be set in a different font check it too
 	if [[ $fn_font != $font_heading ]]; then
-		local fnlineheight=$lineheight
-		fnlineheight=$(line_height "$fn_font" "$pts_meta")
+		local fnlineheight=$(line_height "$fn_font" "$pts_meta")
 		[[ $fnlineheight -le $lineheight ]] || lineheight=$fnlineheight
 		unset fnlineheight
 	fi
@@ -3760,9 +3913,8 @@ internal_integrity_test() {
 
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
-	local inff=inf
-	[[ $HAS_COLORS ]] || inff=infplain
-	$inff "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2011 Toni Corvera"
+	# Don't colourise this
+	infplain "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2011 Toni Corvera"
 }
 
 # Prints the list of options to stdout
@@ -3892,7 +4044,7 @@ Options:
   -E|--end-offset <arg> This time is ignored, from the end of the video. Same
                         format as -i. This value is not used when a explicit
                         ending time is set. By default it is $DEFAULT_END_OFFSET.
-  -q|--quiet            Don't print progess messages just errors. Repeat to
+  -q|--quiet            Don't print progress messages just errors. Repeat to
                         mute completely even on error.
   -h|--help             Show basic help and exit.
   --fullhelp            Show the complete help and exit.
@@ -4100,6 +4252,10 @@ while true ; do
 			shift
 			;;
 		-E|--end_offset|--end-offset)
+			if [[ $1 == '--end_offset' ]]; then
+				warn "Option --end_offset is deprecated and will be removed, please use"
+				warn " --end-offset instead"
+			fi
 			check_constraint 'end_offset' "$2" "$1" || die
 			is_p='y'
 			is_percentage "$2" || is_p=''
@@ -4160,8 +4316,10 @@ while true ; do
 			;;
 		-h|--help) show_help ; exit $EX_OK ;;
 		--fullhelp) show_help 'full' ; exit $EX_OK ;;
-		-F|--ffmpeg) decoder=$DEC_FFMPEG ;  USR_decoder=$decoder ;;
-		-M|--mplayer) decoder=$DEC_MPLAYER ; USR_decoder=$decoder ;;
+		-F|--ffmpeg) decoder=$DEC_FFMPEG ;  USR_decoder=$decoder ;
+					preferred_capturer=ffmpeg ; USR_preferred_capturer=ffmpeg ;;
+		-M|--mplayer) decoder=$DEC_MPLAYER ; USR_decoder=$decoder ;
+					preferred_capturer=mplayer ; USR_preferred_capturer=mplayer ;;
 		-H|--height)
 			check_constraint 'height' "$2" "$1" || die
 			th_height="$2"
@@ -4506,15 +4664,6 @@ while true ; do
 					assert '[[ $FFMPEG_BIN ]]'
 					decoder=$DEC_FFMPEG
 					;;
-				# This is an old option from the first versions when the script
-				# failed a lot more, I haven't used it for years and I don't think
-				# anyone would need it anymore but I'll keep it at least for
-				# a few more versions
-				shoehorn=*)
-					shoehorned="$(cut -d'=' -f2-<<<"$2")"
-					error "Shoehorning of options is scheduled to be removed in the next version."
-					error " Please contact the author if you absolutely need it."
-					;;
 				debug)
 					warn "[U] debug"
 					DEBUG=1
@@ -4529,6 +4678,18 @@ while true ; do
 						eval v=\$USR_$f
 						[[ -z $v ]] || echo "$(tolower $f)=$v"
 					done
+					exit 0
+					;;
+				functest) # Test a function: -Z functest <funcname> <arg> [arg] [...]
+					shift 3 # We're quitting anyway
+					funcname=$1
+					shift
+					if [[ $(type -t "$funcname") != 'function' ]]; then
+						error "functest can only test actual functions"
+						exit $EX_USAGE
+					fi
+					inf "Testing $funcname($*)"
+					$funcname "$@"
 					exit 0
 					;;
 				*) false ;;
@@ -4555,18 +4716,21 @@ while true ; do
 				infplain '[ svn $Rev$ ]'
 				cat >&2 <<-EOD
 					=== Setup ===
-					GETOPT:      $GETOPT
-					MPLAYER:     $MPLAYER_BIN
-					FFMPEG:      $FFMPEG_BIN
-					AWK:         $(realpathr $(type -pf awk))
-					Filterchain: [ ${FILTERS_IND[*]} ]
-					Decoder:     $d
-					Safe step:   $QUIRKS_LEN_STEP
+					GETOPT:             $GETOPT
+					MPLAYER:            $MPLAYER_BIN
+					FFMPEG:             $FFMPEG_BIN
+					AWK:                $(realpathr $(type -pf awk))
+					Filterchain:        [ ${FILTERS_IND[*]} ]
+					Decoder:            $d
+					Capturers (av.):    [ ${CAPTURERS_AVAIL[*]} ]
+					Identif. (av.):     [ ${IDENTIFIERS_AVAIL[*]} ]
+					Pref. capturer:     $preferred_capturer
+					Safe step:          $QUIRKS_LEN_STEP
 					=== Versions ===
 					Bash:        $BASH_VERSION
 					Getopt:      $($GETOPT --version)
 EOD
-				# FIXME: Any portable way to print AWK version?
+			# FIXME: Any portable way to print AWK version?
 				exit
 			fi
 			DEBUG=1
@@ -4603,6 +4767,8 @@ coherence_check || {
 }
 # Run after coherence check to clean recoverable incorrect values
 post_getopt_hooks
+
+pick_tools
 
 # Remaining arguments
 if [[ -z $1 ]]; then

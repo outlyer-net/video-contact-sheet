@@ -1,3 +1,18 @@
+1.13:
+    * BUGFIX: Correct extended-set resizing
+    * Scheduled code cleanup:
+      - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
+        shoehorned and safe_rename_pattern
+      - Removal of deprecated option '--undocumented shoehorn'
+      - Deprecation of '--end_offset' ('--end-offset' should be used instead)
+    * COSMETIC:
+      - Add '(h.264)' to ffmpeg video codec id when appropriate
+      - Correct "Capturing in range..." message
+    * OTHER:
+      - Fix some typos
+    * INTERNAL:
+      - Check ImageMagick with convert instead of identify
+
 1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
    * BUGFIX: Correct parsing of -U [#187]
