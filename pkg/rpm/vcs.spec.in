@@ -48,7 +48,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-build
 BuildArch: noarch
 # TODO: How to set alternative dependencies? i.e. mplayer/ffmpeg
 Requires: mplayer / ffmpeg
-Requires: bash >= 2.05b
+Requires: bash >= 3.1
 Requires: ImageMagick >= 6.3.5-7
 Requires: coreutils
 URL: http://p.outlyer.net/vcs/
