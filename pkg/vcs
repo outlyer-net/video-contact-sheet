@@ -5,7 +5,7 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007, 2008, 2009, 2010 Toni Corvera
+# Copyright (C) 2007, 2008, 2009, 2010, 2011 Toni Corvera
 #   with patches from Phil Grundig and suggestions/corrections from
 #   many others (see homepage)
 #
@@ -3762,7 +3762,7 @@ internal_integrity_test() {
 show_vcs_info() { # Won't be printed in quiet modes
 	local inff=inf
 	[[ $HAS_COLORS ]] || inff=infplain
-	$inff "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2010 Toni Corvera"
+	$inff "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2011 Toni Corvera"
 }
 
 # Prints the list of options to stdout
