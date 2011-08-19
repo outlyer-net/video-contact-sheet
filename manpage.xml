@@ -10,6 +10,13 @@ This file based on the default template for debian packages.
 Generation of man page:
 
 $ xmlto man manpage.xml
+OR
+$ xsltproc -''-nonet \
+          -''-param man.charmap.use.subset "0" \
+          -''-param make.year.ranges "1" \
+          -''-param make.single.year.ranges "1" \
+          /usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl \
+          manpage.xml
 
 Will generate vcs.1.
 

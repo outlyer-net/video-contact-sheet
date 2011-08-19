@@ -8,7 +8,16 @@ all:
 	@echo "Use $(MAKE) dist"
 
 pkg/vcs.1: manpage.xml
-	xmlto -o pkg man $<
+	if type -p xmlto >/dev/null ; then \
+		xmlto -o `dirname $@`/ man $< ; \
+	else \
+		xsltproc -o `dirname $@`/ -''-nonet \
+			-''-param man.charmap.use.subset "0" \
+			-''-param make.year.ranges "1" \
+			-''-param make.single.year.ranges "1" \
+			/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl \
+			$<; \
+	fi
 
 tgz: vcs-$(VER).tar.gz
 
@@ -19,7 +28,13 @@ vcs-$(VER).tar.gz:
 	$(RM) -r vcs-$(VER)
 
 check-no-svn:
-	#@if [ -d .svn ]; then echo "Don't release from SVN working copy" ; false ; fi
+	@if [ -d .svn ]; then \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo "**     Don't release from SVN working copy     **" ; \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+	fi
 
 check-rel:
 	@if head -n50 vcs | grep -q 'RELEASE=0' ; then \
