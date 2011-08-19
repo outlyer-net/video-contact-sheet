@@ -32,7 +32,7 @@
 
 
 declare -r VERSION="1.13"
-declare -r RELEASE=1
+declare -r RELEASE=0
 
 set -e
 
@@ -1357,11 +1357,13 @@ safe_rename() {
 	while [[ -f $to ]]; do # Only executes if $2 exists
 		# Bash 2 and Bash 3 behave differently with substring replacement (${//}) and '%'
 		# Sed is a safer bet
-		to=$(sed -e "s#%b#$b#g" -e "s#%N#$n#g" -e "s#%e#$ext#g" <<<"$safe_rename_pattern")
+		to=$(sed -e "s#%b#$b#g" -e "s#%N#$n#g" -e "s#%e#$ext#g" <<<"$SAFE_RENAME_PATTERN")
 
 		(( n++ ));
 	done
+	assert "[[ -n '$to' ]]"
 
+	echo mvq $from $to >&2
 	mvq "$from" "$to"
 	echo "$to"
 }
