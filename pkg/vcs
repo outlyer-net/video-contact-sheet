@@ -292,6 +292,9 @@ declare end_offset=$DEFAULT_END_OFFSET
 #
 # Individual filters take the form:
 #  filt_name( vidcapfile, timestamp in seconds.milliseconds, width, height, [context, [index]] )
+# They must set the variable $RESULT with parameters to add to 'convert', a single
+#  call to convert will be issued for each capture like:
+#  $ convert vidcap.png $RESULT [...] vidcap.png
 # They're executed in order by filter_vidcap()
 declare -a FILTERS_IND=( 'filt_resize' 'filt_apply_stamp' 'filt_softshadow' )
 # Deprecated: Global filters take the form
@@ -359,6 +362,8 @@ declare -i INTERNAL_WS_C=0 # -Ws count
 declare -i INTERNAL_WP_C=0 # -Wp count
 declare -i INTERNAL_MAXREWIND_REACHED=0 # More -Ws in the command-line won't help
 
+declare -r UNDFLAG_DISPLAY_COMMAND=eog  # Command to run with -Z display
+
 # Stores the names of variables overridden from the command-line,
 #+see cmdline_override() and "--override"
 declare CMDLINE_OVERRIDES=""
@@ -424,6 +429,18 @@ CAPTURER_HAS_MS=0
 
 MPLAYER_BIN=
 FFMPEG_BIN=
+
+# This variable is used in functions to avoid running them in a subshell, i.e.
+# instead of
+#   ret=$(myfunc)
+# such functions are used as
+#   myfunc
+#   ret=$RESULT
+# This way 'myfunc' has access to all variables and can modify them.
+# Every function that modifies RESULT should overwrite its value.
+RESULT=''
+# Set by init_filt_film. Filename of the sprocket-holes image.
+FILMSTRIP=
 
 # }}} # Variables
 
@@ -1363,7 +1380,6 @@ safe_rename() {
 	done
 	assert "[[ -n '$to' ]]"
 
-	echo mvq $from $to >&2
 	mvq "$from" "$to"
 	echo "$to"
 }
@@ -2307,15 +2323,17 @@ capture() {
 # filter_vidcap($1 = filename, $2 = timestamp, $3 = width, $4 = height, $5 = context, $6 = index[1..])
 filter_vidcap() {
 	trace $@
-	# For performance purposes each filter simply prints a set of options
-	# to 'convert'. That's less flexible but enough right now for the current
+	# For performance purposes each filter adds a set of options
+	# to 'convert'. That's less flexible but right enough now for the current
 	# filters.
+	local f=$1 t=$2 w=$3 h=$4 c=$5 i=$6
 	local cmdopts=
 	for filter in ${FILTERS_IND[@]}; do
-		cmdopts="$cmdopts $( $filter "$1" "$2" "$3" "$4" "$5" "$6" ) -flatten "
+		$filter "$f" "$t" "$w" "$h" "$c" "$i" # Sets $RESULT
+		cmdopts="$cmdopts $RESULT -flatten "
 	done
 	local t=$(new_temp_file .png)
-	eval "convert '$1' $cmdopts '$t'"
+	eval "convert -background transparent -fill transparent '$1' $cmdopts '$t'"
 	# If $t doesn't exist returns non-zero
 	[[ -f $t ]] && mvq "$t" "$1"
 }
@@ -2331,7 +2349,7 @@ filt_resize() {
 	local f="$1" t=$2 w=$3 h=$4
 
 	# Note the '!', required to change the aspect ratio
-	echo " \( -geometry ${w}x${h}! \) "
+	RESULT=" \( -geometry ${w}x${h}! \) "
 }
 
 # Draw a timestamp in the file
@@ -2356,9 +2374,9 @@ filt_apply_stamp() {
 	fi
 	# The last -gravity None is used to "forget" the previous gravity (otherwise it would
 	# affect stuff like the polaroid frames)
-	echo -n " \( -box '$bg_tstamps' -fill '$fg_tstamps' -stroke none -pointsize '$pts' "
-	echo -n "    -gravity '$grav_timestamp' -font '$font_tstamps' -strokewidth 3 -annotate +5+5 "
-	echo "    ' $(pretty_stamp $stamp) ' \) -flatten -gravity None "
+	RESULT=" \( -box '$bg_tstamps' -fill '$fg_tstamps' -stroke none -pointsize '$pts' "
+	RESULT+="    -gravity '$grav_timestamp' -font '$font_tstamps' -strokewidth 3 -annotate +5+5 "
+	RESULT+="    ' $(pretty_stamp $stamp) ' \) -flatten -gravity None "
 }
 
 # Apply a framed photo-like effect
@@ -2374,13 +2392,13 @@ filt_photoframe() {
 	# Note that only images below 21600px (e.g. 160x120) go below a 6px border
 	local border=$(( ($3*$4) / 3600 ))
 	[[ $border -lt 7 ]] || border=6
-	echo -n "-bordercolor white -border $border -bordercolor grey60 -border 1 "
+	RESULT="-bordercolor white -border $border -bordercolor grey60 -border 1 "
 }
 
 filt_softshadow() {
 	# Before this was a filter, there was the global (montage) softshadow (50x2+10+10) and the
 	# photoframe inline softshadow 60x4+4+4
-	echo -n "\( -background black +clone -shadow 50x2+4+4 -background none \) +swap -flatten -trim +repage "
+	RESULT="\( -background black +clone -shadow 50x2+4+4 -background none \) +swap -flatten -trim +repage "
 }
 
 
@@ -2392,10 +2410,12 @@ filt_polaroid() {
 #	local file="$1" ts=$2 w=$3 h=$4
 	local border=$(( ($3*$4) / 3600 )) # Read filt_photoframe for details
 	[[ $border -lt 7 ]] || border=6
-	echo -n "-bordercolor white -mattecolor white -frame ${border}x${border} "
-	# FIXME: This is rather ugly (double-flipping) there's sure a better way
-	echo -n "\( -flip -splice 0x$(( $border*5 )) \) "
-	echo "-flip -bordercolor grey60 -border 1 +repage"
+	RESULT="\(  -fill white -background white "
+	RESULT+="   -bordercolor white -mattecolor white -frame ${border}x${border} "
+	# FIXME: This is rather ugly (double-flipping) there's surely a better way
+	RESULT+="   \( -flip -splice 0x$(( $border*5 )) \) "
+	RESULT+="   -flip -bordercolor grey60 -border 1 +repage "
+	RESULT+="\)"
 }
 
 # Applies a random rotation
@@ -2405,7 +2425,52 @@ filt_randrot() {
 	trace $@
 	# Rotation angle [-18..18]
 	local angle=$(( ($(rand) % 37) - 18 ))
-	echo "-background none -rotate $angle "
+	RESULT="-background none -rotate $angle "
+}
+
+# Create the sprocket-holes pattern
+# init_filt_film($1 = capture_width, $2 = capture_height)
+init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshell
+	trace $@
+	[[ -z $FILMSTRIP ]] || return 0
+	local w=$1 h=$2
+	# Base reel dimensions
+	local rw=$(rmultiply $w,0.08) # 8% width
+	local rh=$(( $rw / 2 ))
+	local vspad=5 # Vertical padding between sprocket holes
+	# Temporary files
+	local reel_strip=$(new_temp_file -reel.png)
+	local sprocket_mask=$(new_temp_file -smask.png)
+	local sprocket=$(new_temp_file -sprocket.png)
+
+	# Create the film reel pattern...
+	local rw2=$(( $rw - 10 )) rh2=$(( $rh - 10 ))
+	# I (still) don't know how to do it in a single step, moving the mask to
+	# a parenthesised expression won't work, probably due to -alpha interactions
+	# First step: Create a mask: Black border, rounded-corners transparent rectangle
+	# (Source: http://www.imagemagick.org/Usage/thumbnails/#rounded)
+	convert -size ${rw2}x${rh2} 'xc:black' \
+			\( +clone -alpha extract \
+				-draw 'fill black polygon 0,0 0,8 8,0 fill white circle 8,8 8,0' \
+				\( +clone -flip \) -compose Multiply -composite \
+				\( +clone -flop \) -compose Multiply -composite \
+			\) -alpha off -compose CopyOpacity -composite \
+		"$sprocket_mask"
+	# Second step: Create a bigger rectangle and cut-out the mask above
+	convert -size ${rw}x$(( ${rh} + ${vspad} )) 'xc:white' -gravity Center \
+		"$sprocket_mask" -composite -alpha Copy -negate \
+		"$sprocket"
+	# FIXME: Error handling
+	# Repeat it until the height is reached and crop to the exact height
+	local repeat=$( ceilmultiply $h/$rh )
+	let 'repeat += 1'
+	#$(yes -- '-clone 0 ( -size 1x5 xc:black ) ' | head -n $repeat) \
+	#-append -crop ${rw}x${h}+0+0 \
+	convert -background black -fill black "$sprocket" \
+		$(yes -- '-clone 0' | head -$repeat) \
+		-append \
+		"$reel_strip"
+	FILMSTRIP=$reel_strip
 }
 
 # This one requires much more work, the results are pretty rough, but ok as
@@ -2413,40 +2478,18 @@ filt_randrot() {
 filt_film() {
 	trace $@
 	local file="$1" ts=$2 w=$3 h=$4
-	# Base reel dimensions
-	local rw=$(rmultiply $w,0.08) # 8% width
-	local rh=$(( $rw / 2 ))
-	# Ellipse center
-	local ecx=$(( $rw / 2 )) ecy=0
-	# Ellipse x, y radius
-	local erx=$(( (rw/2)*60/100 )) # 60% halt rect width
-	local ery=$(( $erx / 2))
+	init_filt_film $w $h
+	assert "[[ -n '$FILMSTRIP' ]]"
 
-	local base_reel=$(new_temp_file .png) reel_strip=$(new_temp_file .png)
-
-	# Create the reel pattern...
-	convert -size ${rw}x${rh} 'xc:black' \
-		-fill white -draw "ellipse $ecx,$ecy $erx,$ery 0,360" -flatten \
-		\( +clone -flip \) -append \
-		-fuzz '40%' -transparent white \
-		"$base_reel"
-	# FIXME: Error handling
-
-	# Repeat it until the height is reached and crop to the exact height
-	local sh=$(imh "$base_reel") in=
-	local repeat=$( ceilmultiply $h/$sh)
-	while [[ $repeat -gt 1 ]]; do
-		in="$in '$base_reel' "
-		(( repeat-- ));
-	done
-	eval convert "$base_reel" $in -append -crop $(imw "$base_reel")x${h}+0+0 \
-		"$reel_strip"
+	local rh=$(( $(rmultiply $w,0.08) / 2 ))
+	local skew=$(( $RANDOM % $rh ))
 
 	# As this options will be appended to the commandline we cannot
 	# order the arguments optimally (eg: reel.png image.png reel.png +append)
 	# A bit of trickery must be done flipping the image. Note also that the
 	# second strip will be appended flipped, which is intended.
-	echo -n "'$reel_strip' +append -flop '$reel_strip' +append -flop "
+	RESULT=" \( '$FILMSTRIP' -crop x${h}+0+$skew \) +append -flop "
+	RESULT+="\( '$FILMSTRIP' -crop x${h}+0+$skew \) +append -flop "
 }
 
 # Creates a contact sheet by calling the delegate
@@ -3292,6 +3335,7 @@ process() {
 	local pre_output_format="$output_format"
 	INTERNAL_MAXREWIND_REACHED=0 # Reset for each file
 	CAPTURES=''
+	FILMSTRIP='' # Reset
 
 	DVD_MOUNTP= DVD_TITLE= # Re-set for each file
 	if [[ $DVD_MODE -eq 1 ]]; then
@@ -3755,6 +3799,8 @@ process() {
 	inf "Done. Output wrote to $output_name"
 
 	(( FILEIDX++ ,1 )) #,1 so that it's always ok
+	[[ $UNDFLAG_DISPLAY -eq 1 ]] && $UNDFLAG_DISPLAY_COMMAND "$output_name"
+	[[ $UNDFLAG_DISCARD -eq 1 ]] && TEMPSTUFF+=( "$output_name" )
 	[[ $UNDFLAG_HANG ]] && read -p 'Main loop paused, hit Enter key to continue... '
 	cleanup
 
@@ -4694,6 +4740,8 @@ while true ; do
 					$funcname "$@"
 					exit 0
 					;;
+				display) UNDFLAG_DISPLAY=1 ;;
+				discard) UNDFLAG_DISCARD=1 ;;
 				*) false ;;
 			esac
 			shift

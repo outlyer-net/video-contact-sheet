@@ -10,8 +10,10 @@
       - Correct "Capturing in range..." message
     * OTHER:
       - Fix some typos
+      - Undocumented options: display, discard
     * INTERNAL:
-      - Check ImageMagick with convert instead of identify
+      - Check ImageMagick through convert instead of identify
+      - Don't run filters in subshells
 
 1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
