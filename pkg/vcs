@@ -439,8 +439,9 @@ FFMPEG_BIN=
 # This way 'myfunc' has access to all variables and can modify them.
 # Every function that modifies RESULT should overwrite its value.
 RESULT=''
-# Set by init_filt_film. Filename of the sprocket-holes image.
-FILMSTRIP=
+# Set by init_filt_film:
+FILMSTRIP= # Filename of the sprocket-holes strip image
+FILMSTRIP_HOLE_HEIGHT= # Height of an individual hole
 
 # }}} # Variables
 
@@ -2435,8 +2436,9 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 	[[ -z $FILMSTRIP ]] || return 0
 	local w=$1 h=$2
 	# Base reel dimensions
-	local rw=$(rmultiply $w,0.08) # 8% width
-	local rh=$(( $rw / 2 ))
+	#local rw=$(rmultiply $w,0.08) # 8% width
+	local rw=51
+	local rh=29
 	local vspad=5 # Vertical padding between sprocket holes
 	# Temporary files
 	local reel_strip=$(new_temp_file -reel.png)
@@ -2445,6 +2447,11 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 
 	# Create the film reel pattern...
 	local rw2=$(( $rw - 10 )) rh2=$(( $rh - 10 ))
+	# Instead, create a big enough strip and then resize 
+	local must_rescale=0
+	if [[ ( $w -lt 240 ) || ( $h -lt 240 ) ]]; then
+		must_rescale=1
+	fi
 	# I (still) don't know how to do it in a single step, moving the mask to
 	# a parenthesised expression won't work, probably due to -alpha interactions
 	# First step: Create a mask: Black border, rounded-corners transparent rectangle
@@ -2460,6 +2467,12 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 	convert -size ${rw}x$(( ${rh} + ${vspad} )) 'xc:white' -gravity Center \
 		"$sprocket_mask" -composite -alpha Copy -negate \
 		"$sprocket"
+	if [[ $must_rescale -eq 1 ]]; then
+		rws=$(( $(rmultiply $w,0.08) ))
+		rhs=$(( ( $rws * 4 ) / 7 ))
+		convert "$sprocket" -geometry ${rws}x${rhs} "$sprocket"
+		rh=$rhs
+	fi
 	# FIXME: Error handling
 	# Repeat it until the height is reached and crop to the exact height
 	local repeat=$( ceilmultiply $h/$rh )
@@ -2471,6 +2484,7 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 		-append \
 		"$reel_strip"
 	FILMSTRIP=$reel_strip
+	FILMSTRIP_HOLE_HEIGHT=$(imh "$sprocket")
 }
 
 # This one requires much more work, the results are pretty rough, but ok as
@@ -2481,8 +2495,7 @@ filt_film() {
 	init_filt_film $w $h
 	assert "[[ -n '$FILMSTRIP' ]]"
 
-	local rh=$(( $(rmultiply $w,0.08) / 2 ))
-	local skew=$(( $RANDOM % $rh ))
+	local skew=$(( $RANDOM % $FILMSTRIP_HOLE_HEIGHT ))
 
 	# As this options will be appended to the commandline we cannot
 	# order the arguments optimally (eg: reel.png image.png reel.png +append)
