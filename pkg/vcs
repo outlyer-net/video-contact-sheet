@@ -193,8 +193,6 @@ declare -i pts_tstamps=14          # Used for the timestamps
 declare -i pts_meta=14             # Used for the meta info heading
 declare -i pts_sign=10             # Used for the signature
 declare -i pts_title=33            # Used for the title (see -T)
-# See --shoehorn
-declare shoehorned=
 # See -E / $end_offset
 declare -r DEFAULT_END_OFFSET="5.5%"
 # Controls how many extra captures will be created in the extended mode
@@ -1831,7 +1829,7 @@ mplayer_capture() {
 
 	assert '[[ $DVD_MODE -ne 1 ]]'
 	"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-		   -frames 5 -ss "$ts" $4 $shoehorned "$f" >"$stdout" 2>"$stderr"
+		   -frames 5 -ss "$ts" $4 "$f" >"$stdout" 2>"$stderr"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
 		mvq "$cap" "$o"
@@ -1853,7 +1851,7 @@ mplayer_dvd_capture() {
 
 	assert '[[ $DVD_MODE -eq 1 ]]'
 	"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-		   -frames 5 -ss "$ts" $shoehorned -dvd-device "$f" \
+		   -frames 5 -ss "$ts" -dvd-device "$f" \
 		   $4 "dvd://$DVD_TITLE" >"$stdout" 2>"$stderr"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
@@ -2033,7 +2031,7 @@ ffmpeg_capture() {
 	# See wa_ss_* declarations at the start of the file for details
 	"$FFMPEG_BIN" -y ${wa_ss_be/ / $ts} -i "$f" ${wa_ss_af/ / $ts} -an \
 		  -dframes 1 -vframes 1 -vcodec png \
-		  -f rawvideo $4 $shoehorned "$o" >"$stdout" 2>"$stderr"
+		  -f rawvideo $4 "$o" >"$stdout" 2>"$stderr"
 	[[ ( -f $o ) && ( '0' != "$(du "$o" | cut -f1)" ) ]]
 }
 
@@ -2284,12 +2282,74 @@ guess_aspect() {
 	echo $ar
 }
 
+EVASION_ALTERNATIVES="+5 -5 +10 -10 +30 -30" # FIXME: Re-order
 # Capture a frame
-# capture($1 = filename, $2 = second, $3 = output file)
+# Sets $RESULT to the timestamp actually used
+# capture($1 = filename, $2 = output file, $3 = second, [$4 = disable blank frame evasion])
 capture() {
+	local f=$1 out=$2 stamp=$3 prevent_evasion=$4
+	local alternatives= alt= delta=
+	if [[ $prevent_evasion != '1' ]]; then
+		for delta in $EVASION_ALTERNATIVES ; do
+			alt=$(awkexf "$stamp + $delta")
+			if fptest $alt -gt 0  && fptest $alt -lt "${VID[$LEN]}" ; then
+				alternatives+=( $alt )
+			fi
+		done
+	fi
+	capture_and_evade "$1" "$2" "$3" ${alternatives[*]}
+	# Correct the timestamp in case it had to be adjusted
+	local nstamp=$(echo "$CAPTURES" | tail -2 | head -1 | cut -d':' -f1)
+	if fptest $stamp -ne $nstamp ; then
+		stamp=$nstamp
+		inf "  Capture point changed to $( pretty_stamp $stamp )"
+	fi
+	RESULT=$stamp
+}
+
+# Capture a frame, retry a few times if a blank frame is detected. Use capture()
+# Appends '$timestamp:$output\n' to $CAPTURES
+# capture_and_evade($1 = filename, $2 = output file, $3 = second, $4... = alternate seconds)
+capture_and_evade() {
+	trace $@
+	local f=$1 stamp=$3 ofile=$2
+	shift 2
+	local tscand=
+	while [[ -n $1 ]]; do
+		tscand=$1
+		shift
+		if ! capture_impl "$f" "$tscand" "$ofile" ; then
+			error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
+			return $EX_SOFTWARE
+		fi
+		# **XXX: EXPERIMENTAL: Blank frame evasion test
+		local blank_val=$(convert "$ofile" -colorspace Gray -format '%[fx:image.mean*100]' info:)
+		local BLANK_THRESHOLD=10
+		local upper=$(( 100 - $BLANK_THRESHOLD ))
+		if fptest $blank_val -lt $BLANK_THRESHOLD || fptest $blank_val -gt $upper ; then
+			local msg="Blank (enough) frame detected."
+			if [[ -n $1 ]]; then
+				msg+=" Retrying at $(pretty_stamp $1)."
+			else
+				msg+=" Giving up."
+			fi
+			warn "$msg"
+		else
+			# No need to evade
+			break
+		fi
+		# /XXX
+	done
+	CAPTURES="$CAPTURES$RESULT$NL"
+}
+
+# Capture a frame, intermediate-level implementation, use capture() instead.
+# Sets $RESULT to '$timestamp:$output'
+# capture_impl($1 = filename, $2 = second, $3 = output file)
+capture_impl() {
 	trace $@
 	local f=$1 stamp=$2 ofile=$3
-	# globals: $shoehorned $decoder
+	# globals: $decoder
 
 	# Avoid recapturing if timestamp is already captured.
 	# The extended set includes the standard set so when using the extended mode
@@ -2314,10 +2374,10 @@ capture() {
 	fi
 
 	$capfn "$f" "$stamp" "$ofile" || {
-		error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
 		return $EX_SOFTWARE
 	}
-	CAPTURES="$CAPTURES$key:$ofile$NL"
+
+	RESULT="$key:$ofile"
 }
 
 # Applies all individual vidcap filters
@@ -2377,7 +2437,7 @@ filt_apply_stamp() {
 	# affect stuff like the polaroid frames)
 	RESULT=" \( -box '$bg_tstamps' -fill '$fg_tstamps' -stroke none -pointsize '$pts' "
 	RESULT+="    -gravity '$grav_timestamp' -font '$font_tstamps' -strokewidth 3 -annotate +5+5 "
-	RESULT+="    ' $(pretty_stamp $stamp) ' \) -flatten -gravity None "
+	RESULT+="    ' $timestamp ' \) -flatten -gravity None "
 }
 
 # Apply a framed photo-like effect
@@ -3492,7 +3552,7 @@ process() {
 			inf "Generating highlight #${n}/${#HLTIMECODES[@]} ($pretty)..."
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 
-			capture "$f" $stamp "$hlcapfile" || return $?
+			capture "$f" "$hlcapfile" $stamp '1' || return $?
 			filter_vidcap "$hlcapfile" $pretty $vidcap_width $vidcap_height $CTX_HL $n || {
 				local r=$?
 				error "Failed to apply transformations to the capture."
@@ -3526,7 +3586,11 @@ process() {
 		# identified by capture number, padded to 6 characters
 		tfile=$(new_temp_file "-cap-$(pad 6 $n).png")
 
-		capture "$f" $stamp "$tfile" || return $?
+		capture "$f" "$tfile" $stamp || return $?
+		if [[ $RESULT != $stamp ]]; then
+			stamp=$RESULT
+			pretty=$(pretty_stamp $RESULT)
+		fi
 		filter_vidcap "$tfile" $pretty $vidcap_width $vidcap_height $CTX_STD $n || return $?
 
 		capfiles=( "${capfiles[@]}" "$tfile" )
@@ -3568,7 +3632,7 @@ process() {
 			pretty=$(pretty_stamp $stamp)
 			capfile=$(new_temp_file "-excap-$(pad 6 $n).png")
 			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
-			capture "$f" $stamp "$capfile" || return $?
+			capture "$f" "$capfile" $stamp || return $?
 			filter_vidcap "$capfile" $pretty $w $h $CTX_EXT $n || return $?
 
 			capfiles=( "${capfiles[@]}" "$capfile" )
@@ -4245,7 +4309,7 @@ ARGS="$@"
 TEMP=$("$GETOPT" -n "$0" -s bash \
 	-o i:n:u:T:f:t:S:j::hFMH:c:ma:l:De::U::qAO:I:k:W:E:d:VR:Z:o:p:C: \
        --long "interval:,numcaps:,username:,title:,from:,to:,stamp:,jpeg::,help,"\
-"shoehorn:,mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:"\
+"mplayer,ffmpeg,height:,columns:,manual,aspect:,highlight:"\
 "extended::,fullname,anonymous,quiet,autoaspect,override:,mincho,funky:,"\
 "end_offset:,end-offset:,disable:,dvd,dvd-title:,randomsource:,undocumented:,output:,"\
 "fullhelp,profile:,"\
