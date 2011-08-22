@@ -80,7 +80,7 @@ export LC_NUMERIC=C
 #            command-line.
 #            implementation
 # * Optimisations:
-#   - Reduce the number of forks
+#   - Reduce the number of forks/subshells
 # }}} # TO-DO
 
 # {{{ # Constants
@@ -628,7 +628,7 @@ load_config() {
 	done
 	if [[ -f "./vcs.conf" ]]; then
 		warn "'./vcs.conf' won't be loaded automatically starting with vcs 1.14"
-		warn "  use '-C :pwd' to manually load it or convert it to a profile"
+		warn "  use '-C :pwd' to manually load it, or convert it to a profile"
 	fi
 }
 
@@ -1832,7 +1832,7 @@ mplayer_capture() {
 		   -frames 5 -ss "$ts" $4 "$f" >"$stdout" 2>"$stderr"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
-		mvq "$cap" "$o"
+		[[ $cap = $o ]] || mvq "$cap" "$o"
 	}
 }
 
@@ -1855,7 +1855,7 @@ mplayer_dvd_capture() {
 		   $4 "dvd://$DVD_TITLE" >"$stdout" 2>"$stderr"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
-		mvq "$cap" "$o"
+		[[ $cap = $o ]] || mvq "$cap" "$o"
 	}
 }
 
@@ -2300,9 +2300,9 @@ capture() {
 	capture_and_evade "$1" "$2" "$3" ${alternatives[*]}
 	# Correct the timestamp in case it had to be adjusted
 	local nstamp=$(echo "$CAPTURES" | tail -2 | head -1 | cut -d':' -f1)
-	if fptest $stamp -ne $nstamp ; then
+	if fptest "int($stamp)" -ne "int($nstamp)" ; then
+		inf "  Capture point changed to $( pretty_stamp $nstamp )"
 		stamp=$nstamp
-		inf "  Capture point changed to $( pretty_stamp $stamp )"
 	fi
 	RESULT=$stamp
 }
@@ -4151,7 +4151,7 @@ Options:
                         as -i.
   -T|--title <arg>      Add a title above the vidcaps.
   -j|--jpeg             Output in jpeg (by default output is in png).
-  -j2|--jpeg 2          Output in jpeg 2000
+  -j2|--jpeg2           Output in jpeg 2000
   -V|--dvd              DVD Mode.
                         In this mode the input <file>s must be the DVD
                         device(s) or ISO(s). When in DVD mode all input files
@@ -4159,11 +4159,6 @@ Options:
                         Implies -A (auto aspect ratio)
   --dvd-title <arg>     DVD title to use. Using 0 (the default) will use the
                         longest title.
-                        DVD Mode, use file.iso as DVD. In this mode the
-                        <file> argument must point to the title number, e.g.:
-                           $ vcs -V somedvd.iso 1
-                        Passing title 0 will use the default (longest) title.
-                           $ vcs -V /dev/dvd 0
   -M|--mplayer          Use Mplayer to capture$mpchosen
   -F|--ffmpeg           Use FFmpeg to capture [Default$ffchosen]
   -E|--end-offset <arg> This time is ignored, from the end of the video. Same
