@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
-
 <!--
 
 $Id$
@@ -60,7 +59,6 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   <!ENTITY emdash      "&#x2014;">
   <!ENTITY xrefinterval 'See the accepted syntax at <xref linkend="interval_format" />.'>
 ]>
-
 <refentry>
   <refentryinfo>
     <title>&dhtitle;</title>
@@ -426,7 +424,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
               <para>Load profile named <replaceable>PROFILE</replaceable>.</para>
               <para>Profile names starting with ':' are reserved and have special meanings, currently:</para>
               <itemizedlist>
-                  <listitem><para><replaceable>:list</replaceable>: Will list all profiles found in the
+                  <listitem><para><replaceable>:list</replaceable> &emdash; Will list all profiles found in the
                           system</para></listitem>
               </itemizedlist>
               <para>If <replaceable>PROFILE</replaceable> doesn't exist, exit with error.</para>
@@ -436,15 +434,15 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
           <term><option>-C <replaceable>CONFIG</replaceable></option></term>
           <term><option>--config <replaceable>CONFIG</replaceable></option></term>
           <listitem>
-              <para>Load configuration file <replaceable><filename>CONFIG</filename></replaceable></para>
+              <para>Load configuration file <filename><replaceable>CONFIG</replaceable></filename></para>
               <para>Configuration <emphasis>file names</emphasis> starting with ':' are reserved
                   and have special meanings, currently:</para>
               <itemizedlist>
-                  <listitem><para><replaceable>:pwd</replaceable>: Will try to load
+                  <listitem><para><replaceable>:pwd</replaceable> &emdash; Will try to load
                           <filename>./vcs.conf</filename>.</para>
                       <para>This file has been loaded by default up to vcs v1.13</para></listitem>
               </itemizedlist>
-              <para>If <replaceable><filename>CONFIG</filename></replaceable> doesn't exist, exit with error.</para>
+              <para>If <filename><replaceable>CONFIG</replaceable></filename> doesn't exist, exit with error.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -525,7 +523,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <varlistentry>
           <term><option>--anonymous</option></term>
           <listitem>
-              <para>Disable the «Preview created by USERNAME» line in the footer.</para>
+              <para>Disable the «Preview created by <replaceable>USERNAME</replaceable>» line in the footer.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -804,4 +802,4 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       </citerefentry></para>
   </refsect1>
 </refentry>
-
+<!-- vim:set ts=4 et: -->
