@@ -43,8 +43,6 @@ General documentation about man-pages and man-page-formatting:
 man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
 
 -->
-
-  <!-- Fill in your name for FIRSTNAME and SURNAME. -->
   <!ENTITY dhfirstname "Toni">
   <!ENTITY dhsurname   "Corvera">
   <!-- dhusername could also be set to "&dhfirstname; &dhsurname;". -->
@@ -696,13 +694,10 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
      <para>
          Intervals and timestamps can be specified in seconds or in a human-readable format
          that follows the syntax
+         <programlisting><replaceable>HOURS</replaceable>h<replaceable>MINUTES</replaceable>m<replaceable>SECONDS</replaceable>s.<replaceable>MILLISECONDS</replaceable></programlisting>
 
-         <replaceable>HOURS</replaceable>h<replaceable>MINUTES</replaceable>m
-         <replaceable>SECONDS</replaceable>s.<replaceable>MILLISECONDS</replaceable>
-
-         where each element is optional.
-         See <ulink url="http://p.outlyer.net/dox/vcs:time_syntax" /> for more details.
-     </para>
+         where each element is optional.</para>
+     <para>See <ulink url="http://p.outlyer.net/dox/vcs:time_syntax" /> for more details.</para>
 
      <para>
          <segmentedlist>

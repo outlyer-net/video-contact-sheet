@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!--
+-->
+<!ENTITY firstname "Toni">
+<!ENTITY surname   "Corvera">
+<!ENTITY email     "outlyer@gmail.com">
+<!ENTITY author    "&firstname; &surname;">
+<!ENTITY title     "vcs.conf User Manual">
+<!ENTITY package   "vcs.conf">
+
+]>
+<refentry>
+    <refentryinfo>
+        <title>&title;</title>
+        <productname>&package;</productname>
+        <author>
+            <firstname>&firstname;</firstname>
+            <surname>&surname;</surname>
+            <contrib>VCS author.</contrib>
+            <address><email>&email;</email></address>
+        </author>
+    </refentryinfo>
+    <copyright>
+        <year>2007-2011</year>
+        <holder>&username;</holder>
+    </copyright>
+    <legalnotice>
+        <para>Permission is granted to copy, distribute and/or modify this
+        document under the terms of the GNU Lesser General Public License,
+        Version 2 or (at your option) any later version published by
+        the Free Software Foundation.</para>
+    </legalnotice>
+    <edition>$Rev: 2295 $</edition>
+</refentry>
+<!-- vim:set ts=4 et: -->

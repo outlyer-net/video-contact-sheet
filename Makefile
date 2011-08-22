@@ -4,10 +4,10 @@
 srcdir=pkg
 VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
 
-all:
+all: pkg/vcs.1 pkg/manpage.html pkg/manpage.xhtml
 	@echo "Use $(MAKE) dist"
 
-pkg/vcs.1: manpage.xml
+pkg/vcs.1: src/manpage.vcs.xml
 	if type -p xmlto >/dev/null ; then \
 		xmlto -o `dirname $@`/ man $< ; \
 	else \
@@ -19,8 +19,29 @@ pkg/vcs.1: manpage.xml
 			$<; \
 	fi
 
+# man2html produces output closer to man and better formatted but
+# easily broken while xsltproc produces cleaner, more robust, and
+# cross-referenced output
 pkg/manpage.html: pkg/vcs.1
 	man2html -r $< > $@
+
+pkg/manpage.xhtml: src/manpage.vcs.xml
+	xsltproc \
+		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
+		$< > $@
+
+pkg/vcs.conf.5: src/manpage.vcs.conf.xml
+	xsltproc -o `dirname $@`/ -''-nonet \
+			-''-param man.charmap.use.subset "0" \
+			-''-param make.year.ranges "1" \
+			-''-param make.single.year.ranges "1" \
+			/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl \
+			$<; \
+
+pkg/vcs.conf.xhtml: src/manpage.vcs.conf.xml
+	xsltproc \
+		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
+		$< > $@
 
 tgz: vcs-$(VER).tar.gz
 
@@ -45,6 +66,7 @@ check-rel:
 
 dist: check-rel check-no-svn \
 		pkg/vcs.1 \
+		pkg/manpage.html \
 		vcs-$(VER).tar.gz \
 		PKGBUILD-$(VER) \
 		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
