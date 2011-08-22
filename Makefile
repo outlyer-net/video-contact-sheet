@@ -19,6 +19,9 @@ pkg/vcs.1: manpage.xml
 			$<; \
 	fi
 
+pkg/manpage.html: pkg/vcs.1
+	man2html -r $< > $@
+
 tgz: vcs-$(VER).tar.gz
 
 vcs-$(VER).tar.gz:

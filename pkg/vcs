@@ -2093,7 +2093,7 @@ new_temp_file() {
 	echo "$r"
 }
 
-# Randomizes the colours and fonts. The result won't be of much use
+# Randomises the colours and fonts. The result won't be of much use
 # in most cases but it might be a good way to discover some colour/font
 # or colour combination you like.
 # randomize_look()
@@ -2140,7 +2140,7 @@ randomize_look() {
 	font_heading=$(randfont)
 	font_sign=$(randfont)
 	font_title=$(randfont)
-	inf "Randomization result:
+	inf "Randomisation result:
  Chosen backgrounds:
    '$bg_heading' for the heading
    '$bg_sign' for the signature
@@ -2327,7 +2327,7 @@ capture_and_evade() {
 		local BLANK_THRESHOLD=10
 		local upper=$(( 100 - $BLANK_THRESHOLD ))
 		if fptest $blank_val -lt $BLANK_THRESHOLD || fptest $blank_val -gt $upper ; then
-			local msg="Blank (enough) frame detected."
+			local msg="  Blank (enough) frame detected."
 			if [[ -n $1 ]]; then
 				msg+=" Retrying at $(pretty_stamp $1)."
 			else
@@ -3876,7 +3876,13 @@ process() {
 	inf "Done. Output wrote to $output_name"
 
 	(( FILEIDX++ ,1 )) #,1 so that it's always ok
-	[[ $UNDFLAG_DISPLAY -eq 1 ]] && $UNDFLAG_DISPLAY_COMMAND "$output_name"
+	if [[ $UNDFLAG_DISPLAY -eq 1 ]]; then
+		if type -pf $UNDFLAG_DISPLAY_COMMAND; then
+			$UNDFLAG_DISPLAY_COMMAND "$output_name"
+		else
+			display "$output_name"
+		fi
+	fi >/dev/null 2>&1
 	[[ $UNDFLAG_DISCARD -eq 1 ]] && TEMPSTUFF+=( "$output_name" )
 	[[ $UNDFLAG_HANG ]] && read -p 'Main loop paused, hit Enter key to continue... '
 	cleanup
@@ -4064,12 +4070,13 @@ show_help() {
                         manually like:
                         $ vcs -Ij=Sazanami-Mincho-Regular file.avi
                         or
-                        $ vcs -Ij=/usr/share/fonts/ttf/ttf-japanese-mincho.ttf
+                        $ vcs -Ij=/usr/share/fonts/ttf/ttf-japanese-mincho.ttf\\
+                               file.avi
                         Use \"identify -list font\" to list the available fonts
-  -O|--override <arg>   Use it to override a variable (see the homepage for
-                        more details). Format accepted is 'variable=value' (can
+  -O|--override <arg>   Override a variable (see the homepage for more details).
+                        The accepted format is 'variable=value' (can
                         also be quoted -variable=\"some value\"- and can take an
-                        internal variable too -variable=\"\$SOME_VAR\"-).
+                        internal variable too -variable='\$SOME_VAR'-).
 
   Tweaks and workarounds:
   -Ws                   Increase length of safe measuring (try harder). Repeat
@@ -4083,15 +4090,16 @@ show_help() {
   -Wc                   Disable colour in console messages.
   Obscure options, debugging tools and workarounds:
   -R <file>
-  --randomsource <file> Use the provided file as a source for random \"values\":
+  --randomsource <file> Use the provided file as a source for \"random\" values:
                         they won't be random anymore, so two runs with the same
                         source and same arguments will produce the same output
-                        in modes which use using randomisation (e.g. the
+                        in modes which use randomisation (e.g. the
                         \"photos\" and \"polaroid\" modes).
   -D                    Debug mode. Used to test features/integrity. It:
                           * Prints the input command line
                           * Sets the title to reflect the command line
-                          * Does a basic test of consistency.
+                          * Does a basic test of consistency
+                          * Prints all internal functions as they are called
 "
 	# The --funky help is really long, so make it shorter by default,
         # only show the complete help when --fullhelp is used
@@ -4099,8 +4107,8 @@ show_help() {
                         These are toy output modes in which the contact sheet
                         gets a more informal look.
                         Order *IS IMPORTANT*. A bad order gets a bad result :P
-                        They're random in nature so using the same funky mode
-                        twice will usually lead to quite different results.
+                        Many of these modes are random in nature so using the
+                        same mode twice will usually lead to different results.
                         Currently available \"funky modes\":
                         \"overlap\":  Use '-ko' or '--funky overlap'
                             Randomly overlap captures.
@@ -4120,7 +4128,7 @@ show_help() {
                         \"film\":     Use '-ki' or '--funky film'
                             Imitates filmstrip look.
                         \"random\":   Use '-kx' or '--funky random'
-                            Randomizes colours and fonts."
+                            Randomises colours and fonts."
 	[[ -z $showlong ]] && funkyex="
                         Available: overlap, rotate, photoframe, polaroidframe,
                                    photos, polaroid, film, random
@@ -4161,11 +4169,14 @@ Options:
                         longest title.
   -M|--mplayer          Use Mplayer to capture$mpchosen
   -F|--ffmpeg           Use FFmpeg to capture [Default$ffchosen]
-  -E|--end-offset <arg> This time is ignored, from the end of the video. Same
-                        format as -i. This value is not used when a explicit
-                        ending time is set. By default it is $DEFAULT_END_OFFSET.
+  -E|--end-offset <arg> This amount of time is ignored from the end of the
+                        video.
+                        Accepts timestamps (same format as -i) and percentages.
+                        This value is not used when a explicit ending time is
+                        set.
+                        The default is $DEFAULT_END_OFFSET.
   -q|--quiet            Don't print progress messages just errors. Repeat to
-                        mute completely even on error.
+                        mute completely, even on error.
   -h|--help             Show basic help and exit.
   --fullhelp            Show the complete help and exit.
   -d|--disable <arg>    Disable some default functionality.
@@ -4178,17 +4189,18 @@ Options:
   -e[num] | --extended=[num]
                         Enables extended mode and optionally sets the extended
                         factor. -e is the same as -e$DEFAULT_EXT_FACTOR.
-  -l|--highlight <arg>  Add the image found at the timestamp "arg" as a
+  -l|--highlight <arg>  Add the frame found at timestamp "arg" as a
                         highlight. Same format as -i.
   -m|--manual           Manual mode: Only timestamps indicated by the user are
                         used (use in conjunction with -S), when using this
                         -i and -n are ignored.
-  -S|--stamp <arg>      Add the image found at the timestamp "arg". Same format
-                        as -i.
+  -S|--stamp <arg>      Add the frame at timestamp "arg" to the set of captures.
+                        Same format as -i.
 
-  -u|--user <arg>       Set the username found in the signature to this.
-  -U|--fullname         Use user's full/real name (e.g. John Smith) as found in
-                        /etc/passwd.
+  -u|--user <arg>       Set the username (included by default in the sheet's
+                        footer) to this value.
+  -U|--fullname         Use user's full/real name (e.g. John Smith) as found
+                        set in the system's list of users.
   -p|--profile <arg>    Load profile "arg"
   -C|--config <arg>     Load configuration file "arg"
   --generate <config|profile>

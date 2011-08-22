@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 
@@ -6,6 +6,14 @@
 
 $Id$
 This file based on the default template for debian packages.
+
+Useful Docbook References:
+- Creating DocBook Documents - List of elements
+    <http://www.docbook.org/tdg5/en/html/ch02.html>
+- Writing with DocBook elements - Useful commands (elements)
+    <http://www.ibiblio.org/godoy/sgml/docbook/howto/writing-docbook.html#WRITING-DOCBOOK-COMMANDS>
+- DocBook Guide for Authors of Geant4 User Manuals - Tag Mapping Table - (X)HTML vs. DocBook
+    <http://geant4.web.cern.ch/geant4/workAreaUserDocKA/AuthorsInstruction/IntroDocBook.html#TagMap>
 
 Generation of man page:
 
@@ -49,6 +57,8 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   <!ENTITY dhtitle     "vcs User Manual">
   <!ENTITY dhucpackage "VCS">
   <!ENTITY dhpackage   "vcs">
+  <!ENTITY emdash      "&#x2014;">
+  <!ENTITY xrefinterval 'See the accepted syntax at <xref linkend="interval_format" />.'>
 ]>
 
 <refentry>
@@ -66,7 +76,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       </author>
     </authorgroup>
     <copyright>
-      <year>2007-2010</year>
+      <year>2007-2011</year>
       <holder>&dhusername;</holder>
     </copyright>
     <legalnotice>
@@ -88,7 +98,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   <refsynopsisdiv>
     <cmdsynopsis>
         <command>&dhpackage;</command>
-        <arg choice="opt"><option>options</option></arg>
+        <arg choice="opt"><option><replaceable>options</replaceable></option></arg>
         <arg choice="plain"><replaceable>FILE</replaceable></arg>
         <arg choice="opt"><replaceable>FILE</replaceable>
                 <arg choice="opt"><replaceable>...</replaceable></arg>
@@ -132,19 +142,13 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   </refsynopsisdiv>
   <refsect1 id="description">
       <title>DESCRIPTION</title>
-      <!-- FIXME -->
-    <para>This is a work in progress manual page for <command>&dhpackage;</command>,
-        use <parameter>--help</parameter>, <parameter>--fullhelp</parameter>
-        and the online documentation (located at <ulink url="http://p.outlyer.net/dox/vcs" />)
-        for further usage instructions.</para>
-
-    <para><command>&dhpackage;</command> is a program that creates a preview
+      <para><command>&dhpackage;</command> creates a preview
         image from videos in a contact sheet-like format (i.e. captures from
         different frames in the video are placed in a mosaic).</para>
-    <para>By default the output file will be named like the input file plus the
+      <para>By default the output file will be named like the input file plus the
         png extension. Example: &quot;<filename>file.avi</filename>&quot; will produce
         a contact sheet in the file &quot;<filename>file.avi.png</filename>&quot;.</para>
-    <para>The default mode of operation is to obtain captures every five minutes in the
+      <para>The default mode of operation is to obtain captures every five minutes in the
         video, so the amount of captures will vary with each file. The command-line
         argument <parameter>--numcaps</parameter> (<parameter>-n</parameter>) can be used
         to change this behaviour or alternatively a configuration file might
@@ -152,8 +156,11 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
             <refentrytitle>vcs.conf</refentrytitle>
             <manvolnum>5</manvolnum>
             </citerefentry>).
-    </para>
-  </refsect1>
+      </para>
+      <para>This manual page documents <command>&dhpackage;</command>,
+          further documentation can be found in the
+          <ulink url="http://p.outlyer.net/dox/vcs">online documentation</ulink> site.</para>
+  </refsect1><!--/DESCRIPTION-->
   <refsect1 id="options">
     <title>OPTIONS</title>
     <para>The program follows the usual GNU command line syntax,
@@ -164,62 +171,54 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
         <term><option>-n <replaceable>number</replaceable></option></term>
         <term><option>--numcaps=<replaceable>number</replaceable></option></term>
         <listitem>
-            <para>Fixes the number of captures to obtain. Changes the mode of operation
-                to capture a fixed number of frames.</para>
+            <para>Fixes the number of captures to obtain.</para>
+            <para>Sets the mode of operation to capture a fixed number of frames.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><option>-i <replaceable>interval</replaceable></option></term>
-        <term><option>--interval=<replaceable>interval</replaceable></option></term>
+        <term><option>-i <replaceable>INTERVAL</replaceable></option></term>
+        <term><option>--interval=<replaceable>INTERVAL</replaceable></option></term>
         <listitem>
-            <para>Sets the interval between captures. Changes the mode of operation
-                to capture at fixed intervals. The number of captures will depend
-                on the video length.</para>
-            <para>See <xref linkend="interval_format" /> for the allowed syntax.</para>
+            <para>Sets the interval between captures.</para>
+            <para>Sets the mode of operation to capture at fixed intervals.</para>
+            <para>The number of captures will depend on the video length.</para>
+            <para>&xrefinterval;</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>-c <replaceable>number</replaceable></option></term>
-        <term><option>--columns=<replaceable>number</replaceable></option></term>
+        <term><option>-c <replaceable>NUMBER</replaceable></option></term>
+        <term><option>--columns=<replaceable>NUMBER</replaceable></option></term>
         <listitem>
-            <para>Number of columns in the contact sheet. The number of rows
-                will depend on this and the number of captures (there's no
+            <para>Number of columns in the contact sheet.</para>
+            <para>The number of rows will depend on this value and the number of captures (there's no
                 way to set the number of rows).</para>
         </listitem>
      </varlistentry>
       <varlistentry>
-        <term><option>-H <replaceable>height</replaceable></option></term>
-        <term><option>--height=<replaceable>height</replaceable></option></term>
+        <term><option>-H <replaceable>HEIGHT</replaceable></option></term>
+        <term><option>--height=<replaceable>HEIGHT</replaceable></option></term>
         <listitem>
-            <para>Height of captures. Can be a number (of pixels) or a percentage
-                (of the video height). By default the same size as the video is used.</para>
+            <para>Height of captures.</para>
+            <para>Can be a number (of pixels) or a percentage (of the video height).</para>
+            <para>By default the same size as the video is used.</para>
             <para>The width is derived from height and aspect ratio.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><option>-o <replaceable>filename</replaceable></option></term>
-        <term><option>--output=<replaceable>filename</replaceable></option></term>
+        <term><option>-o <replaceable>FILENAME</replaceable></option></term>
+        <term><option>--output=<replaceable>FILENAME</replaceable></option></term>
         <listitem>
-            <para>Name of output file. By default the video file name plus the output
+            <para>Name of output file.</para>
+            <para>By default the video file name plus the output
                 format is used (e.g. &quot;<filename>video.avi.png</filename>&quot;
                 for &quot;<filename>video.avi</filename>&quot;).</para>
             <para>If an extension is provided, it will define the output format, otherwise
                 PNG will be used. I.e. <filename>sheet.jpg</filename> will produce
-                a JPEG file while <filename>sheet</filename> and
+                a JPEG file while <filename>sheet</filename> or
                 <filename>sheet.png</filename> will produce a PNG file.</para>
         </listitem>
       </varlistentry>
-      <!--
-      <varlistentry>
-        <term><option>-x <replaceable>t</replaceable></option></term>
-        <term><option>- -xy=<replaceable>t</replaceable></option></term>
-        <listitem>
-            <para>DESC.</para>
-        </listitem>
-    </varlistentry>
-    -->
-
       <varlistentry>
         <term><option>-h</option></term>
         <term><option>--help</option></term>
@@ -233,6 +232,437 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
           <para>Show summary of all options.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+          <term><option>-a <replaceable>ASPECT</replaceable></option></term>
+          <term><option>--aspect <replaceable>ASPECT</replaceable></option></term>
+          <listitem>
+              <para>Aspect ratio.</para>
+              <para>Accepts a floating point number or a fraction.</para>
+          </listitem>
+      </varlistentry>
+
+      <varlistentry>
+          <term><option>-f <replaceable>TIMESTAMP</replaceable></option></term>
+          <term><option>--from <replaceable>TIMESTAMP</replaceable></option></term>
+          <listitem>
+              <para>Set starting time. No captures will be made before this <replaceable>TIMESTAMP</replaceable>.</para>
+              <para>&xrefinterval;</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-t <replaceable>TIMESTAMP</replaceable></option></term>
+          <term><option>--to <replaceable>TIMESTAMP</replaceable></option></term>
+          <listitem>
+              <para>Set ending time. No captures will be made after this TIMESTAMP.</para>
+              <para>&xrefinterval;</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-T <replaceable>TITLE</replaceable></option></term>
+          <term><option>--title <replaceable>TITLE</replaceable></option></term>
+          <listitem>
+              <para>Add a title above the captures.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-j</option></term>
+          <term><option>--jpeg</option></term>
+          <listitem>
+              <para>Output file in JPEG format.</para>
+              <para>The default output format is PNG.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-j2</option></term>
+          <term><option>--jpeg2</option></term>
+          <term><option>--jpeg=2</option></term>
+          <listitem>
+              <para>Output file in JPEG 2000 format.</para>
+              <para>The default output format is PNG.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-V</option></term>
+          <term><option>--dvd</option></term>
+          <listitem>
+              <para>DVD mode.</para>
+              <para>In this mode the input files must be the DVD
+                  device(s) or ISO(s).</para>
+              <para>When in DVD mode all input files must be DVDs.</para>
+              <para>Implies <option>-A</option> (auto aspect ratio).</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>--dvd-title <replaceable>TITLENUM</replaceable></option></term>
+          <listitem>
+              <para>DVD title to use.</para>
+              <para>Using 0 (the default) will use the longest title.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-M</option></term>
+          <term><option>--mplayer</option></term>
+          <listitem>
+              <para>Use Mplayer to capture.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-F</option></term>
+          <term><option>--ffmpeg</option></term>
+          <listitem>
+              <para>Use FFmpeg to capture.</para>
+              <para>This is the default, except in DVD mode.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-E <replaceable>OFFSET</replaceable></option></term>
+          <term><option>--end-offset <replaceable>OFFSET</replaceable></option></term>
+          <listitem>
+              <para>This amount of time is ignored from the end of the video.</para>
+              <para>This value is not used when a explicit ending time is set (<option>--to</option>).</para>
+              <para>Accepted formats:</para>
+              <itemizedlist spacing="compact">
+                  <listitem><para>Timestamp (&xrefinterval;)</para></listitem>
+                  <listitem><para>Percentage of video length.</para></listitem>
+              </itemizedlist>
+              <para>The default is 5.5%.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-q</option></term>
+          <term><option>--quiet</option></term>
+          <listitem>
+              <para>Don't print progress messages just errors.</para>
+              <para>Repeat to mute completely, even on error.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-d <replaceable>FEATURE</replaceable></option></term>
+          <term><option>--disable <replaceable>FEATURE</replaceable></option></term>
+          <listitem>
+              <para>Disable some default functionality.</para>
+              <para>Features that can be disabled are:</para>
+              <itemizedlist spacing="compact">
+                  <listitem>
+                      <para><replaceable>timestamps</replaceable>: use <option>-d<replaceable>t</replaceable></option> or
+                          <option>--disable <replaceable>timestamps</replaceable></option></para>
+                  </listitem>
+                  <listitem>
+                      <para><replaceable>shadows</replaceable>: use <option>-d<replaceable>s</replaceable></option>
+                          or <option>--disable <replaceable>shadows</replaceable></option></para>
+                  </listitem>
+                  <listitem>
+                      <para><replaceable>padding</replaceable>: use <option>-d<replaceable>p</replaceable></option>
+                          or <option>--disable <replaceable>padding</replaceable></option></para>
+                  </listitem>
+              </itemizedlist>
+              <para>(note shadows introduce some extra padding)</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-A</option></term>
+          <term><option>--autoaspect</option></term>
+          <listitem>
+              <para>Try to guess aspect ratio from resolution.</para>
+              <para>A rude hardcoded method is used based only on known common dimensions.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-e</option></term>
+          <term><option>-e<optional><replaceable>FACTOR</replaceable></optional></option></term>
+          <term><option>--extended=<optional><replaceable>FACTOR</replaceable></optional></option></term>
+          <listitem>
+              <para>Enables extended mode and optionally sets the extended factor.</para>
+              <para>When <replaceable>FACTOR</replaceable> is omitted, 4 is used, i.e. <option>-e</option> is the same as <option>-e4</option>.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-l <replaceable>TIMESTAMP</replaceable></option></term>
+          <term><option>--highlight <replaceable>TIMESTAMP</replaceable></option></term>
+          <listitem>
+              <para>Add the frame found at <replaceable>TIMESTAMP</replaceable> as a highlight.</para>
+              <para>&xrefinterval;</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-m</option></term>
+          <term><option>--manual</option></term>
+          <listitem>
+              <para>Manual mode.</para>
+              <para>In this mode only timestamps indicated by the user are used (use in
+                  conjunction with <option>-S</option>).</para>
+              <para>When using this option, <option>-i</option> and <option>-n</option> are ignored.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-S <replaceable>TIMESTAMP</replaceable></option></term>
+          <term><option>--stamp <replaceable>TIMESTAMP</replaceable></option></term>
+          <listitem>
+              <para>Add the frame at <replaceable>TIMESTAMP</replaceable> to the set of captures.</para>
+              <para>&xrefinterval;</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-u <replaceable>NAME</replaceable></option></term>
+          <term><option>--user <replaceable>NAME</replaceable></option></term>
+          <listitem>
+              <para>Set the username (included by default in the contact sheet's footer)
+                  to <replaceable>NAME</replaceable>.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-U</option></term>
+          <term><option>--fullname</option></term>
+          <listitem>
+              <para>Use user's full/real name (e.g. John Smith) as set in the system's list of users
+                  (i.e. in <filename>/etc/passwd</filename> or through <command>getent</command>).</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-p <replaceable>PROFILE</replaceable></option></term>
+          <term><option>--profile <replaceable>PROFILE</replaceable></option></term>
+          <listitem>
+              <para>Load profile named <replaceable>PROFILE</replaceable>.</para>
+              <para>Profile names starting with ':' are reserved and have special meanings, currently:</para>
+              <itemizedlist>
+                  <listitem><para><replaceable>:list</replaceable>: Will list all profiles found in the
+                          system</para></listitem>
+              </itemizedlist>
+              <para>If <replaceable>PROFILE</replaceable> doesn't exist, exit with error.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-C <replaceable>CONFIG</replaceable></option></term>
+          <term><option>--config <replaceable>CONFIG</replaceable></option></term>
+          <listitem>
+              <para>Load configuration file <replaceable><filename>CONFIG</filename></replaceable></para>
+              <para>Configuration <emphasis>file names</emphasis> starting with ':' are reserved
+                  and have special meanings, currently:</para>
+              <itemizedlist>
+                  <listitem><para><replaceable>:pwd</replaceable>: Will try to load
+                          <filename>./vcs.conf</filename>.</para>
+                      <para>This file has been loaded by default up to vcs v1.13</para></listitem>
+              </itemizedlist>
+              <para>If <replaceable><filename>CONFIG</filename></replaceable> doesn't exist, exit with error.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>--generate <replaceable>config|profile</replaceable></option></term>
+          <listitem>
+              <para>Generate configuration or profile from the current settings and print it.</para>
+              <para>All settings changed from the default, by either configuration, profiles or command-line
+                  options, will be included in the generated text.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-k <replaceable>MODE</replaceable></option></term>
+          <term><option>--funky <replaceable>MODE</replaceable></option></term>
+          <listitem>
+              <para>Funky modes</para>
+              <para>These are <emphasis>toy</emphasis> output modes in which the contact sheet
+                 gets a more informal look.</para>
+             <para>Order <emphasis role="strong">IS IMPORTANT</emphasis>. A bad order gets a bad result :P</para>
+              <para>Many of these modes are random in nature so using the same mode twice
+                  will usually lead to very different results.</para>
+              <para>Currently available <emphasis>funky modes</emphasis>:</para>
+              <variablelist id="funkymodes">
+                  <varlistentry>
+                      <term><replaceable>overlap</replaceable>:
+                          Use <option>-k<replaceable>o</replaceable></option>
+                          or <option>--funky <replaceable>overlap</replaceable></option></term>
+                      <listitem><para>Randomly overlap captures.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>rotate</replaceable>:
+                          Use <option>-k<replaceable>r</replaceable></option>
+                          or <option>--funky <replaceable>rotate</replaceable></option></term>
+                      <listitem><para>Randomly rotate each image.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>photoframe</replaceable>:
+                          Use <option>-k<replaceable>f</replaceable></option>
+                          or <option>--funky <replaceable>photoframe</replaceable></option></term>
+                      <listitem><para>Adds a photo-like white frame to each image.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>polaroidframe</replaceable>:
+                          Use <option>-k<replaceable>L</replaceable></option>
+                          or <option>--funky <replaceable>polaroidframe</replaceable></option></term>
+                      <listitem><para>Adds a polaroid picture-like white frame to each image.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>photos</replaceable>:
+                          Use <option>-k<replaceable>c</replaceable></option>
+                          or <option>--funky <replaceable>photos</replaceable></option></term>
+                      <listitem><para>Combination of <replaceable>rotate</replaceable>,
+                              <replaceable>photoframe</replaceable> and <replaceable>overlap</replaceable>.</para>
+                              <para>Same as <option>-kp -kr -ko</option>.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>polaroid</replaceable>:
+                          Use <option>-k<replaceable>p</replaceable></option>
+                          or <option>--funky <replaceable>polaroid</replaceable></option></term>
+                      <listitem><para>Combination of <replaceable>rotate</replaceable>,
+                              <replaceable>polaroidframe</replaceable> and <replaceable>overlap</replaceable>.</para>
+                              <para>Same as <option>-kL -kr -ko</option>.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>film</replaceable>:
+                          Use <option>-k<replaceable>i</replaceable></option>
+                          or <option>--funky <replaceable>film</replaceable></option></term>
+                      <listitem><para>Imitates filmstrip look.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>random</replaceable>:
+                          Use <option>-k<replaceable>x</replaceable></option>
+                          or <option>--funky <replaceable>random</replaceable></option></term>
+                  <listitem><para>Randomises colours and fonts.</para></listitem>
+                  </varlistentry>
+              </variablelist>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>--anonymous</option></term>
+          <listitem>
+              <para>Disable the «Preview created by USERNAME» line in the footer.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-Ij<optional>=<replaceable>FONTNAME</replaceable></optional></option></term>
+          <term><option>-Ik<optional>=<replaceable>FONTNAME</replaceable></optional></option></term>
+          <term><option>--nonlatin</option></term>
+          <listitem>
+              <para>Use an alternate font in the heading for the video file name.</para>
+              <para>Required to display correctly file names in some languages with non-latin
+                  alphabets (Chinese, Japanese, Hangul, Cyrillic, ...).</para>
+              <para>When no font name is given, a reasonable choice will be made if possible.</para>
+              <para>When <replaceable>FONTNAME</replaceable> is given, it can be either
+                  a font name:
+                  <programlisting>$ <command>vcs -Ij=Sazanami-Mincho-Regular <filename>file.avi</filename></command></programlisting>
+                  Or a font file name:
+                  <programlisting>$ <command>vcs -Ij=<filename>/usr/share/fonts/ttf/ttf-japanese-mincho.ttf</filename> <filename>file.avi</filename></command></programlisting>
+              </para>
+              <para>A list of available fonts and their names can be obtained with the command
+                  <command>identify <option>-list font</option></command></para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-O <replaceable>SETTING=VALUE</replaceable></option></term>
+          <term><option>--override <replaceable>SETTING=VALUE</replaceable></option></term>
+          <listitem>
+              <para>Changes the value of SETTING to VALUE,
+                  as if it was set from a configuration file.</para>
+              <para>Some settings can only be changed through configuration files or overrides, while
+                  others have associated command-line options.</para>
+              <para><replaceable>VALUE</replaceable> can be quoted to include spaces:
+                  <programlisting>$ <command>vcs -O SOME_SETTING="my value" <replaceable>...</replaceable></command></programlisting></para>
+              <para><replaceable>VALUE</replaceable> can also refer to some other setting:
+                  <programlisting>$ <command>vcs -O SOME_SETTING='$SOME_OTHER_SETTING' <replaceable>...</replaceable></command></programlisting>
+              </para>
+              <para>See <citerefentry><refentrytitle>vcs.conf</refentrytitle> <manvolnum>5</manvolnum></citerefentry>
+                  and the
+                  <ulink url="http://p.outlyer.net/dox/vcs">online documentation</ulink> for
+                  a list of possible <replaceable>SETTING</replaceable>s.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-W <replaceable>WORKAROUND</replaceable></option></term>
+          <listitem>
+              <para>Enables one of the known workarounds for problematic files, or some tweak:</para>
+              <variablelist id="workarounds">
+                  <varlistentry>
+                      <term><option>-W<replaceable>s</replaceable></option></term>
+                      <listitem><para>Increase length of safe measuring (try harder).</para>
+                          <para>Repeat to increase further.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><option>-W<replaceable>S</replaceable></option></term>
+                      <listitem><para>Scan all video, if required, to get a safe measuring.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><option>-W<replaceable>p</replaceable></option></term>
+                      <listitem><para>Increase safe measuring precission (i.e. halve the probe stepping).</para>
+                          <para>Repeat to increase further.</para>
+                      </listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><option>-W<replaceable>P</replaceable></option></term>
+                      <listitem><para>Inverse of <option>-Wp</option>.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><option>-W<replaceable>o</replaceable></option></term>
+                      <listitem><para>Change ffmpeg's arguments order, might work
+                              with some files that fail otherwise.</para>
+                      </listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><option>-W<replaceable>c</replaceable></option></term>
+                      <listitem><para>Disable colour in console messages.</para></listitem>
+                  </varlistentry>
+              </variablelist>
+          </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="debug_options">
+    <title>DEBUGGING OPTIONS</title>
+    <variablelist>
+      <varlistentry>
+          <term><option>-R <replaceable>FILE</replaceable></option></term>
+          <term><option>--randomsource <replaceable>FILE</replaceable></option></term>
+          <listitem>
+              <para>Use FILE as a source for "random" values.</para>
+              <para>They won't be random anymore, so two runs with the same source and same
+                  arguments will produce the same output in modes which use randomisation
+                  (e.g. the modes triggered by <option>-k <replaceable>photos</replaceable></option>
+                  and <option>-k <replaceable>polaroid</replaceable></option>).
+              </para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-D</option></term>
+          <listitem>
+              <para>Debug mode.</para>
+              <para>Used to test features/integrity. It:</para>
+              <itemizedlist>
+                  <listitem><para>Prints the input command line</para></listitem>
+                  <listitem><para>Sets the title to reflect the command line</para></listitem>
+                  <listitem><para>Does a basic test of consistency</para></listitem>
+                  <listitem><para>Prints a trace of all internal functions as they are called</para></listitem>
+              </itemizedlist>
+              <para>Repeat to just est consistency and exit</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><option>-Z <replaceable>FEATURE</replaceable></option></term>
+          <term><option>--undocumented <replaceable>FEATURE</replaceable></option></term>
+          <listitem>
+              <para>Testbed for experimental and debugging features. Some <replaceable>FEATURE</replaceable>s
+                  might be <emphasis>promoted</emphasis> in the future to actual command-line
+                  options.</para>
+              <para><replaceable>FEATURE</replaceable>s here are rough implementations
+                  and have no error-handling.</para>
+              <para><replaceable>FEATURE</replaceable> names can be added or removed
+                  in every version, silently, so don't rely on them.</para>
+              <para>Useful for end-users:</para>
+              <variablelist>
+                  <varlistentry>
+                      <term><replaceable>idonly</replaceable></term>
+                      <listitem><para>Prints the file probing/identification information and exit.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>display</replaceable></term>
+                      <listitem><para>Display the generated contact sheet.</para></listitem>
+                  </varlistentry>
+                  <varlistentry>
+                      <term><replaceable>discard</replaceable></term>
+                      <listitem><para>Remove the created file on exit.</para></listitem>
+                  </varlistentry>
+              </variablelist>
+          </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
   <refsect1 id="files">
@@ -261,18 +691,6 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
              </citerefentry> for further details.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><filename>${PWD}/vcs.conf</filename></term>
-        <listitem>
-          <para>The per-directory configuration file to control the
-             behaviour of <application>&dhpackage;</application>. See
-             <citerefentry>
-               <refentrytitle>vcs.conf</refentrytitle>
-               <manvolnum>5</manvolnum>
-             </citerefentry> for further details.</para>
-        </listitem>
-      </varlistentry>
-
     </variablelist>
 </refsect1>
   <refsect1 id="interval_format">
@@ -310,7 +728,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <varlistentry>
         <term><envar>TEMPDIR</envar></term>
         <listitem>
-            <para>Fallback temporary directory when <filename>/dev/shm</filename> is not avaiable.
+            <para>Fallback temporary directory when <filename>/dev/shm</filename> is not available.
                 Due to the big size of temporary files, it is recommended to use
                 a temporary directory on a fast filesystem.</para>
         </listitem>
@@ -334,7 +752,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <segtitle>Code</segtitle>
       <segtitle>Diagnostic</segtitle>
       <seglistitem>
-          <seg><errorcode>0</errorcode> (<errorcode>EX_OK</errorcode>)</seg>
+          <seg><errorcode> 0</errorcode> (<errorcode>EX_OK</errorcode>)</seg>
         <seg>Program exited successfully.</seg>
       </seglistitem>
       <seglistitem>

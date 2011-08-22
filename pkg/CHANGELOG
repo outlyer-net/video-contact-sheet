@@ -1,4 +1,5 @@
 1.13:
+    * Complete manual page
     * BUGFIX: Correct extended-set resizing
     * Scheduled code cleanup:
       - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
@@ -9,6 +10,10 @@
       - Add '(h.264)' to ffmpeg video codec id when appropriate
       - Correct "Capturing in range..." message
     * OTHER:
+      - Help rewordings and clarification
+      - Help fixes:
+         - Old DVD mode description was still displayed
+         - Incorrectly had `--jpeg 2' instead of `--jpeg2' or `--jpeg=2'
       - Fix some typos
       - Undocumented options: display, discard
     * INTERNAL:
