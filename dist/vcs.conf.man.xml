@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!--
+$Id: vcs.conf.man.xml 2297 2011-08-23 00:41:30Z toni $
+See vcs.man.xml for comments on docbook+man handling.
+-->
+<!ENTITY firstname "Toni">
+<!ENTITY surname   "Corvera">
+<!ENTITY fullname  "&firstname; &surname;">
+<!ENTITY email     "outlyer@gmail.com">
+<!ENTITY title     "vcs.conf User Manual">
+<!ENTITY package   "vcs.conf">
+<!ENTITY section   "5">
+
+]>
+<refentry>
+    <refentryinfo>
+        <title>&title;</title>
+        <productname>&package;</productname>
+        <author>
+            <firstname>&firstname;</firstname>
+            <surname>&surname;</surname>
+            <contrib>VCS author.</contrib>
+            <address><email>&email;</email></address>
+        </author>
+        <copyright>
+            <year>2007-2011</year>
+            <holder>&fullname;</holder>
+        </copyright>
+        <legalnotice>
+            <para>Permission is granted to copy, distribute and/or modify this
+            document under the terms of the GNU Lesser General Public License,
+            Version 2 or (at your option) any later version published by
+            the Free Software Foundation.</para>
+        </legalnotice>
+        <edition>$Rev: 2297 $</edition>
+    </refentryinfo>
+    <refmeta>
+        <refentrytitle>&package;</refentrytitle>
+        <manvolnum>&section;</manvolnum>
+    </refmeta>
+    <refnamediv>
+        <refname>&package;</refname>
+        <refpurpose>vcs configuration file format</refpurpose>
+    </refnamediv>
+    <refsect1 id="description">
+        <title>DESCRIPTION</title>
+        <para>This manual page describes the format and available settings
+            in configuration and profile files for
+            <citerefentry>
+                <refentrytitle>vcs</refentrytitle>
+                <manvolnum>1</manvolnum>
+            </citerefentry>
+        </para>
+        <para>There's two types of files that follow this syntax:
+            <link linkend="configfiles">configuration files</link>
+            (see <xref linkend="configfiles"/>)
+            and <link linkend="profiles">profiles</link>
+            (see <xref linkend="profiles"/>). They'll be called collectively
+            <emphasis>settings files</emphasis> in this manual page.</para>
+        <para>Configuration files are meant to be loaded by default, intended to
+            set user's preferred options, while
+            profiles are meant to be loaded on-demand, intended to allow
+            different parallel sets of settings.</para>
+    </refsect1><!--/DESCRIPTION-->
+    <refsect1 id="syntax">
+        <title>SYNTAX</title>
+        <para>Settings files contain a series of
+            <replaceable>SETTING</replaceable>=<replaceable>VALUE</replaceable>
+            assignments.
+        </para>
+        <para>Comments can be included by preceding `#' to them.</para>
+        <refsect2 id="metainfo">
+            <title>META-INFORMATION</title>
+            <para>Meta-information fields can be contained in comments.
+                They are written as 'vcs:<replaceable>FIELD</replaceable>:'.</para>
+            <para>Currently supported meta-information fields:</para>
+            <variablelist>
+                <varlistentry>
+                    <term>vcs:conf:</term>
+                    <listitem><para>Marks a file as following this format.</para>
+                        <para>Files without this field will be rejected.</para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term>vcs:desc: <replaceable>DESCRIPTION</replaceable></term>
+                    <listitem><para>Describes this particular file's purporse,
+                            it is shown e.g. when listing available profiles.
+                        </para>
+                        <para>It is currently ignored for configuration files.</para>
+                    </listitem>
+                </varlistentry>
+            </variablelist>
+        </refsect2><!--/META-INFORMATION-->
+        <refsect2 id="syntax-example">
+            <title>SYNTAX EXAMPLE</title>
+            <programlisting># vcs:conf:
+# vcs:desc:  White-on-black
+bg_all=black # Black background
+fg_all=white # White foreground</programlisting>
+        </refsect2><!--/SYNTAX EXAMPLE-->
+    </refsect1><!--/SYNTAX-->
+    <refsect1 id="configfiles">
+        <title>CONFIGURATION FILES</title>
+        <para>There's three configuration files loaded by default if present, in order:</para>
+        <itemizedlist>
+            <listitem><para><filename>/etc/vcs.conf</filename></para></listitem>
+            <listitem><para><filename>${HOME}/.vcs.conf</filename></para></listitem>
+            <listitem><para><filename>${HOME}/vcs/vcs.conf</filename></para></listitem>
+        </itemizedlist>
+        <para>Every file in this list overrides the previous when it
+            re-defines a setting.</para>
+        <para>Configuration files can be loaded manually off of any path by using the
+            <option>--config <replaceable>FILENAME</replaceable></option> option.</para>
+    </refsect1><!--/CONFIGURATION FILES-->
+    <refsect1 id="profiles">
+        <title>PROFILE FILES</title>
+        <para>No profile is loaded by default.</para>
+        <para>Profiles are searched in three possible locations, in order:</para>
+        <itemizedlist id="profile-paths">
+            <listitem><para><filename>${HOME}/.vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename>/usr/local/share/vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename>/usr/share/vcs/profiles/</filename></para></listitem>
+        </itemizedlist>
+        <para>Only the first profile for each name will be considered.
+            Profiles with the same name will be hidden.</para>
+        <para><programlisting>$ <command>vcs --profile :list</command></programlisting>
+            can be used to get a list of available profiles.</para>
+        <para>Profiles can only be loaded from the <link linkend="profile-paths">paths
+                above</link>.</para>
+    </refsect1><!--/PROFILE FILES-->
+    <refsect1 id="settings">
+        <title>SETTINGS</title>
+        <para>TO BE ADDED</para>
+    </refsect1><!--/SETTINGS-->
+</refentry>
+<!-- vim:set ts=4 et: -->

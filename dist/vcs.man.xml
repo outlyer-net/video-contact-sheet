@@ -2,9 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-
 $Id$
-This file based on the default template for debian packages.
 
 Useful Docbook References:
 - Creating DocBook Documents - List of elements
@@ -33,14 +31,7 @@ $ nroff -man vcs.1 | less
 or
 $ man vcs.1
 
-To disable the automatic creation of the AUTHOR(S) and COPYRIGHT sections
-read /usr/share/doc/docbook-xsl/doc/manpages/authors.html. This file can be
-found in the docbook-xsl-doc-html package.
-
-Validation can be done using: `xmllint -''-noout -''-valid manpage.xml`
-
-General documentation about man-pages and man-page-formatting:
-man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
+Validation: xmllint -''-noout -''-valid manpage.xml
 
 -->
   <!ENTITY dhfirstname "Toni">
