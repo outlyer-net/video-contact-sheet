@@ -1,47 +1,44 @@
 #!/usr/bin/make -f
 # $Id$
 
-srcdir=pkg
+srcdir=dist
 VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
 
-all: pkg/vcs.1 pkg/manpage.html pkg/manpage.xhtml
-	@echo "Use $(MAKE) dist"
+ALL=$(addprefix $(srcdir)/,vcs.1 vcs.conf.5 \
+		$(addprefix vcs.man,.html .xhtml) \
+		$(addprefix vcs.conf.man,.html .xhtml) \
+	)
+# Common part of command to convert docbook to man
+DOCBOOK_TO_MAN=xsltproc -o $(srcdir)/ -''-nonet \
+		-''-param man.charmap.use.subset "0" \
+		-''-param make.year.ranges "1" \
+		-''-param make.single.year.ranges "1" \
+		/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
 
-pkg/vcs.1: src/manpage.vcs.xml
-	if type -p xmlto >/dev/null ; then \
-		xmlto -o `dirname $@`/ man $< ; \
-	else \
-		xsltproc -o `dirname $@`/ -''-nonet \
-			-''-param man.charmap.use.subset "0" \
-			-''-param make.year.ranges "1" \
-			-''-param make.single.year.ranges "1" \
-			/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl \
-			$<; \
-	fi
+all: $(ALL)
+	@echo "Use $(MAKE) dist"
 
 # man2html produces output closer to man and better formatted but
 # easily broken while xsltproc produces cleaner, more robust, and
 # cross-referenced output
-pkg/manpage.html: pkg/vcs.1
-	man2html -r $< > $@
-
-pkg/manpage.xhtml: src/manpage.vcs.xml
+$(srcdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
 	xsltproc \
 		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
-		$< > $@
+		"$<" > "$@"
 
-pkg/vcs.conf.5: src/manpage.vcs.conf.xml
-	xsltproc -o `dirname $@`/ -''-nonet \
-			-''-param man.charmap.use.subset "0" \
-			-''-param make.year.ranges "1" \
-			-''-param make.single.year.ranges "1" \
-			/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl \
-			$<; \
+$(srcdir)/vcs.man.html: $(srcdir)/vcs.1
+	man2html -r "$<" > "$@"
 
-pkg/vcs.conf.xhtml: src/manpage.vcs.conf.xml
-	xsltproc \
-		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
-		$< > $@
+$(srcdir)/vcs.conf.man.html: $(srcdir)/vcs.conf.5
+	man2html -r "$<" > "$@"
+
+$(srcdir)/vcs.1: $(srcdir)/vcs.man.xml
+	#xmlto -o `dirname $@`/ man $< 
+	$(DOCBOOK_TO_MAN) "$<"
+
+$(srcdir)/vcs.conf.5: $(srcdir)/vcs.conf.man.xml
+	$(DOCBOOK_TO_MAN) "$<"
+
 
 tgz: vcs-$(VER).tar.gz
 
@@ -107,6 +104,6 @@ rpm: vcs-$(VER).tar.gz
 	test -d ~/RPM/RPMS/noarch && ln -s ~/RPM/RPMS/noarch/vcs-$(VER)-*.rpm . || true
 
 clean:
-	-$(RM) vcs[-_]$(VER)* CHANGELOG*
+	-$(RM) vcs[-_]$(VER)* CHANGELOG* $(ALL)
 
 .PHONY: dist
