@@ -1,6 +1,10 @@
 1.13:
     * Complete manual page
-    * BUGFIX: Correct extended-set resizing
+    * Added 'anonymous' to the list of supported settings
+    * BUGFIXES:
+      - Correct extended-set resizing
+      - Constraint checking of settings failed silently
+        for alias-only names
     * Scheduled code cleanup:
       - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
         shoehorned and safe_rename_pattern
@@ -20,6 +24,7 @@
     * INTERNAL:
       - Check ImageMagick through convert instead of identify
       - Don't run filters in subshells
+      - Debugging facility: --undocumented trace=funcname added
       - Bugfix: Actually use passed timestamp in filt_apply_timestamp()
       - Bugfix: Don't accept --shoehorn (was deprecated and unhandled)
 

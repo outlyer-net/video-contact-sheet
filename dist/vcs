@@ -237,6 +237,9 @@ declare -i PADDING=2
 declare -i COLUMNS=$DEFAULT_COLUMNS       # Number of output columns
 # This amount of time is *not* captured from the end of the video
 declare END_OFFSET=$DEFAULT_END_OFFSET
+# When set to 1 the signature won't contain the "Preview created by..." line
+declare -i ANONYMOUS_MODE=0
+
 # }}} # End of override-able variables
 
 # {{{ # Variables
@@ -312,9 +315,6 @@ declare CAPTURES=
 
 # Gravity of the timestamp (will be override-able in the future)
 declare grav_timestamp=SouthEast
-
-# When set to 1 the signature won't contain the "Preview created by..." line
-declare -i anonymous_mode=0
 
 # Sets which function is used to obtain random numbers valid values are
 # bashrand and filerand.
@@ -440,6 +440,11 @@ RESULT=''
 FILMSTRIP= # Filename of the sprocket-holes strip image
 FILMSTRIP_HOLE_HEIGHT= # Height of an individual hole
 
+# Set by -Z trace=<FILTER>, where <FILTER> is regex to reduce the trace
+# verbosity. Only function names that match it will be printed.
+# 'grep -p' will be used to match
+INTERNAL_TRACE_FILTER=
+
 # }}} # Variables
 
 # {{{ # Configuration handling
@@ -556,6 +561,8 @@ declare -ra OVERRIDE_MAP=(
 
 	"PADDING:=:=:n"
 	"HPAD:PADDING:deprecated=PADDING:n"
+
+	"ANONYMOUS:ANONYMOUS_MODE:=:b"
 
 	"NONLATIN_FONT::"
 	"FONT_MINCHO:NONLATIN_FONT:deprecated=NONLATIN_FONT"
@@ -700,9 +707,15 @@ load_profile() {
 # check_constraint($1 = variable name, $2 = value [, $3 = public_name])
 #  where public_name is the name to be used for error messages
 check_constraint() {
+	trace $@
 	local n=$1 v=$2 p=$3
-	# Get constraint
-	local map=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$n:")
+	# Get constraint...
+	local needle=$n
+	#   ... use the public name to search UNLESS it is a command-line option
+	if [[ ( -n $p ) && ! ( $p =~ ^- ) ]]; then
+		needle=$p
+	fi
+	local map=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$needle:")
 	[[ $map ]] || return 0
 	local ct=$(cut -d':' -f4 <<<"$map")
 	[[ $ct ]] || return 0
@@ -726,8 +739,8 @@ check_constraint() {
 				;;
 			esac
 	esac
-	if [[ $checkfn ]] && ! $checkfn "$v" ; then
-		[[ $p ]] || p=$n
+	if [[ -n $checkfn ]] && ! $checkfn "$v" ; then
+		[[ -n $p ]] || p=$n
 		ERROR_MSG="Illegal value for '$p', only $domain are accepted"
 		ERROR_CODE=$EX_USAGE
 		return $ERROR_CODE
@@ -1600,7 +1613,13 @@ flush_buffered() {
 # trace(... = function arguments)
 trace() {
 	[[ $DEBUG -eq 1 ]] || return 0
-	echo "[TRACE]: $(caller 0 | cut -d' ' -f2) $*" >&2
+	local func=$(caller 0 | cut -d' ' -f2) # caller: <LINE>< ><FUNCTION>< ><FILE>
+	if [[ -n $INTERNAL_TRACE_FILTER ]]; then
+		if ! grep -Pq "$INTERNAL_TRACE_FILTER" <<<"$func" ; then
+			return 0
+		fi
+	fi
+	echo "[TRACE]: $func $*" >&2
 }
 
 # Print an error message and exit
@@ -3728,7 +3747,7 @@ process() {
 	local meta2="Dimensions: ${VID[$W]}x${VID[$H]}"
 	meta2="$meta2${NL}Format: $vcodec / $acodec${NL}FPS: ${VID[$FPS]}"
 	local signature
-	if [[ $anonymous_mode -eq 0 ]]; then
+	if [[ $ANONYMOUS_MODE -eq 0 ]]; then
 		signature="$SIGNATURE $USERNAME${NL}with $PROGRAM_SIGNATURE"
 	else
 		signature="Created with $PROGRAM_SIGNATURE"
@@ -4362,7 +4381,8 @@ while true ; do
 						error "    to sign as My Name. Got -U$2"
 						exit $EX_USAGE
 					fi
-					anonymous_mode=1
+					ANONYMOUS_MODE=1
+					USR_ANONYMOUS_MODE=1
 				fi
 				shift
 			else # No argument, default handling (try to guess real name)
@@ -4379,7 +4399,7 @@ while true ; do
 				unset idname
 			fi
 			;;
-		--anonymous) anonymous_mode=1 ;; # Same as -U0
+		--anonymous) ANONYMOUS_MODE=1 ; USR_ANONYMOUS_MODE=1 ;; # Same as -U0
 		-T|--title) TITLE="$2" ; USR_TITLE="$2" ; shift ;;
 		-f|--from)
 			if ! FROMTIME=$(get_interval "$2") ; then
@@ -4805,6 +4825,11 @@ while true ; do
 				debug)
 					warn "[U] debug"
 					DEBUG=1
+					;;
+				trace=*) # (Implies 'debug'), traces a particular function name
+					INTERNAL_TRACE_FILTER=$(cut -d'=' -f2 <<<"$2")
+					DEBUG=1
+					warn "[U] debug, tracing '$INTERNAL_TRACE_FILTER'"
 					;;
 				# Dump user-set variables and exit [since 1.12]
 				uservars)
