@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2297 2011-08-23 00:41:30Z toni $
+$Id: vcs.conf.man.xml 2302 2011-08-24 03:05:03Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -12,8 +12,32 @@ See vcs.man.xml for comments on docbook+man handling.
 <!ENTITY title     "vcs.conf User Manual">
 <!ENTITY package   "vcs.conf">
 <!ENTITY section   "5">
+<!ENTITY emdash    "&#x2014;">
 
-]>
+<!--
+XInclude trickery
+
+This voodoo is only required for the file to validate, it can be used
+by e.g. xsltproc without all of this
+
+Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
+-->
+<!-- Define the xi:include and xi:fallback elements -->
+<!ELEMENT xi:include (xi:fallback?) >
+<!ATTLIST xi:include
+    xmlns:xi   CDATA       #FIXED    "http://www.w3.org/2001/XInclude"
+    href       CDATA       #IMPLIED
+    parse      (xml|text)  "xml"
+    xpointer   CDATA       #IMPLIED
+    encoding   CDATA       #IMPLIED 
+    accept     CDATA       #IMPLIED
+    accept-language CDATA  #IMPLIED >
+<!ELEMENT xi:fallback ANY>
+<!ATTLIST xi:fallback
+    xmlns:xi   CDATA   #FIXED   "http://www.w3.org/2001/XInclude" >
+<!-- Add xi:include to the list of possible children of refsect1 -->
+<!ENTITY % local.refcomponent.mix "| xi:include">
+]><!--/!DOCTYPE-->
 <refentry>
     <refentryinfo>
         <title>&title;</title>
@@ -34,7 +58,7 @@ See vcs.man.xml for comments on docbook+man handling.
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <edition>$Rev: 2297 $</edition>
+        <edition>$Rev: 2302 $</edition>
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -70,21 +94,21 @@ See vcs.man.xml for comments on docbook+man handling.
             <replaceable>SETTING</replaceable>=<replaceable>VALUE</replaceable>
             assignments.
         </para>
-        <para>Comments can be included by preceding `#' to them.</para>
+        <para>Comments can be included by preceding `<literal>#</literal>' to them.</para>
         <refsect2 id="metainfo">
             <title>META-INFORMATION</title>
             <para>Meta-information fields can be contained in comments.
-                They are written as 'vcs:<replaceable>FIELD</replaceable>:'.</para>
+                They are written as '<literal>vcs:<replaceable>FIELDNAME</replaceable>:</literal>'.</para>
             <para>Currently supported meta-information fields:</para>
             <variablelist>
                 <varlistentry>
-                    <term>vcs:conf:</term>
+                    <term><literal>vcs:conf:</literal></term>
                     <listitem><para>Marks a file as following this format.</para>
                         <para>Files without this field will be rejected.</para>
                     </listitem>
                 </varlistentry>
                 <varlistentry>
-                    <term>vcs:desc: <replaceable>DESCRIPTION</replaceable></term>
+                    <term><literal>vcs:desc:</literal> <replaceable>DESCRIPTION</replaceable></term>
                     <listitem><para>Describes this particular file's purporse,
                             it is shown e.g. when listing available profiles.
                         </para>
@@ -125,14 +149,17 @@ fg_all=white # White foreground</programlisting>
         </itemizedlist>
         <para>Only the first profile for each name will be considered.
             Profiles with the same name will be hidden.</para>
-        <para><programlisting>$ <command>vcs --profile :list</command></programlisting>
-            can be used to get a list of available profiles.</para>
-        <para>Profiles can only be loaded from the <link linkend="profile-paths">paths
-                above</link>.</para>
+        <para><literal>$ <command>vcs --profile :list</command></literal></para>
+        <para>can be used to get a list of available profiles.</para>
+        <para>Profiles can only be loaded from the <link linkend="profile-paths">listed
+                paths</link>.</para>
     </refsect1><!--/PROFILE FILES-->
     <refsect1 id="settings">
         <title>SETTINGS</title>
-        <para>TO BE ADDED</para>
+        <xi:include
+            xmlns:xi="http://www.w3.org/2001/XInclude"
+            href="mansrc/settings.man.inc.xml" />
     </refsect1><!--/SETTINGS-->
 </refentry>
 <!-- vim:set ts=4 et: -->
+

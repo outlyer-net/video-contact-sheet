@@ -9,22 +9,31 @@ ALL=$(addprefix $(srcdir)/,vcs.1 vcs.conf.5 \
 		$(addprefix vcs.conf.man,.html .xhtml) \
 	)
 # Common part of command to convert docbook to man
-DOCBOOK_TO_MAN=xsltproc -o $(srcdir)/ -''-nonet \
-		-''-param man.charmap.use.subset "0" \
-		-''-param make.year.ranges "1" \
-		-''-param make.single.year.ranges "1" \
+DOCBOOK_TO_MAN=xsltproc -o $(srcdir)/ -nonet \
+		--xinclude \
+		-param man.charmap.use.subset "0" \
+		-param make.year.ranges "1" \
+		-param make.single.year.ranges "1" \
 		/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
 
 all: $(ALL)
-	@echo "Use $(MAKE) dist"
+	@echo "Use $(MAKE) dist to create the actual distribution files"
 
 # man2html produces output closer to man and better formatted but
 # easily broken while xsltproc produces cleaner, more robust, and
 # cross-referenced output
 $(srcdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
-	xsltproc \
+	xsltproc -nonet \
+		--xinclude \
+		-param man.charmap.use.subset "0" \
+		-param make.year.ranges "1" \
+		-param make.single.year.ranges "1" \
 		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
 		"$<" > "$@"
+
+# Check all XML files for validity
+xmllint:
+	find . -type f -name '*.xml' -print0 | xargs -0 xmllint --xinclude -noout --valid
 
 $(srcdir)/vcs.man.html: $(srcdir)/vcs.1
 	man2html -r "$<" > "$@"
@@ -69,6 +78,10 @@ dist: check-rel check-no-svn \
 		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
 		CHANGELOG.gz CHANGELOG \
 		rpm deb
+
+# This shouldn't be re-built
+dist/mansrc/settings.man.inc.xml:
+	cd dist/mansrc && $(MAKE)
 
 PKGBUILD-$(VER): vcs-$(VER).tar.gz
 	cd pkg && ln -s ../vcs-$(VER).tar.gz ./

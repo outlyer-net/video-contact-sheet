@@ -525,11 +525,10 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                   alphabets (Chinese, Japanese, Hangul, Cyrillic, ...).</para>
               <para>When no font name is given, a reasonable choice will be made if possible.</para>
               <para>When <replaceable>FONTNAME</replaceable> is given, it can be either
-                  a font name:
-                  <programlisting>$ <command>vcs -Ij=Sazanami-Mincho-Regular <filename>file.avi</filename></command></programlisting>
-                  Or a font file name:
-                  <programlisting>$ <command>vcs -Ij=<filename>/usr/share/fonts/ttf/ttf-japanese-mincho.ttf</filename> <filename>file.avi</filename></command></programlisting>
-              </para>
+                  a font name:</para>
+              <para><literal>$ <command>vcs -Ij=Sazanami-Mincho-Regular <filename>file.avi</filename></command></literal></para>
+              <para>Or a font file name:</para>
+              <para><literal>$ <command>vcs -Ij=<filename>/usr/share/fonts/ttf/ttf-japanese-mincho.ttf</filename> <filename>file.avi</filename></command></literal></para>
               <para>A list of available fonts and their names can be obtained with the command
                   <command>identify <option>-list font</option></command></para>
           </listitem>
@@ -542,11 +541,10 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                   as if it was set from a configuration file.</para>
               <para>Some settings can only be changed through configuration files or overrides, while
                   others have associated command-line options.</para>
-              <para><replaceable>VALUE</replaceable> can be quoted to include spaces:
-                  <programlisting>$ <command>vcs -O SOME_SETTING="my value" <replaceable>...</replaceable></command></programlisting></para>
-              <para><replaceable>VALUE</replaceable> can also refer to some other setting:
-                  <programlisting>$ <command>vcs -O SOME_SETTING='$SOME_OTHER_SETTING' <replaceable>...</replaceable></command></programlisting>
-              </para>
+              <para><replaceable>VALUE</replaceable> can be quoted to include spaces:</para>
+              <para><literal>$ <command>vcs -O SOME_SETTING="my value" <replaceable>...</replaceable></command></literal></para>
+              <para><replaceable>VALUE</replaceable> can also refer to some other setting:</para>
+              <para><literal>$ <command>vcs -O SOME_SETTING='$SOME_OTHER_SETTING' <replaceable>...</replaceable></command></literal></para>
               <para>See <citerefentry><refentrytitle>vcs.conf</refentrytitle> <manvolnum>5</manvolnum></citerefentry>
                   and the
                   <ulink url="http://p.outlyer.net/dox/vcs">online documentation</ulink> for
