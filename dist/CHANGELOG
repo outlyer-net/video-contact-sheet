@@ -9,6 +9,7 @@
     * COSMETIC:
       - Add '(h.264)' to ffmpeg video codec id when appropriate
       - Correct "Capturing in range..." message
+      - Refer to configuration variables as "settings"
     * OTHER:
       - Help rewordings and clarification
       - Help fixes:
