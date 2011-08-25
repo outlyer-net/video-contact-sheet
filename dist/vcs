@@ -64,11 +64,16 @@ export LC_NUMERIC=C
 # * Change default DVD_TITLE to 0
 # * Deprecation schedule:
 #     DEPRECATED FROM | EXPECTED REMOVAL | DESCRIPTION
-#       1.12              1.14             New setting names introduced in 1.12
-#                                          In 1.13 the new names start to be used internally
+#   ------------------|------------------|------------------------------------------------------
+#       1.12              1.14             Old names for settings renamed in 1.12.
+#                                           output_format, plain_messages, th_height,
+#                                           hpad, font_mincho
+#                                          In 1.13 the new names start to be used internally.
+#   --------------------------------------------------------------------------------------------
 #       1.13              1.14             --end_offset  -> --end-offset
 #       1.13              1.14             auto-loading ./vcs.conf (lesser version of profiles)
 #                                             -C :pwd will stay
+#   --------------------------------------------------------------------------------------------
 #          ?               ?+1             --funky       -> --profile
 # * Variables cleanup:
 #   Variables will use a more uniform scheme, with prefixes where appropriate:
@@ -536,10 +541,10 @@ declare -ra OVERRIDE_MAP=(
 	"PTS_FOOTER:PTS_SIGN:alias"
 
 	"SIGNATURE:=:"
-	"USER_SIGNATURE:SIGNATURE:deprecated=SIGNATURE"
+	"USER_SIGNATURE:SIGNATURE:deprecated=SIGNATURE" # Deprecated since 1.12
 
 	"QUALITY:=:=:n"
-	"OUTPUT_QUALITY:QUALITY:deprecated=QUALITY:n"
+	"OUTPUT_QUALITY:QUALITY:deprecated=QUALITY:n" # Deprecated since 1.12
 
 	# TODO: These variables are evaluated to constants, would be better to
 	#       use some symbolic system (e.g. decoder=f instead of decoder=$DEC_FFMPEG)
@@ -547,36 +552,36 @@ declare -ra OVERRIDE_MAP=(
 	#"capture_mode:TIMECODE_FROM:alias:T"
 	"TIMECODE_FROM:=:=:T"
 	"VERBOSITY:=:=:V"
+	"SIMPLE_FEEDBACK:=:=:b"
 	"preferred_capturer:=:=:x"
 	"capturer:preferred_capturer:=:x"
 
-	"FORMAT::"
-	"OUTPUT_FORMAT:FORMAT:deprecated=FORMAT"
-
-	"SIMPLE_FEEDBACK:=:=:b"
-	"PLAIN_MESSAGES:SIMPLE_FEEDBACK:deprecated=SIMPLE_FEEDBACK:b"
-
 	"HEIGHT:=:=:h"
-	"TH_HEIGHT:HEIGHT:deprecated=HEIGHT:h"
-
 	"PADDING:=:=:n"
-	"HPAD:PADDING:deprecated=PADDING:n"
+	"NONLATIN_FONT::"
+	"NONLATIN_FILENAMES:=:=:b"
 
 	"ANONYMOUS:ANONYMOUS_MODE:=:b"
 
-	"NONLATIN_FONT::"
-	"FONT_MINCHO:NONLATIN_FONT:deprecated=NONLATIN_FONT"
-	"NONLATIN_FILENAMES:=:=:b"
+	"FORMAT::"
 
 	"END_OFFSET:=:=:I" # New, used to have a two-variables assignment before USR_*
 
 	# TODO TBA:
 	#"noboldfeedback::" # Colour but not bold
 
-	"MIN_LENGTH_FOR_END_OFFSET::gone:"  # Gone since 1.12
-	"SHOEHORNED::gone"                  # Gone since 1.13
-	"SAFE_RENAME_PATTERN::gone"         # Gone since 1.13
-	"DEFAULT_END_OFFSET::gone:"         # Gone since 1.13
+	# Deprecations, all these since 1.12
+	"OUTPUT_FORMAT:FORMAT:deprecated=FORMAT"
+	"PLAIN_MESSAGES:SIMPLE_FEEDBACK:deprecated=SIMPLE_FEEDBACK:b"
+	"TH_HEIGHT:HEIGHT:deprecated=HEIGHT:h"
+	"HPAD:PADDING:deprecated=PADDING:n"
+	"FONT_MINCHO:NONLATIN_FONT:deprecated=NONLATIN_FONT"
+	# Gone. Since 1.12
+	"MIN_LENGTH_FOR_END_OFFSET::gone:"
+	# Gone. Since 1.13
+	"SHOEHORNED::gone"
+	"SAFE_RENAME_PATTERN::gone"
+	"DEFAULT_END_OFFSET::gone:"
 )
 
 # Load a configuration file
