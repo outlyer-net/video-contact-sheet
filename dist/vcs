@@ -124,7 +124,7 @@ declare -r PROGRAM_SIGNATURE="Video Contact Sheet *NIX ${VERSION} <http://p.outl
 # Will first try %b.%e, then %b-1.%e, %b-2.%e and so on, i.e.
 #+creates outputs like "output.avi-1.png"
 declare -r SAFE_RENAME_PATTERN="%b-%N.%e"
-# see $extended_factor
+# see $EXTENDED_FACTOR
 declare -ri DEFAULT_EXT_FACTOR=4
 # see $VERBOSITY
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
@@ -173,34 +173,34 @@ declare FORMAT=png     # ImageMagick decides the type from the extension
 declare -i QUALITY=92  # Output image quality (only affects the final
                               # image and obviously only in lossy formats)
 # Colours, see convert -list color to get the list
-declare bg_heading='#afcd7a'    # Background for meta info (size, codec...)
-declare bg_sign=SlateGray #'#a2a9af'       # Background for signature
-declare bg_title=White          # Background for the title (see -T)
-declare bg_contact=White        # Background for the captures
-declare bg_tstamps='#000000aa'  # Background for the timestamps box
-declare fg_heading=Black        # Font colour for meta info box
-declare fg_sign=Black           # Font colour for signature
-declare fg_tstamps=White        # Font colour for timestamps
-declare fg_title=Black          # Font colour for the title
+declare BG_HEADING='#afcd7a'    # Background for meta info (size, codec...)
+declare BG_SIGN=SlateGray #'#a2a9af'       # Background for signature
+declare BG_TITLE=White          # Background for the title (see -T)
+declare BG_CONTACT=White        # Background for the captures
+declare BG_TSTAMPS='#000000aa'  # Background for the timestamps box
+declare FG_HEADING=Black        # Font colour for meta info box
+declare FG_SIGN=Black           # Font colour for signature
+declare FG_TSTAMPS=White        # Font colour for timestamps
+declare FG_TITLE=Black          # Font colour for the title
 # Fonts, use identify -list font to get the list, up to IM 6.3.5-7 was '-list type' [[IM1]]
 # If a font is not available IM will pick a sane default. In theory it will be silent
 # although in practice it prints an error
-declare font_tstamps=DejaVu-Sans-Book  # Used for timestamps over the thumbnails
-declare font_heading=DejaVu-Sans-Book  # Used for the meta info heading
-declare font_sign=$font_heading # Used for the signature box
-declare font_title=$font_heading # Used for the title (see -T)
+declare FONT_TSTAMPS=DejaVu-Sans-Book  # Used for timestamps over the thumbnails
+declare FONT_HEADING=DejaVu-Sans-Book  # Used for the meta info heading
+declare FONT_SIGN=$FONT_HEADING # Used for the signature box
+declare FONT_TITLE=$FONT_HEADING # Used for the title (see -T)
 # Font sizes, in points
-declare -i pts_tstamps=14          # Used for the timestamps
-declare -i pts_meta=14             # Used for the meta info heading
-declare -i pts_sign=10             # Used for the signature
-declare -i pts_title=33            # Used for the title (see -T)
+declare -i PTS_TSTAMPS=14          # Used for the timestamps
+declare -i PTS_META=14             # Used for the meta info heading
+declare -i PTS_SIGN=10             # Used for the signature
+declare -i PTS_TITLE=33            # Used for the title (see -T)
 # See -E / $END_OFFSET
 declare -r DEFAULT_END_OFFSET="5.5%"
 # Controls how many extra captures will be created in the extended mode
 # (see -e), 0 is the same as disabling the extended mode
 # This number is multiplied by the total number of captures to get
 # the number of extra captures. So, e.g. -n2 -e2 leads to 4 extra captures.
-declare extended_factor=0
+declare EXTENDED_FACTOR=0
 # Verbosity level so far from the command line can only be muted (see -q)
 # it can be overridden, though
 declare -i VERBOSITY=$V_ALL
@@ -483,8 +483,8 @@ INTERNAL_TRACE_FILTER=
 # TODO: Allow 'y', 'n' in booleans
 # TODO: Remove extra coherence_check()'s once constraints are implemented
 declare -ra OVERRIDE_MAP=(
-	"user:USERNAME::"
-	"extended_factor:=:=:f"
+	"USER:USERNAME::"
+	"EXTENDED_FACTOR:=:=:f"
 	"STDOUT::"
 	"STDERR::"
 	"DEBUG:=:=:b"
@@ -498,42 +498,42 @@ declare -ra OVERRIDE_MAP=(
 	"DISABLE_SHADOWS:=:=:b"
 	"DISABLE_TIMESTAMPS:=:=:b"
 
-	"bg_heading::"
-	"bg_sign::"
-	"bg_title::"
-	"bg_contact::"
-	"bg_tstamps::"
-	"fg_heading::"
-	"fg_sign::"
-	"fg_tstamps::"
-	"fg_title::"
-	"font_heading::"
-	"font_sign::"
-	"font_tstamps::"
-	"font_title::"
-	"font_all:=:meta" # see parse_override
-	"bg_all:=:meta"
-	"fg_all:=:meta"
-	"pts_tstamps::"
-	"pts_meta::"
-	"pts_sign::"
-	"pts_title::"
+	"BG_HEADING::"
+	"BG_SIGN::"
+	"BG_TITLE::"
+	"BG_CONTACT::"
+	"BG_TSTAMPS::"
+	"FG_HEADING::"
+	"FG_SIGN::"
+	"FG_TSTAMPS::"
+	"FG_TITLE::"
+	"FONT_HEADING::"
+	"FONT_SIGN::"
+	"FONT_TSTAMPS::"
+	"FONT_TITLE::"
+	"FONT_ALL:=:meta" # see parse_override
+	"BG_ALL:=:meta"
+	"FG_ALL:=:meta"
+	"PTS_TSTAMPS::"
+	"PTS_META::"
+	"PTS_SIGN::"
+	"PTS_TITLE::"
 	# Aliases for cosmetic stuff
-	"bg_header:bg_heading:alias"
-	"bg_signature:bg_sign:alias"
-	"bg_footer:bg_sign:alias"
-	"bg_sheet:bg_contact:alias"
-	"fg_header:fg_heading:alias"
-	"fg_signature:fg_sign:alias"
-	"fg_footer:fg_sign:alias"
-	"font_header:font_heading:alias"
-	"font_meta:font_heading:alias"
-	"font_signature:font_sign:alias"
-	"font_footer:font_sign:alias"
-	"pts_heading:pts_meta:alias"
-	"pts_header:pts_meta:alias"
-	"pts_signature:pts_sign:alias"
-	"pts_footer:pts_sign:alias"
+	"BG_HEADER:BG_HEADING:alias"
+	"BG_SIGNATURE:BG_SIGN:alias"
+	"BG_FOOTER:BG_SIGN:alias"
+	"BG_SHEET:BG_CONTACT:alias"
+	"FG_HEADER:FG_HEADING:alias"
+	"FG_SIGNATURE:FG_SIGN:alias"
+	"FG_FOOTER:FG_SIGN:alias"
+	"FONT_HEADER:FONT_HEADING:alias"
+	"FONT_META:FONT_HEADING:alias"
+	"FONT_SIGNATURE:FONT_SIGN:alias"
+	"FONT_FOOTER:FONT_SIGN:alias"
+	"PTS_HEADING:PTS_META:alias"
+	"PTS_HEADER:PTS_META:alias"
+	"PTS_SIGNATURE:PTS_SIGN:alias"
+	"PTS_FOOTER:PTS_SIGN:alias"
 
 	"SIGNATURE:=:"
 	"USER_SIGNATURE:SIGNATURE:deprecated=SIGNATURE"
@@ -629,7 +629,7 @@ load_config() {
 	local -a CONFIGS=( /etc/vcs.conf ~/.vcs.conf ~/.vcs/vcs.conf ./vcs.conf )
 
 	for cfgfile in "${CONFIGS[@]}" ;do
-		[[ -f "$cfgfile" ]] || continue
+		[[ -f $cfgfile ]] || continue
 		load_config_file "$cfgfile"
 	done
 	if [[ -f "./vcs.conf" ]]; then
@@ -855,28 +855,29 @@ parse_override() {
 # value of (various) others
 # apply_meta_override($1 = actual variable name, $2 = value)
 apply_meta_override() {
-	case "$1" in
+	trace $@
+	case "$(tolower "$1")" in
 		font_all)
 			buffered inf "font_all => font_heading, font_sign, font_title, font_tstamps"
-			parse_override "font_heading=$2"
-			parse_override "font_sign=$2"
-			parse_override "font_title=$2"
-			parse_override "font_tstamps=$2"
+			parse_override "FONT_HEADING=$2"
+			parse_override "FONT_SIGN=$2"
+			parse_override "FONT_TITLE=$2"
+			parse_override "FONT_TSTAMPS=$2"
 		;;
 		fg_all)
 			buffered inf "fg_all => fg_heading, fg_sign, fg_title, fg_tstamps"
-			parse_override "fg_heading=$2"
-			parse_override "fg_sign=$2"
-			parse_override "fg_tstamps=$2"
-			parse_override "fg_title=$2"
+			parse_override "FG_HEADING=$2"
+			parse_override "FG_SIGN=$2"
+			parse_override "FG_TSTAMPS=$2"
+			parse_override "FG_TITLE=$2"
 		;;
 		bg_all)
 			buffered inf "bg_all => bg_heading, bg_contact, bg_sign, bg_title, bg_tstamps"
-			parse_override "bg_heading=$2"
-			parse_override "bg_contact=$2"
-			parse_override "bg_sign=$2"
-			parse_override "bg_title=$2"
-			parse_override "bg_tstamps=$2"
+			parse_override "BG_HEADING=$2"
+			parse_override "BG_CONTACT=$2"
+			parse_override "BG_SIGN=$2"
+			parse_override "BG_TITLE=$2"
+			parse_override "BG_TSTAMPS=$2"
 		;;
 	esac
 }
@@ -2146,34 +2147,34 @@ randomize_look() {
 		convert -list font | grep -o 'Font:.*' | sed -n "${lineno}{p;q;}" | cut -d' ' -f2
 	}
 
-	bg_heading=$(randcolour)
-	bg_sign=$(randcolour)
-	bg_title=$(randcolour)
-	bg_contact=$(randcolour)
-	fg_heading=$(randcolour)
-	fg_sign=$(randcolour)
-	fg_tstamps=$(randcolour)
-	fg_title=$(randcolour)
-	font_tstamps=$(randfont)
-	font_heading=$(randfont)
-	font_sign=$(randfont)
-	font_title=$(randfont)
+	BG_HEADING=$(randcolour)
+	BG_SIGN=$(randcolour)
+	BG_TITLE=$(randcolour)
+	BG_CONTACT=$(randcolour)
+	FG_HEADING=$(randcolour)
+	FG_SIGN=$(randcolour)
+	FG_TSTAMPS=$(randcolour)
+	FG_TITLE=$(randcolour)
+	FONT_TSTAMPS=$(randfont)
+	FONT_HEADING=$(randfont)
+	FONT_SIGN=$(randfont)
+	FONT_TITLE=$(randfont)
 	inf "Randomisation result:
  Chosen backgrounds:
-   '$bg_heading' for the heading
-   '$bg_sign' for the signature
-   '$bg_title' for the title
-   '$bg_contact' for the contact sheet
+   '$BG_HEADING' for the heading
+   '$BG_SIGN' for the signature
+   '$BG_TITLE' for the title
+   '$BG_CONTACT' for the contact sheet
  Chosen font colours:
-   '$fg_heading' for the heading
-   '$fg_sign' for the signature
-   '$fg_title' for the title
-   '$fg_tstamps' for the timestamps,
+   '$FG_HEADING' for the heading
+   '$FG_SIGN' for the signature
+   '$FG_TITLE' for the title
+   '$FG_TSTAMPS' for the timestamps,
  Chosen fonts:
-   '$font_heading' for the heading
-   '$font_sign' for the signature
-   '$font_title' for the title
-   '$font_tstamps' for the timestamps"
+   '$FONT_HEADING' for the heading
+   '$FONT_SIGN' for the signature
+   '$FONT_TITLE' for the title
+   '$FONT_TSTAMPS' for the timestamps"
 
    unset -f randcolour randfound randccomp
 }
@@ -2437,11 +2438,11 @@ filt_apply_stamp() {
 	trace $@
 	local filename=$1 timestamp=$2 width=$3 height=$4 context=$5 index=$6
 
-	local pts=$pts_tstamps
+	local pts=$PTS_TSTAMPS
 	if [[ $height -lt 200 ]]; then
-		pts=$(( $pts_tstamps / 3 ))
+		pts=$(( $PTS_TSTAMPS / 3 ))
 	elif [[ $height -lt 400 ]]; then
-		pts=$(( $pts_tstamps * 2 / 3 ))
+		pts=$(( $PTS_TSTAMPS * 2 / 3 ))
 	fi
 	# If the size is too small they won't be readable at all
 	# With the original font 8 was the minimum, with DejaVu 7 is readable
@@ -2453,8 +2454,8 @@ filt_apply_stamp() {
 	fi
 	# The last -gravity None is used to "forget" the previous gravity (otherwise it would
 	# affect stuff like the polaroid frames)
-	RESULT=" \( -box '$bg_tstamps' -fill '$fg_tstamps' -stroke none -pointsize '$pts' "
-	RESULT+="    -gravity '$grav_timestamp' -font '$font_tstamps' -strokewidth 3 -annotate +5+5 "
+	RESULT=" \( -box '$BG_TSTAMPS' -fill '$FG_TSTAMPS' -stroke none -pointsize '$pts' "
+	RESULT+="    -gravity '$grav_timestamp' -font '$FONT_TSTAMPS' -strokewidth 3 -annotate +5+5 "
 	RESULT+="    ' $timestamp ' \) -flatten -gravity None "
 }
 
@@ -3297,8 +3298,8 @@ coherence_check() {
 	fi
 
 	# In case it's 0/0 or 0.0 since they aren't rejected
-	if fptest "$extended_factor" -eq 0 ; then
-		extended_factor=0
+	if fptest "$EXTENDED_FACTOR" -eq 0 ; then
+		EXTENDED_FACTOR=0
 	fi
 
 	if [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
@@ -3363,7 +3364,7 @@ coherence_check() {
 			# set_extended_font already warns about lack of fonts
 			warn "    Falling back to latin font"
 			NONLATIN_FILENAMES=0
-			NONLATIN_FONT="$font_heading"
+			NONLATIN_FONT="$FONT_HEADING"
 		}
 	fi
 
@@ -3376,15 +3377,15 @@ sanitise_fonts() {
 	trace $@
 
 	# Any default font in use? If all of them are overridden, return
-	if [[ $USR_font_heading && $USR_font_title && \
-			$USR_font_tstamps && $USR_font_sign ]]; then
+	if [[ $USR_FONT_HEADING && $USR_FONT_TITLE && \
+			$USR_FONT_TSTAMPS && $USR_FONT_SIGN ]]; then
 		return
 	fi
 	# If the user edits any font in the script, stop messing with this
-	[[ ( -z $USR_font_heading ) && ( $font_heading != 'DejaVu-Sans-Book' ) ]] && return
-	[[ ( -z $USR_font_title ) && ( $font_title != 'DejaVu-Sans-Book' ) ]] && return
-	[[ ( -z $USR_font_tstamps ) && ( $font_tstamps != 'DejaVu-Sans-Book' ) ]] && return
-	[[ ( -z $USR_font_sign ) && ( $font_sign != 'DejaVu-Sans-Book' ) ]] && return
+	[[ ( -z $USR_FONT_HEADING ) && ( $FONT_HEADING != 'DejaVu-Sans-Book' ) ]] && return
+	[[ ( -z $USR_FONT_TITLE ) && ( $FONT_TITLE != 'DejaVu-Sans-Book' ) ]] && return
+	[[ ( -z $USR_FONT_TSTAMPS ) && ( $FONT_TSTAMPS != 'DejaVu-Sans-Book' ) ]] && return
+	[[ ( -z $USR_FONT_SIGN ) && ( $FONT_SIGN != 'DejaVu-Sans-Book' ) ]] && return
 	# Try to locate DejaVu Sans
 	local dvs=''
 	if [[ -d /usr/local/share/fonts ]]; then
@@ -3397,17 +3398,17 @@ sanitise_fonts() {
 		warn "Unable to locate DejaVu Sans font. Falling back to helvetica."
 		dvs=helvetica
 	fi
-	[[ -z $USR_font_heading ]] && font_heading="$dvs"
-	[[ -z $USR_font_title ]] && font_title="$dvs"
-	[[ -z $USR_font_tstamps ]] && font_tstamps="$dvs"
-	[[ -z $USR_font_sign ]] && font_sign="$dvs"
+	[[ -z $USR_FONT_HEADING ]] && FONT_HEADING="$dvs"
+	[[ -z $USR_FONT_TITLE ]] && FONT_TITLE="$dvs"
+	[[ -z $USR_FONT_TSTAMPS ]] && FONT_TSTAMPS="$dvs"
+	[[ -z $USR_FONT_SIGN ]] && FONT_SIGN="$dvs"
 	[[ $DEBUG -eq 1 ]] || { return 0; }
 	cat >&2 <<-EOFF
 	Font Sanitation:
-	  font_heading: $font_heading
-	  font_title  : $font_title
-	  font_tstamps: $font_tstamps
-	  font_sign   : $font_sign
+	  font_heading: $FONT_HEADING
+	  font_title  : $FONT_TITLE
+	  font_tstamps: $FONT_TSTAMPS
+	  font_sign   : $FONT_SIGN
 EOFF
 }
 
@@ -3630,11 +3631,11 @@ process() {
 
 	# Extended mode
 	local extoutput=
-	if [[ $extended_factor != 0 ]]; then
+	if [[ $EXTENDED_FACTOR != 0 ]]; then
 		# Number of captures. Always rounded to a multiplier of *double* the
 		# number of columns (the extended caps are half width, this way they
 		# match approx with the standard caps width)
-		local hlnc=$(rtomult $(awkex "int(${#TIMECODES[@]} * $extended_factor)") $((2*numcols)))
+		local hlnc=$(rtomult $(awkex "int(${#TIMECODES[@]} * $EXTENDED_FACTOR)") $((2*numcols)))
 
 		unset TIMECODES # required step to get the right count
 		declare -a TIMECODES # Note the manual stamps are not included anymore
@@ -3683,13 +3684,13 @@ process() {
 
 	local csw=$(imw "$output") exw= hlw=
 	local width=$csw
-	if [[ -n $HLTIMECODES || ( $extended_factor != '0' ) ]]; then
+	if [[ -n $HLTIMECODES || ( $EXTENDED_FACTOR != '0' ) ]]; then
 		inf "Merging contact sheets..."
 		if [[ -n $HLTIMECODES ]]; then
 			local hlw=$(imw "$hlfile")
 			if [[ $hlw -gt $width ]]; then width=$hlw ; fi
 		fi
-		if [[ $extended_factor != '0' ]]; then
+		if [[ $EXTENDED_FACTOR != '0' ]]; then
 			local exw=$(imw $extoutput)
 			if [[ $exw -gt $width ]]; then width=$exw ; fi
 		fi
@@ -3725,7 +3726,7 @@ process() {
 		unset hlh
 	fi
 	# Extended captures
-	if [[ $extended_factor != 0 ]]; then
+	if [[ $EXTENDED_FACTOR != 0 ]]; then
 		# Already set local exw=$(imw "$extoutput")
 		local exh=$(imh "$extoutput")
 		if [[ $exw -lt $width ]]; then
@@ -3740,7 +3741,7 @@ process() {
 	#+space is added at the top
 	local dotrim=
 	[[ ( $DISABLE_SHADOWS -eq 1 ) && ( -z $HLTIMECODES ) ]] && dotrim=-trim
-	convert -background "$bg_contact" "$output" -flatten $dotrim "$output"
+	convert -background "$BG_CONTACT" "$output" -flatten $dotrim "$output"
 
 	# Let's add meta inf and signature
 	inf "Adding header and footer..."
@@ -3756,12 +3757,12 @@ process() {
 	local heading=$(new_temp_file .png)
 	# Add the title if any
 	if [[ $TITLE ]]; then
-		local tlheight=$(line_height "$font_title" "$pts_title")
+		local tlheight=$(line_height "$FONT_TITLE" "$PTS_TITLE")
 		convert \
 			\( \
-				-size ${headwidth}x$tlheight "xc:$bg_title" \
-				-font "$font_title" -pointsize "$pts_title" \
-				-background "$bg_title" -fill "$fg_title" \
+				-size ${headwidth}x$tlheight "xc:$BG_TITLE" \
+				-font "$FONT_TITLE" -pointsize "$PTS_TITLE" \
+				-background "$BG_TITLE" -fill "$FG_TITLE" \
 				-gravity Center -annotate 0 "$TITLE" \
 			\) \
 			-flatten \
@@ -3770,16 +3771,16 @@ process() {
 	fi
 	local fn_font=	# see $NONLATIN_FILENAMES
 	if [[ $NONLATIN_FILENAMES -ne 1 ]]; then
-		fn_font="$font_heading"
+		fn_font=$FONT_HEADING
 	else
-		fn_font="$NONLATIN_FONT"
+		fn_font=$NONLATIN_FONT
 	fi
 	# Create a small image to see how tall are characters. In my tests, no matter
 	#+which character is used it's always the same height.
-	local lineheight=$(line_height "$font_heading" "$pts_meta")
+	local lineheight=$(line_height "$FONT_HEADING" "$PTS_META")
 	# Since filename can be set in a different font check it too
-	if [[ $fn_font != $font_heading ]]; then
-		local fnlineheight=$(line_height "$fn_font" "$pts_meta")
+	if [[ $fn_font != $FONT_HEADING ]]; then
+		local fnlineheight=$(line_height "$fn_font" "$PTS_META")
 		[[ $fnlineheight -le $lineheight ]] || lineheight=$fnlineheight
 		unset fnlineheight
 	fi
@@ -3835,19 +3836,19 @@ process() {
 		filesize_value="$(get_pretty_file_size "$f")"
 	fi
 
-	local signlh=$(line_height "$font_sign" "$pts_sign")
+	local signlh=$(line_height "$FONT_SIGN" "$PTS_SIGN")
 	local signheight=$(( 4 + ( signlh * 2 ) ))
 	convert \
 		\( \
-			-size $(( headwidth - 18 ))x1 "xc:$bg_heading" +size \
-			-font "$font_heading" -pointsize "$pts_meta" \
-			-background "$bg_heading" -fill "$fg_heading" \
+			-size $(( headwidth - 18 ))x1 "xc:$BG_HEADING" +size \
+			-font "$FONT_HEADING" -pointsize "$PTS_META" \
+			-background "$BG_HEADING" -fill "$FG_HEADING" \
 			\( \
 				-gravity West \
 				\( label:"$filename_label: " \
 					-font "$fn_font" label:"$filename_value" +append \
 				\) \
-				-font "$font_heading" \
+				-font "$FONT_HEADING" \
 				label:"$filesize_label: $filesize_value" \
 				label:"Length: $(cut -d'.' -f1 <<<$(pretty_stamp ${VID[$LEN]}))" \
 				-append -crop ${headwidth}x${headheight}+0+0 \
@@ -3855,15 +3856,15 @@ process() {
 			-append \
 			\( \
 				-size ${headwidth}x${headheight} \
-				-gravity East -fill "$fg_heading" -annotate +0-1 "$meta2" \
+				-gravity East -fill "$FG_HEADING" -annotate +0-1 "$meta2" \
 			\) \
-			-bordercolor "$bg_heading" -border 9 \
+			-bordercolor "$BG_HEADING" -border 9 \
 		\) \
 		"$output" -append \
 		\( \
-			-size ${headwidth}x$signheight -gravity Center "xc:$bg_sign" \
-			-font "$font_sign" -pointsize "$pts_sign" \
-			-fill "$fg_sign" -annotate 0 "$signature" \
+			-size ${headwidth}x$signheight -gravity Center "xc:$BG_SIGN" \
+			-font "$FONT_SIGN" -pointsize "$PTS_SIGN" \
+			-fill "$FG_SIGN" -annotate 0 "$signature" \
 		\) \
 		-append \
 		"$output"
@@ -4508,11 +4509,11 @@ while true ; do
 			# the long format is --extended=VAL
 			if [[ $2 ]]; then
 				check_constraint 'extended_factor' "$2" "$1" || die
-				extended_factor="$2"
+				EXTENDED_FACTOR="$2"
 			else
-				extended_factor=$DEFAULT_EXT_FACTOR
+				EXTENDED_FACTOR=$DEFAULT_EXT_FACTOR
 			fi
-			USR_extended_factor=$extended_factor
+			USR_EXTENDED_FACTOR=$EXTENDED_FACTOR
 			shift
 			;;
 		# Unlike -I, --nonlatin does not accept a font name
@@ -4631,9 +4632,9 @@ while true ; do
 					# XXX: The newer version has a lot less flexibility with these many
 					# hardcoded values...
 					grav_timestamp=South
-					fg_tstamps=Black
-					bg_tstamps=Transparent
-					pts_tstamps=$(( $pts_tstamps * 3 / 2 ))
+					FG_TSTAMPS=Black
+					BG_TSTAMPS=Transparent
+					PTS_TSTAMPS=$(( $PTS_TSTAMPS * 3 / 2 ))
 					;;
 				c|photos) # Same as overlap + rotate + photoframe, this is the older polaroid
 					inf "Changed to photos funky mode."
@@ -4655,9 +4656,9 @@ while true ; do
 				L|polaroidframe) # White polaroid frame
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_polaroid ')
 					grav_timestamp=South
-					fg_tstamps=Black
-					bg_tstamps=Transparent
-					pts_tstamps=$(( $pts_tstamps * 3 / 2 ))
+					FG_TSTAMPS=Black
+					BG_TSTAMPS=Transparent
+					PTS_TSTAMPS=$(( $PTS_TSTAMPS * 3 / 2 ))
 					;;
 				i|film)
 					inf "Enabled film mode."
@@ -4677,12 +4678,12 @@ while true ; do
 		-p|--profile)
 			case "$2" in
 			  classic) # Classic colour scheme
-			    bg_heading=YellowGreen bg_sign=SlateGray bg_contact=White
-			    bg_title=White fg_heading=Black fg_sign=Black
+			    BG_HEADING=YellowGreen BG_SIGN=SlateGray BG_CONTACT=White
+			    BG_TITLE=White FG_HEADING=Black FG_SIGN=Black
 			    ;;
 			  1.0) # 1.0a, 1.0.1a and 1.0.2b colourscheme
-			    bg_heading=YellowGreen bg_sign=SandyBrown bg_contact=White
-			    bg_title=White fg_heading=Black fg_sign=Black
+			    BG_HEADING=YellowGreen BG_SIGN=SandyBrown BG_CONTACT=White
+			    BG_TITLE=White FG_HEADING=Black FG_SIGN=Black
 			    ;;
 			  *) load_profile "$2" || die
 			    ;;
