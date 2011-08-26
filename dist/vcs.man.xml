@@ -34,37 +34,37 @@ $ man vcs.1
 Validation: xmllint -''-noout -''-valid manpage.xml
 
 -->
-  <!ENTITY dhfirstname "Toni">
-  <!ENTITY dhsurname   "Corvera">
-  <!-- dhusername could also be set to "&dhfirstname; &dhsurname;". -->
-  <!ENTITY dhusername  "Toni Corvera">
-  <!ENTITY dhemail     "outlyer@gmail.com">
-  <!ENTITY dhsection   "1">
+  <!ENTITY firstname "Toni">
+  <!ENTITY surname   "Corvera">
+  <!-- fullname could also be set to "&firstname; &surname;". -->
+  <!ENTITY fullname  "Toni Corvera">
+  <!ENTITY email     "outlyer@gmail.com">
+  <!ENTITY section   "1">
   <!-- TITLE should be something like "User commands" or similar (see
        http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
-  <!ENTITY dhtitle     "vcs User Manual">
-  <!ENTITY dhucpackage "VCS">
-  <!ENTITY dhpackage   "vcs">
+  <!ENTITY title     "vcs User Manual">
+  <!ENTITY ucpackage "VCS">
+  <!ENTITY package   "vcs">
   <!ENTITY emdash      "&#x2014;">
   <!ENTITY xrefinterval 'See the accepted syntax at <xref linkend="interval_format" />.'>
 ]>
 <refentry>
   <refentryinfo>
-    <title>&dhtitle;</title>
-    <productname>&dhpackage;</productname>
-    <authorgroup>
-      <author>
-       <firstname>&dhfirstname;</firstname>
-        <surname>&dhsurname;</surname>
-        <contrib>VCS author.</contrib>
-        <address>
-          <email>&dhemail;</email>
-        </address>
-      </author>
-    </authorgroup>
+    <title>&title;</title>
+    <productname>&package;</productname>
+    <author>
+      <firstname>&firstname;</firstname>
+      <surname>&surname;</surname>
+      <contrib />
+      <!--  <contrib>VCS author.</contrib> -->
+      <address>
+        <email>&email;</email>
+        <!-- <uri type="homepage">http://corvera.eu</uri> -->
+      </address>
+    </author>
     <copyright>
       <year>2007-2011</year>
-      <holder>&dhusername;</holder>
+      <holder>&fullname;</holder>
     </copyright>
     <legalnotice>
       <para>Permission is granted to copy, distribute and/or modify this
@@ -75,24 +75,24 @@ Validation: xmllint -''-noout -''-valid manpage.xml
     <edition>$Rev$</edition>
   </refentryinfo>
   <refmeta>
-    <refentrytitle>&dhucpackage;</refentrytitle>
-    <manvolnum>&dhsection;</manvolnum>
+    <refentrytitle>&ucpackage;</refentrytitle>
+    <manvolnum>&section;</manvolnum>
   </refmeta>
   <refnamediv>
-    <refname>&dhpackage;</refname>
+    <refname>&package;</refname>
     <refpurpose>create contact sheets from videos</refpurpose>
   </refnamediv>
   <refsynopsisdiv>
     <cmdsynopsis>
-        <command>&dhpackage;</command>
-        <arg choice="opt"><option><replaceable>options</replaceable></option></arg>
-        <arg choice="plain"><replaceable>FILE</replaceable></arg>
-        <arg choice="opt"><replaceable>FILE</replaceable>
+        <command>&package;</command>
+        <arg choice="opt"><option><replaceable class="option">options</replaceable></option></arg>
+        <arg choice="plain"><replaceable class="parameter">FILE</replaceable></arg>
+        <arg choice="opt"><replaceable class="parameter">FILE</replaceable>
                 <arg choice="opt"><replaceable>...</replaceable></arg>
         </arg>
     </cmdsynopsis>
     <cmdsynopsis>
-        <command>&dhpackage;</command>
+        <command>&package;</command>
             <arg choice="opt">
                 <option>-n<parameter>20</parameter></option>
                 <option>-c<parameter>4</parameter></option>
@@ -101,7 +101,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
     </cmdsynopsis>
 
     <cmdsynopsis>
-        <command>&dhpackage;</command>
+        <command>&package;</command>
         <arg choice="opt"><option>--output=<parameter>OUTPUT1</parameter></option></arg>
         <arg choice="opt"><option>--output=<parameter>OUTPUT2</parameter></option></arg>
         <arg choice="opt"><option>...</option></arg>
@@ -111,7 +111,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
         </arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>&dhpackage;</command>
+      <command>&package;</command>
       <!-- Normally the help and version options make the programs stop
            right after outputting the requested information. -->
       <group choice="opt">
@@ -129,7 +129,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   </refsynopsisdiv>
   <refsect1 id="description">
       <title>DESCRIPTION</title>
-      <para><command>&dhpackage;</command> creates a preview
+      <para><command>&package;</command> creates a preview
         image from videos in a contact sheet-like format (i.e. captures from
         different frames in the video are placed in a mosaic).</para>
       <para>By default the output file will be named like the input file plus the
@@ -144,7 +144,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
             <manvolnum>5</manvolnum>
             </citerefentry>).
       </para>
-      <para>This manual page documents <command>&dhpackage;</command>,
+      <para>This manual page documents <command>&package;</command>,
           further documentation can be found in the
           <ulink url="http://p.outlyer.net/dox/vcs">online documentation</ulink> site.</para>
   </refsect1><!--/DESCRIPTION-->
@@ -671,7 +671,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
         <term><filename>/etc/vcs.conf</filename></term>
         <listitem>
           <para>The system-wide configuration file to control the
-            behaviour of <application>&dhpackage;</application>. See
+            behaviour of <application>&package;</application>. See
             <citerefentry>
               <refentrytitle>vcs.conf</refentrytitle>
               <manvolnum>5</manvolnum>
@@ -683,7 +683,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
         <term><filename>${HOME}/.vcs/vcs.conf</filename></term>
         <listitem>
           <para>The per-user configuration file to control the
-             behaviour of <application>&dhpackage;</application>. See
+             behaviour of <application>&package;</application>. See
              <citerefentry>
                <refentrytitle>vcs.conf</refentrytitle>
                <manvolnum>5</manvolnum>
@@ -750,7 +750,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
             <manvolnum>5</manvolnum>
         </citerefentry>.
     </para>
-    <para><command>&dhpackage;</command> provides some return codes, they follow
+    <para><command>&package;</command> provides some return codes, they follow
         the semi-standardised values defined in <filename>sysexits.h</filename>:</para>
     <segmentedlist>
       <!-- Force table-style presentation instead of list with repeated

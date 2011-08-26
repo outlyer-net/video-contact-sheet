@@ -2,14 +2,14 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2307 2011-08-26 02:33:28Z toni $
+$Id: vcs.conf.man.xml 2309 2011-08-26 05:46:57Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
 <!ENTITY surname   "Corvera">
 <!ENTITY fullname  "&firstname; &surname;">
 <!ENTITY email     "outlyer@gmail.com">
-<!ENTITY title     "vcs.conf User Manual">
+<!ENTITY title     "vcs User Manual">
 <!ENTITY package   "vcs.conf">
 <!ENTITY section   "5">
 <!ENTITY emdash    "&#x2014;">
@@ -35,7 +35,12 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
 <!ELEMENT xi:fallback ANY>
 <!ATTLIST xi:fallback
     xmlns:xi   CDATA   #FIXED   "http://www.w3.org/2001/XInclude" >
-<!-- Add xi:include to the list of possible children of refsect1 -->
+<!--
+ Add xi:include to the list of possible children of <refsect1>
+ See http://www.oasis-open.org/docbook/xml/4.5/dbhierx.mod for the DTD
+ module that defines which elements are allowed inside which.
+ Can't allow xi:include in arbitrary places inside <refentry>
+-->
 <!ENTITY % local.refcomponent.mix "| xi:include">
 ]><!--/!DOCTYPE-->
 <refentry>
@@ -45,7 +50,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
         <author>
             <firstname>&firstname;</firstname>
             <surname>&surname;</surname>
-            <contrib>VCS author.</contrib>
+            <contrib />
             <address><email>&email;</email></address>
         </author>
         <copyright>
@@ -58,7 +63,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <edition>$Rev: 2307 $</edition>
+        <edition>$Rev: 2309 $</edition>
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -66,7 +71,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
     </refmeta>
     <refnamediv>
         <refname>&package;</refname>
-        <refpurpose>vcs configuration file format</refpurpose>
+        <refpurpose>vcs configuration file</refpurpose>
     </refnamediv>
     <refsect1 id="description">
         <title>DESCRIPTION</title>
@@ -154,11 +159,25 @@ fg_all=white # White foreground</programlisting>
         <para>Profiles can only be loaded from the <link linkend="profile-paths">listed
                 paths</link>.</para>
     </refsect1><!--/PROFILE FILES-->
-    <!--SETTINGS-->
-    <xi:include
+    <refsect1>
+        <title>SETTINGS</title>
+        <para>This list details the available settings. Settings are listed in
+            alphabetical order.</para>
+        <para>A list of available settings, grouped by categories, is also kept
+            online at <ulink url="http://p.outlyer.net/dox/vcs:conf_files" /></para>
+        <xi:include
             xmlns:xi="http://www.w3.org/2001/XInclude"
             href="mansrc/settings.man.inc.xml" />
-    <!--/SETTINGS-->
+    </refsect1>
+    <refsect1 id="see_also">
+        <title>SEE ALSO</title>
+        <para>
+            <citerefentry>
+                <refentrytitle>vcs</refentrytitle>
+                <manvolnum>1</manvolnum>
+            </citerefentry>
+        </para>
+    </refsect1><!--/SEE ALSO-->
 </refentry>
 <!-- vim:set ts=4 et: -->
 
