@@ -3736,7 +3736,7 @@ process() {
 		local exh=$(imh "$extoutput")
 		if [[ $exw -lt $width ]]; then
 			# Expand the extended set to be the correct size
-			local exw2 = ; (( exw2=(width - exw) / 2 ))
+			local exw2= ; (( exw2=(width - exw) / 2 ))
 			convert \( -size ${exw2}x$exh xc:transparent \) "$extoutput" \
 					\( -size ${exw2}x$exh xc:transparent \) +append "$extoutput"
 		fi

@@ -5,6 +5,8 @@
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
         for alias-only names
+      - Code typo: Produced error message when extended mode was
+        narrower than contact sheet
     * Scheduled code cleanup:
       - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
         shoehorned and safe_rename_pattern
