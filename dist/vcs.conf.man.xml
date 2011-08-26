@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2302 2011-08-24 03:05:03Z toni $
+$Id: vcs.conf.man.xml 2307 2011-08-26 02:33:28Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -58,7 +58,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <edition>$Rev: 2302 $</edition>
+        <edition>$Rev: 2307 $</edition>
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -154,12 +154,11 @@ fg_all=white # White foreground</programlisting>
         <para>Profiles can only be loaded from the <link linkend="profile-paths">listed
                 paths</link>.</para>
     </refsect1><!--/PROFILE FILES-->
-    <refsect1 id="settings">
-        <title>SETTINGS</title>
-        <xi:include
+    <!--SETTINGS-->
+    <xi:include
             xmlns:xi="http://www.w3.org/2001/XInclude"
             href="mansrc/settings.man.inc.xml" />
-    </refsect1><!--/SETTINGS-->
+    <!--/SETTINGS-->
 </refentry>
 <!-- vim:set ts=4 et: -->
 

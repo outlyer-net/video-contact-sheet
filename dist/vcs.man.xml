@@ -189,7 +189,15 @@ Validation: xmllint -''-noout -''-valid manpage.xml
             <para>Height of captures.</para>
             <para>Can be a number (of pixels) or a percentage (of the video height).</para>
             <para>By default the same size as the video is used.</para>
-            <para>The width is derived from height and aspect ratio.</para>
+            <note>
+                <para>The width is derived from height and aspect ratio.</para>
+            </note>
+            <tip>
+                <para><replaceable>HEIGHT</replaceable> x <replaceable>WIDTH</replaceable>
+                    can be manually forced by setting both <option>-H</option> and
+                    <option>-a</option>, e.g. <replaceable>640x480</replaceable>:</para>
+                <para><literal>$ <command>vcs -a 640/480 -H 480 <replaceable><optional>...</optional></replaceable></command></literal></para>
+            </tip>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -277,7 +285,9 @@ Validation: xmllint -''-noout -''-valid manpage.xml
               <para>In this mode the input files must be the DVD
                   device(s) or ISO(s).</para>
               <para>When in DVD mode all input files must be DVDs.</para>
-              <para>Implies <option>-A</option> (auto aspect ratio).</para>
+              <note>
+                  <para>Implies <option>-A</option> (auto aspect ratio).</para>
+              </note>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -344,7 +354,9 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                           or <option>--disable <replaceable>padding</replaceable></option></para>
                   </listitem>
               </itemizedlist>
-              <para>(note shadows introduce some extra padding)</para>
+              <note>
+                  <para>Shadows introduce some extra padding</para>
+              </note>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -449,7 +461,9 @@ Validation: xmllint -''-noout -''-valid manpage.xml
               <para>Funky modes</para>
               <para>These are <emphasis>toy</emphasis> output modes in which the contact sheet
                  gets a more informal look.</para>
-             <para>Order <emphasis role="strong">IS IMPORTANT</emphasis>. A bad order gets a bad result :P</para>
+             <warning>
+                 <para>Order <emphasis role="strong">IS IMPORTANT</emphasis>. A bad order gets a bad result :P</para>
+             </warning>
               <para>Many of these modes are random in nature so using the same mode twice
                   will usually lead to very different results.</para>
               <para>Currently available <emphasis>funky modes</emphasis>:</para>
@@ -688,21 +702,29 @@ Validation: xmllint -''-noout -''-valid manpage.xml
          where each element is optional.</para>
      <para>See <ulink url="http://p.outlyer.net/dox/vcs:time_syntax" /> for more details.</para>
 
-     <para>
-         <segmentedlist>
-             <segtitle>Example</segtitle><segtitle>Equivalence</segtitle>
-             <segtitle>Standard time format</segtitle>
-             <seglistitem>
-                 <seg>1h30m30</seg><seg>1h30m30s.00</seg><seg>1:30:30.00</seg>
-             </seglistitem>
-             <seglistitem>
-                 <seg>30</seg><seg>0h0m30s.00</seg><seg>0:00:30.00</seg>
-             </seglistitem>
-             <seglistitem>
-                 <seg>3600</seg><seg>1h0m0s.00</seg><seg>1:00:00.00</seg>
-             </seglistitem>
-         </segmentedlist>
-     </para>
+     <table>
+        <title>Interval syntax examples</title>
+        <tgroup cols="3">
+          <thead>
+            <row>
+                <entry>Example</entry>
+                <entry>Equivalence</entry>
+                <entry>Standard time format</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+                <entry>1h30m30</entry><entry>1h30m30s.00</entry><entry>1:30:30.00</entry>
+            </row>
+            <row>
+                <entry>30</entry><entry>0h0m30s.00</entry><entry>0:00:30.00</entry>
+            </row>
+            <row>
+                <entry>3600</entry><entry>1h0m0s.00</entry><entry>1:00:00.00</entry>
+            </row>
+          </tbody>
+        </tgroup>
+    </table>
   </refsect1>
   <refsect1 id="environment">
     <title>ENVIRONMENT</title>
@@ -731,6 +753,11 @@ Validation: xmllint -''-noout -''-valid manpage.xml
     <para><command>&dhpackage;</command> provides some return codes, they follow
         the semi-standardised values defined in <filename>sysexits.h</filename>:</para>
     <segmentedlist>
+      <!-- Force table-style presentation instead of list with repeated
+           headings.
+           <http://www.docbook.org/tdg/en/html/segmentedlist.html>
+      -->
+      <?dbhtml list-presentation="table"?>
       <segtitle>Code</segtitle>
       <segtitle>Diagnostic</segtitle>
       <seglistitem>
