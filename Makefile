@@ -30,6 +30,9 @@ $(srcdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
 		-param make.single.year.ranges "1" \
 		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
 		"$<" > "$@"
+	sed -i \
+		's!</head>!<link rel="stylesheet" type="text/css" href="man.css"/></head>!' \
+		"$@"
 
 # Check all XML files for validity
 xmllint:
