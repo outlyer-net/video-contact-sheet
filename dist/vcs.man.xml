@@ -44,10 +44,10 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <!ENTITY section   "1">
   <!-- TITLE should be something like "User commands" or similar (see
        http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
-  <!ENTITY title     "vcs User Manual">
+  <!ENTITY title     "Video Contact Sheet *NIX User Manual">
   <!ENTITY ucpackage "VCS">
   <!ENTITY package   "vcs">
-  <!ENTITY emdash      "&#x2014;">
+  <!ENTITY emdash    "&#x2014;">
   <!ENTITY xrefinterval 'See the accepted syntax at <xref linkend="interval_format" />.'>
 ]>
 <refentry>
@@ -644,7 +644,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                   <listitem><para>Does a basic test of consistency</para></listitem>
                   <listitem><para>Prints a trace of all internal functions as they are called</para></listitem>
               </itemizedlist>
-              <para>Repeat to just est consistency and exit</para>
+              <para>Repeat to just test consistency and exit</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -806,9 +806,12 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <refsect1 id="bugs">
     <!-- Or use this section to tell about upstream BTS. -->
     <title>BUGS</title>
-    <para>Recent versions of <package>ImageMagick</package>, <command>mplayer</command> and
-        <command>ffmpeg</command> should be used
+    <note>
+        <para>Recent versions of <application>ImageMagick</application>,
+            <application>mplayer</application> and
+        <application>ffmpeg</application> should be used
         for maximum compatibility.</para>
+    </note>
     <para>The upstream's <acronym>BTS</acronym> can be found
       at <ulink url="http://b.outlyer.net"/>.</para>
   </refsect1>
