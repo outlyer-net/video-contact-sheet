@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2309 2011-08-26 05:46:57Z toni $
+$Id: vcs.conf.man.xml 2313 2011-08-27 03:06:44Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -63,7 +63,8 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <edition>$Rev: 2309 $</edition>
+        <edition>$Rev: 2313 $</edition>
+        <!--<date>$Date: 2011-08-27 05:06:44 +0200 (ds, 27 ago 2011) $</date>-->
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -135,8 +136,8 @@ fg_all=white # White foreground</programlisting>
         <para>There's three configuration files loaded by default if present, in order:</para>
         <itemizedlist>
             <listitem><para><filename>/etc/vcs.conf</filename></para></listitem>
-            <listitem><para><filename>${HOME}/.vcs.conf</filename></para></listitem>
-            <listitem><para><filename>${HOME}/vcs/vcs.conf</filename></para></listitem>
+            <listitem><para><filename><envar>${HOME}</envar>/.vcs.conf</filename></para></listitem>
+            <listitem><para><filename><envar>${HOME}</envar>/vcs/vcs.conf</filename></para></listitem>
         </itemizedlist>
         <para>Every file in this list overrides the previous when it
             re-defines a setting.</para>
@@ -148,9 +149,9 @@ fg_all=white # White foreground</programlisting>
         <para>No profile is loaded by default.</para>
         <para>Profiles are searched in three possible locations, in order:</para>
         <itemizedlist id="profile-paths">
-            <listitem><para><filename>${HOME}/.vcs/profiles/</filename></para></listitem>
-            <listitem><para><filename>/usr/local/share/vcs/profiles/</filename></para></listitem>
-            <listitem><para><filename>/usr/share/vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename class="directory"><envar>${HOME}</envar>/.vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename class="directory">/usr/local/share/vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename class="directory">/usr/share/vcs/profiles/</filename></para></listitem>
         </itemizedlist>
         <para>Only the first profile for each name will be considered.
             Profiles with the same name will be hidden.</para>

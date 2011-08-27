@@ -11,6 +11,8 @@ Useful Docbook References:
     <http://www.ibiblio.org/godoy/sgml/docbook/howto/writing-docbook.html#WRITING-DOCBOOK-COMMANDS>
 - DocBook Guide for Authors of Geant4 User Manuals - Tag Mapping Table - (X)HTML vs. DocBook
     <http://geant4.web.cern.ch/geant4/workAreaUserDocKA/AuthorsInstruction/IntroDocBook.html#TagMap>
+- DocBook 5: The Definitive Guide (includes list of elements)
+    <http://docbook.org/tdg51/en/html/docbook.html>
 
 Generation of man page:
 
@@ -73,6 +75,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
         the Free Software Foundation.</para>
     </legalnotice>
     <edition>$Rev$</edition>
+    <!--<date>$Date$</date>-->
   </refentryinfo>
   <refmeta>
     <refentrytitle>&ucpackage;</refentrytitle>
@@ -85,35 +88,33 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <refsynopsisdiv>
     <cmdsynopsis>
         <command>&package;</command>
-        <arg choice="opt"><option><replaceable class="option">options</replaceable></option></arg>
+        <arg choice="opt" rep="repeat"><replaceable class="option">OPTION</replaceable></arg>
         <arg choice="plain"><replaceable class="parameter">FILE</replaceable></arg>
-        <arg choice="opt"><replaceable class="parameter">FILE</replaceable>
-                <arg choice="opt"><replaceable>...</replaceable></arg>
-        </arg>
+        <arg choice="opt" rep="repeat"><replaceable class="parameter">FILE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
         <command>&package;</command>
-            <arg choice="opt">
-                <option>-n<parameter>20</parameter></option>
-                <option>-c<parameter>4</parameter></option>
-            </arg>
-        <arg choice="plain"><replaceable>FILE</replaceable></arg>
-    </cmdsynopsis>
-
-    <cmdsynopsis>
-        <command>&package;</command>
-        <arg choice="opt"><option>--output=<parameter>OUTPUT1</parameter></option></arg>
-        <arg choice="opt"><option>--output=<parameter>OUTPUT2</parameter></option></arg>
+        <arg choice="opt"><option>--output=<replaceable>OUTPUT1</replaceable></option></arg>
+        <arg choice="opt"><option>--output=<replaceable>OUTPUT2</replaceable></option></arg>
         <arg choice="opt"><option>...</option></arg>
         <arg choice="plain"><replaceable>INPUT1</replaceable></arg>
-        <arg choice="opt"><replaceable>INPUT2</replaceable>
-            <arg choice="opt"><replaceable>...</replaceable></arg>
-        </arg>
+        <arg choice="opt" rep="repeat"><replaceable>INPUT2</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+        <command>&package;</command>
+                <group choice="opt">
+                    <arg><option>-n <replaceable>20</replaceable></option></arg>
+                    <arg><option>-i <replaceable>1m</replaceable></option></arg>
+                </group>
+                <arg><option>-c <replaceable>4</replaceable></option></arg>
+                <arg><option>-H <replaceable>120</replaceable></option></arg>
+                <arg rep="repeat"></arg>
+        <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&package;</command>
-      <!-- Normally the help and version options make the programs stop
-           right after outputting the requested information. -->
+      <!-- Help/test options.
+           They stop the program after outputting their related information. -->
       <group choice="opt">
         <arg choice="plain">
           <group choice="req">
@@ -124,7 +125,20 @@ Validation: xmllint -''-noout -''-valid manpage.xml
         <arg choice="plain">
             <arg choice="plain"><option>--fullhelp</option></arg>
         </arg>
+        <arg choice="plain">
+            <arg choice="plain"><option>-DD</option></arg>
+        </arg>
       </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&package;</command>
+      <arg choice="opt" rep="repeat"><replaceable class="option">OPTION</replaceable></arg>
+      <arg choice="plain"><option>--generate</option>
+          <group choice="req">
+            <arg choice="plain">config</arg>
+            <arg choice="plain">profile</arg>
+          </group>
+      </arg>
     </cmdsynopsis>
   </refsynopsisdiv>
   <refsect1 id="description">
@@ -732,7 +746,8 @@ Validation: xmllint -''-noout -''-valid manpage.xml
       <varlistentry>
         <term><envar>TEMPDIR</envar></term>
         <listitem>
-            <para>Fallback temporary directory when <filename>/dev/shm</filename> is not available.
+            <para>Fallback temporary directory when
+                <filename class="directory">/dev/shm</filename> is not available.
                 Due to the big size of temporary files, it is recommended to use
                 a temporary directory on a fast filesystem.</para>
         </listitem>
@@ -741,27 +756,29 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   </refsect1>
   <refsect1 id="diagnostics">
     <title>DIAGNOSTICS</title>
-    <para>The default verbosity level will print <package>vcs</package>' progress
+    <para>The default verbosity level will print <package>&package;</package>' progress
         and any errors or warnings on <filename class="devicefile">stderr</filename>.</para>
     <para><option>--quiet</option> can be used to reduce verbosity.</para>
-    <para>The verbosity level and <filename class="devicefile">stderr</filename> can be
-        controlled through configuration files, see <citerefentry>
+    <para>The verbosity level and where to direct <filename class="devicefile">stderr</filename>
+        can be controlled through configuration files, see <citerefentry>
             <refentrytitle>vcs.conf</refentrytitle>
             <manvolnum>5</manvolnum>
         </citerefentry>.
     </para>
     <para><command>&package;</command> provides some return codes, they follow
-        the semi-standardised values defined in <filename>sysexits.h</filename>:</para>
+        the semi-standardised values defined in
+        <filename class="headerfile">sysexits.h</filename>:</para>
     <segmentedlist>
       <!-- Force table-style presentation instead of list with repeated
            headings.
            <http://www.docbook.org/tdg/en/html/segmentedlist.html>
       -->
       <?dbhtml list-presentation="table"?>
+      <?dbfo list-presentation="table"?>
       <segtitle>Code</segtitle>
       <segtitle>Diagnostic</segtitle>
       <seglistitem>
-          <seg><errorcode> 0</errorcode> (<errorcode>EX_OK</errorcode>)</seg>
+          <seg><errorcode>&nbsp;0</errorcode> (<errorcode>EX_OK</errorcode>)</seg>
         <seg>Program exited successfully.</seg>
       </seglistitem>
       <seglistitem>
