@@ -1,6 +1,7 @@
 1.13:
-    * Complete manual page
-    * Added 'anonymous' to the list of supported settings
+    * Complete manual pages
+    * Added 'anonymous' to the list of settings
+    * Remove meaningless decimals when generating config files
     * BUGFIXES:
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
@@ -21,12 +22,15 @@
       - Help fixes:
          - Old DVD mode description was still displayed
          - Incorrectly had `--jpeg 2' instead of `--jpeg2' or `--jpeg=2'
-      - Fix some typos
-      - Undocumented options: display, discard
+    * UNDOCUMENTED/DEBUG:
+      - Undocumented options:
+         - Don't fail on unknown sub-options
+         - New sub-options: trace, display and discard
+         - Debugging facility: --undocumented trace=funcname
     * INTERNAL:
       - Check ImageMagick through convert instead of identify
       - Don't run filters in subshells
-      - Debugging facility: --undocumented trace=funcname added
+      - Fix some typos
       - Bugfix: Actually use passed timestamp in filt_apply_timestamp()
       - Bugfix: Don't accept --shoehorn (was deprecated and unhandled)
 
@@ -71,7 +75,7 @@
    * DVD mode cleanup:
      - Command-line switched to match "normal" files:
        Before:
-       $ vcs --dvd /dev/dvd 0   or $ vcs -dvd /dev/dvd 1
+       $ vcs --dvd /dev/dvd 0   or $ vcs --dvd /dev/dvd 1
        Equivalents now:
        $ vcs --dvd /dev/dvd     or $ vcs --dvd --dvd-title 1 /dev/dvd
    * New end-offset behaviour:

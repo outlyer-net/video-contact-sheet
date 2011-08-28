@@ -4865,7 +4865,9 @@ while true ; do
 					;;
 				display) UNDFLAG_DISPLAY=1 ;;
 				discard) UNDFLAG_DISCARD=1 ;;
-				*) false ;;
+				*)
+					error "Unknown \`--undocumented $2' option"
+				;;
 			esac
 			shift
 			;;
