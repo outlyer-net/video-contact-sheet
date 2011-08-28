@@ -449,6 +449,7 @@ FILMSTRIP_HOLE_HEIGHT= # Height of an individual hole
 # verbosity. Only function names that match it will be printed.
 # 'grep -p' will be used to match
 INTERNAL_TRACE_FILTER=
+INTERNAL_NO_TRACE=0 # When 1, tracing is disabled (used by -DD)
 
 # }}} # Variables
 
@@ -1619,6 +1620,7 @@ flush_buffered() {
 # trace(... = function arguments)
 trace() {
 	[[ $DEBUG -eq 1 ]] || return 0
+	[[ $INTERNAL_NO_TRACE -ne 1 ]] || return 0
 	local func=$(caller 0 | cut -d' ' -f2) # caller: <LINE>< ><FUNCTION>< ><FILE>
 	if [[ -n $INTERNAL_TRACE_FILTER ]]; then
 		if ! grep -Pq "$INTERNAL_TRACE_FILTER" <<<"$func" ; then
@@ -4906,7 +4908,11 @@ EOD
 			fi
 			DEBUG=1
 			inf "Testing internal consistency..."
+			tmp=$INTERNAL_NO_TRACE
+			INTERNAL_NO_TRACE=1 # Avoid any tracing during the test
 			internal_integrity_test && warn "All tests passed" || error "Some tests failed!"
+			INTERNAL_NO_TRACE=$tmp
+			unset tmp
 			DEBUGGED=1
 			warn "Command line: $0 $ARGS"
 			TITLE="$(basename "$0") $ARGS"
