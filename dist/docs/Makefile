@@ -1,5 +1,5 @@
 #
-# $Id: Makefile 2318 2011-08-28 03:45:43Z toni $
+# $Id: Makefile 2327 2011-08-28 23:52:52Z toni $
 #
 
 distdir:=.
@@ -72,8 +72,15 @@ $(distdir)/vcs.%.pdf: $(srcdir)/vcs.%.tex
 
 # Check all XML files for validity
 lint:
+	# XML check
 	find . -type f -name '*.xml' -print0 | \
 			xargs -0 xmllint -nonet --xinclude -noout --valid
+	# XHTML check
+	# Use `$(MAKE) xhtml' before running `$(MAKE) $@' to
+	#  actually validate XHTML
+	find . -type f -name '*.xhtml' -exec bash -c "echo '[ {} ]' && tidy -utf8 -eq '{}'" \;
+
+xhtml: $(filter %.xhtml, $(ALL))
 
 $(distdir)/vcs.man.html: $(distdir)/vcs.1
 	man2html -r "$<" > "$@"
@@ -88,4 +95,4 @@ $(distdir)/vcs.1: $(srcdir)/vcs.man.xml
 $(distdir)/vcs.conf.5: $(srcdir)/vcs.conf.man.xml
 	$(DOCBOOK_TO_MAN) "$<"
 
-.PHONY: all clean lint
+.PHONY: all clean lint xhtml

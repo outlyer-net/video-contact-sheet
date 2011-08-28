@@ -5,7 +5,7 @@
 <!ENTITY rArr   "&#8658;">
 <!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
 ]>
-<!-- $Date: 2011-08-29 01:37:19 +0200 (dl, 29 ago 2011) $ -->
+<!-- $Date: 2011-08-29 01:52:52 +0200 (dl, 29 ago 2011) $ -->
 <variablelist id="settings">
     <varlistentry>
         <term id="term-all">All settings</term>
@@ -397,9 +397,7 @@
             <para>Its value must be a profile name or a comma-separated list of profile names.</para>
             <informalexample>
                 <para>Example:
-                    <userinput>
-                        <literal>profiles=<symbol>white</symbol>,<symbol>mosaic</symbol></literal>
-                    </userinput>
+                    <literal>profiles=<symbol>white</symbol>,<symbol>mosaic</symbol></literal>
                     will load the <literal>white</literal> and <literal>mosaic</literal> profiles.
                 </para>
             </informalexample>
