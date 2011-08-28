@@ -1,5 +1,11 @@
 #!/bin/bash
 
+#
+# This file inlines file included through the XIncludes system.
+# This workaround is used to work with jade (used in PDF
+#  creation) since, AFAIK, it doesn't support XIncludes.
+#
+
 SETTINGS_XML=vcs.conf.man.xml
 
 IN=0
