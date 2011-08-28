@@ -61,6 +61,10 @@ export LC_NUMERIC=C
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
 # * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace. =>
 #+         SUS v2: egrep is deprecated, grep -E replaces it
+# *        "grep -o" alternative:
+#          $ sed -n -e 's/\(SEARCH\)/\1\\
+#              /gp' | sed -e '/^[[:space:]]*$/d' -e 's/.*\(SEARCH\).*/\1/'
+#           possibly + -e '/^$/d' and -e '/SEARCH/!d'
 # * Change default DVD_TITLE to 0
 # * Deprecation schedule:
 #     DEPRECATED FROM | EXPECTED REMOVAL | DESCRIPTION
@@ -244,6 +248,9 @@ declare -i COLUMNS=$DEFAULT_COLUMNS       # Number of output columns
 declare END_OFFSET=$DEFAULT_END_OFFSET
 # When set to 1 the signature won't contain the "Preview created by..." line
 declare -i ANONYMOUS_MODE=0
+
+# Profile(s) to load by default
+declare PROFILES=
 
 # }}} # End of override-able variables
 
@@ -568,6 +575,8 @@ declare -ra OVERRIDE_MAP=(
 
 	"END_OFFSET:=:=:I" # New, used to have a two-variables assignment before USR_*
 
+	"PROFILES:=:meta:P" # New in 1.13
+
 	# TODO TBA:
 	#"noboldfeedback::" # Colour but not bold
 
@@ -737,6 +746,7 @@ check_constraint() {
 		T) checkfn=is_tcfrom ; domain='$TC_INTERVAL or $TC_INTERVAL' ;;
 		V) checkfn=is_vlevel ; domain='verbosity levels ($V_.*)' ;;
 		I) checkfn=is_interv_or_percent ; domain='intervals or percentages' ;;
+		P) checkfn=is_profile_list ; domain='comma-separated profile names' ;;
 		x)
 			case "$v" in
 				preferred_capturer|capturer)
@@ -797,6 +807,26 @@ parse_override() {
 	local constraints=$(cut -d':' -f4 <<<"$mapping")
 	{ [[ $ivar && ( $ivar != '=' ) ]] ; } || ivar="$mvar"
 
+	# Evaluate setting names, unlike actual variables they are
+	#+case-insensitive and can mapped to different names so
+	#+special handling is required
+	local token= tokenmap=
+	for token in $(echo "$varval" | grep -o '\$[[:alnum:]_]*' | sed 's/^\$//') ; do
+		# Locate the mapping
+		tokenmap=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$token")
+		if [[ -z $tokenmap ]]; then
+			# No mapping, leave intact
+			continue
+		fi
+		tokenmap=$(echo "$tokenmap" | cut -d':' -f2)
+		if [[ -z $tokenmap ]]; then
+			# No need to map, but change to uppercase for it to eval correctly
+			tokenmap=$(tr '[a-z]' '[A-Z]' <<<"$token")
+		fi
+		# Replace all occurences of $token with its mapping
+		varval=$(echo "$varval" | sed 's/\$'$token'/$'$tokenmap'/g')
+	done
+
 	# Note using "\$(echo $varval)" would allow a more flexible syntax but
 	#+enforce special handling of escaping, which with the currently available
 	#+settings is not worth the effort
@@ -825,6 +855,12 @@ parse_override() {
 					buffered error " Please contact the author if you absolutely need it."
 					;;
 				meta)
+					if [[ -n $constraints ]] ; then
+						if ! check_constraint $ivar "$varval" $varname ; then
+							buffered error "$ERROR_MSG"
+							return 0
+						fi
+					fi
 					apply_meta_override "$varname" "$varval"
 					RESULT="$varname +"
 					return 0;
@@ -884,6 +920,17 @@ apply_meta_override() {
 			parse_override "BG_SIGN=$2"
 			parse_override "BG_TITLE=$2"
 			parse_override "BG_TSTAMPS=$2"
+		;;
+		profiles) # profiles=[,]prof1[,prof2,...], no spaces (TODO: Yet?)
+			local profiles=${2//,/ } # === sed 's/,/ /g'
+			local ERE='^[[:space:]]*$'
+			if [[ $profiles =~ $ERE ]]; then
+				return 0
+			fi
+			local prof=
+			for prof in ${2//,/ } ; do # ${2//,/ } = sed 's/,/ /g'
+				load_profile $prof
+			done
 		;;
 	esac
 }
@@ -989,11 +1036,16 @@ is_known_capturer() {
 }
 ## Time calculation source ($TC_* constants)
 is_tcfrom() { [[ $1 == $TC_INTERVAL || $1 == $TC_NUMCAPS ]]; }
-### Verbosity level ($V_* constants)
+## Verbosity level ($V_* constants)
 is_vlevel() {
 	is_number "$1" && \
 		[[ ($1 -eq $V_ALL) || ($1 -eq $V_NONE) || ($1 -eq $V_ERROR) || \
 			($1 -eq $V_WARN) || ($1 -eq $V_INFO) ]]
+}
+## List of profiles (comma-separated)
+is_profile_list() {
+	ERE='^([[:alnum:]]*,?)*$'
+	[[ ( -z "$*" ) || ( "$*" =~ $ERE ) ]]
 }
 
 #### }}}} # End of type checkers
@@ -1248,6 +1300,35 @@ get_interval() {
 
 	# Split into lines of time + unit:
 	t=
+	local NEWCODETEST=
+	# Newer(-er) parsing code: replaces units by a product
+	# and feeds the resulting string to awk for evaluation
+	# Note leading zeroes will lead awk to believe they are octal numbers
+	#  as a quick and dirty fix I'm just wrapping them in quotes, forcing awk
+	#  to re-evaluate them, which appears to be enough to make them decimal.
+	#  This is the only place where leading zeroes have no meaning.
+	# sed expressions:
+	#   1: quote numbers with units (leading-zeroes workaround)
+	#   2: quote secs.ms
+	#   3: quote SECSs.ms
+	#   4: quote secs at end of string
+	#   ...
+	NEWCODETEST=$(echo $s | sed -r \
+							-e 's/([0-9]*)([hms])/"\1"\2/g' \
+							-e 's/([0-9]*\.[0-9]*)/"\1"/g' \
+							-e 's/(([0-9][0-9]*)s?\.([0-9][0-9])*)$/"\2"s"\3"/' \
+							-e 's/([0-9][0-9]*)$/"\1"s/' )
+	#   ... now add the products and additions
+	#   5: h * 3600
+	#   6: m * 60
+	#   7: s (* 1)
+	#   8: strip trailing, empty, addition
+	NEWCODETEST=$(echo "$NEWCODETEST" | sed -r \
+							-e 's/h/ * 3600 + /g' \
+							-e 's/m/ * 60 + /g' \
+							-e 's/s/ + /g' \
+							-e 's/ \+ $//g' \
+							)
 	for item in $(echo "$s" | grep -o '[0-9]*[hms]') ;do
 		n="\"$(echo $item | grep -o '[0-9]*')\"" # Number, quoted
 		t=$t$n$(echo $item | grep -o '[hms]') # + Number + Unit
@@ -1269,6 +1350,10 @@ get_interval() {
 	t="$t$secs"
 	t=${t/% + /} # Strip empty addition
 	r=$(awkexf "$t" 2>/dev/null)
+
+	local NEWR=$(awkexf "$NEWCODETEST" 2>/dev/null)
+echo "$r =? $NEWR" >&2
+	assert "[[ '$NEWR' == '$r' ]]"
 
 	# Negative and empty intervals
 	assert "[[ '$r' && '$t' ]]"
@@ -1726,7 +1811,7 @@ assert() {
 	c=${c% *} # <num> <func>
 	local LIN=${c% *} FN=${c#* }
 	eval "$@" || {
-		error "Internal error at $FN:$LIN: $@"
+		error "Internal error at $FN():$LIN: $@"
 		local cal=$(caller 1)
 		[[ $level ]] && error "  Stack trace:"
 		local level=2
@@ -2525,7 +2610,7 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 	#local rw=$(rmultiply $w,0.08) # 8% width
 	local rw=51
 	local rh=29
-	local vspad=5 # Vertical padding between sprocket holes
+	local vspad=10 # Vertical padding between sprocket holes
 	# Temporary files
 	local reel_strip=$(new_temp_file -reel.png)
 	local sprocket_mask=$(new_temp_file -smask.png)
@@ -2542,9 +2627,10 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 	# a parenthesised expression won't work, probably due to -alpha interactions
 	# First step: Create a mask: Black border, rounded-corners transparent rectangle
 	# (Source: http://www.imagemagick.org/Usage/thumbnails/#rounded)
+	local r=4 # 8 -> much more rounded, still mostly rectangular
 	convert -size ${rw2}x${rh2} 'xc:black' \
 			\( +clone -alpha extract \
-				-draw 'fill black polygon 0,0 0,8 8,0 fill white circle 8,8 8,0' \
+				-draw "fill black polygon 0,0 0,$r $r,0 fill white circle $r,$r $r,0" \
 				\( +clone -flip \) -compose Multiply -composite \
 				\( +clone -flop \) -compose Multiply -composite \
 			\) -alpha off -compose CopyOpacity -composite \
@@ -4569,11 +4655,13 @@ while true ; do
 				error "Wrong override format, it should be variable=value. Got '$2'."
 				exit $EX_USAGE
 			fi
-			if [[ $2 =~ 'GETOPT=' ]] ; then
+			two=$(tolower "$2")
+			RE='^[[:space:]]*getopt='
+			if [[ $two =~ $RE ]] ; then # getopt=
 				# If we're here, getopt has already been found and works, so it makes no
 				# sense to override it; on the other hand, if it hasn't been correctly
 				# set/detected we won't reach here
-				warn "GETOPT can't be overridden from the command line."
+				warn "Setting 'getopt' can't be overridden from the command line."
 			else
 				cmdline_override "$2"
 				POST_GETOPT_HOOKS=( "${POST_GETOPT_HOOKS[@]}" 1:cmdline_overrides_flush )
