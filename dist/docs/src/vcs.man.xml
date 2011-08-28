@@ -477,9 +477,10 @@ Validation: xmllint -''-noout -''-valid manpage.xml
               <para>Funky modes</para>
               <para>These are <emphasis>toy</emphasis> output modes in which the contact sheet
                  gets a more informal look.</para>
-             <warning>
-                 <para>Order <emphasis role="strong">IS IMPORTANT</emphasis>. A bad order gets a bad result :P</para>
-             </warning>
+              <caution>
+                  <para>Order <emphasis role="strong">IS IMPORTANT</emphasis>, it affects output.</para>
+                  <para>A bad order will produce a bad result.</para>
+              </caution>
               <para>Many of these modes are random in nature so using the same mode twice
                   will usually lead to very different results.</para>
               <para>Currently available <emphasis>funky modes</emphasis>:</para>
@@ -808,14 +809,24 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <refsect1 id="bugs">
     <!-- Or use this section to tell about upstream BTS. -->
     <title>BUGS</title>
+    <para>The upstream's bug tracker system can be found
+        at <ulink url="http://b.outlyer.net"/>, bugs can be reported
+        through the <ulink url="http://b.outlyer.net"><acronym>BTS</acronym></ulink>
+        or through e-mail addressed at <email>outlyer@gmail.com</email>.</para>
     <note>
         <para>Recent versions of <application>ImageMagick</application>,
             <application>mplayer</application> and
-        <application>ffmpeg</application> should be used
-        for maximum compatibility.</para>
+            <application>ffmpeg</application> should be used
+            for maximum compatibility.</para>
     </note>
-    <para>The upstream's <acronym>BTS</acronym> can be found
-      at <ulink url="http://b.outlyer.net"/>.</para>
+    <para>Most testing is done on <systemitem class="osname">Debian Sid</systemitem>, plus
+        <systemitem class="osname">FreeBSD</systemitem> for <acronym>BSD</acronym> compatibilty
+        tests.</para>
+    <para>Using <acronym>OS</acronym>es other than
+        <systemitem class="osname">Debian Sid</systemitem>
+        or <systemitem class="osname">FreeBSD</systemitem>
+        might uncover bugs and produce incompatibilities unknown to the author.
+    </para>
   </refsect1>
   <refsect1 id="see_also">
     <title>SEE ALSO</title>

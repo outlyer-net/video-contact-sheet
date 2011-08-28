@@ -9,7 +9,10 @@
 SETTINGS_XML=vcs.conf.man.xml
 
 IN=0
-while read line ; do
+# Preserve leading white-space by reducing IFS to only '\n':
+IFS='\
+'
+while read -ers line ; do
 	if grep -q '<xi:include' <<<"$line" ; then
 		IN=1
 	elif [[ $IN -eq 1 ]]; then
@@ -26,5 +29,5 @@ while read line ; do
 	if [[ $IN -eq 1 ]] && grep -q '/>' <<<"$line"; then
 		IN=0
 	fi
-done < ${SETTINGS_XML}
+done <${SETTINGS_XML}
 

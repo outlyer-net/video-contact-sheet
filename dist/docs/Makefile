@@ -1,5 +1,5 @@
 #
-# $Id: Makefile 2315 2011-08-28 02:54:41Z toni $
+# $Id: Makefile 2318 2011-08-28 03:45:43Z toni $
 #
 
 distdir:=.
@@ -30,6 +30,11 @@ clean:
 # man2html produces output closer to man and better formatted but
 # easily broken while xsltproc produces cleaner, more robust, and
 # cross-referenced output
+
+# sed post processing:
+#  add CSS link
+#  obfuscate mailto: links
+#  obfuscate emails
 $(distdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
 	xsltproc -nonet \
 		--xinclude \
@@ -39,7 +44,9 @@ $(distdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
 		$(DOCBOOK_XSL)/xhtml/docbook.xsl \
 		"$<" > "$@" || ( $(RM) "$@" && false )
 	sed -i \
-		's!</head>!<link rel="stylesheet" type="text/css" href="man.css"/></head>!' \
+		-e 's!</head>!<link rel="stylesheet" type="text/css" href="man.css"/></head>!' \
+		-e 's/mailto:\([[:alnum:]]*\)@\([[:alnum:]]*\)\.\([[:alpha:]]*\)/mailto:\1%40\2%2E\3/' \
+		-e 's/\([[:alnum:]]*\)@\([[:alnum:]]*\)\.\([[:alpha:]]*\)/\1\&#64;\2\&#x2e;\3/' \
 		"$@"
 
 # The xml.dcl file MUST be included in this order, after options and before inputs
