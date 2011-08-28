@@ -1,13 +1,19 @@
 1.13:
     * Complete manual pages
     * Added 'anonymous' to the list of settings
+    * Make "dynamic" settings case-insensitive, i.e.
+       bg_heading=$bg_contact can also be written bg_heading=$BG_CONTACT
     * Remove meaningless decimals when generating config files
+    * New setting: 'profiles', allows loading profiles automatically and also
+      loading profiles from other profiles
     * BUGFIXES:
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
         for alias-only names
       - Code typo: Produced error message when extended mode was
         narrower than contact sheet
+      - Only warned about command-line GETOPT override when using uppercase
+        setting name
     * Scheduled code cleanup:
       - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
         shoehorned and safe_rename_pattern
@@ -22,6 +28,9 @@
       - Help fixes:
          - Old DVD mode description was still displayed
          - Incorrectly had `--jpeg 2' instead of `--jpeg2' or `--jpeg=2'
+      - Added new distribution profile: compact
+      - Added new example profiles (black-mosaic and black-compact-chain), the
+        latter demonstrating how a profile can load other profiles
     * UNDOCUMENTED/DEBUG:
       - Undocumented options:
          - Don't fail on unknown sub-options
