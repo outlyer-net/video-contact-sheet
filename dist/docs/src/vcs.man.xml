@@ -594,7 +594,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                   </varlistentry>
                   <varlistentry>
                       <term><option>-W<replaceable>S</replaceable></option></term>
-                      <listitem><para>Scan all video, if required, to get a safe measuring.</para></listitem>
+                      <listitem><para>Scan all video, if required, to get a valid length measuring.</para></listitem>
                   </varlistentry>
                   <varlistentry>
                       <term><option>-W<replaceable>p</replaceable></option></term>
