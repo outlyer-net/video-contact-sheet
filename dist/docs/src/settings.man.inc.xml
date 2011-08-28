@@ -1,0 +1,478 @@
+<!DOCTYPE variablelist PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY emdash "&#x2014;">
+<!ENTITY equiv  "&#8801;">
+<!ENTITY rArr   "&#8658;">
+<!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
+]>
+<!-- $Date: 2011-08-28 04:54:41 +0200 (dg, 28 ago 2011) $ -->
+<variablelist id="settings">
+    <varlistentry>
+        <term id="term-bg_all"><literal>bg_all</literal></term>
+        <listitem>
+            <para>Sets the value of all <literal>bg_</literal> variables at once
+                (<xref linkend="term-bg_contact" />,
+                 <xref linkend="term-bg_heading" />,
+                 <xref linkend="term-bg_sign" />,
+                 <xref linkend="term-bg_tstamps" /> and
+                 <xref linkend="term-bg_title" />).</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-bg_heading"><literal>bg_heading</literal></term>
+        <term id="term-bg_contact"><literal>bg_contact</literal></term>
+        <term id="term-bg_sign"><literal>bg_sign</literal></term>
+        <term id="term-bg_title"><literal>bg_title</literal></term>
+        <term id="term-bg_tstamps"><literal>bg_tstamps</literal></term>
+        <listitem>
+            <para>These variables control the background colours of each section in the contact sheet.</para>
+            <note>
+                <para>Valid colour values are those understood by <application>ImageMagick</application>,
+                    e.g. <ulink url="http://www.imagemagick.org/script/color.php#color_names">color
+                    names</ulink> or <acronym>HTML</acronym>/<acronym>CSS</acronym>-style color
+                    specifications
+                    (<replaceable class="parameter">#RRGGBB<optional>AA</optional></replaceable>,
+                    <replaceable class="parameter">#RGB<optional>A</optional></replaceable>).</para>
+                <para>See <ulink url="http://www.imagemagick.org/script/color.php" />
+                    for more details and additional formats.</para>
+            </note>
+            <tip>
+                <para>The command <literal>$ <userinput>convert -list color</userinput></literal>
+                    prints a list of all known colour names.</para>
+            </tip>
+            <para><literal>bg_heading</literal> &emdash; File meta information (size, codec, etc.).
+                Default: <literal>#afcd7a</literal>
+                [&equiv; <literal>RGB(175,205,122)</literal>]</para>
+            <para><literal>bg_title</literal> &emdash; Title (with option <option>-T</option>).
+                Default: <constant>White</constant>
+                [&equiv; <literal>RGB(255,255,255)</literal>]</para>
+            <para><literal>bg_contact</literal> &emdash; Captures.
+                Default: <constant>White</constant>
+                [&equiv; <literal>RGB(255,255,255)</literal>]</para>
+            <para><literal>bg_tstamps</literal> &emdash; Timestamps boxes.
+                Default: <literal>#000000aa</literal>
+                [&equiv; <literal>RGBA(0,0,0,0.67)</literal>]</para>
+            <para><literal>bg_sign</literal> &emdash; Footer.
+                Default: <constant>SlateGray</constant>
+                [&equiv; <literal>RGB(112,128,144)</literal>]</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-columns"><literal>columns</literal></term>
+        <listitem>
+            <para>Number of columns</para>
+            <para>Default: <literal>2</literal></para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-debug"><literal>debug</literal></term>
+        <listitem>
+            <para>Enable or disable debug mode. Set to <userinput>1</userinput> to enable.</para>
+            <para>Default: <literal>0</literal> (disabled).</para>
+            <para>Equivalent command-line option: <option>-D</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-decoder"><literal>decoder</literal></term>
+        <listitem>
+            <para>Controls which capturer to use</para>
+            <para>Symbolic values: <literal><symbol>$DEC_FFMPEG</symbol></literal> &rArr; FFmpeg,
+                <literal><symbol>$DEC_MPLAYER</symbol></literal> &rArr; MPlayer</para>
+            <para>Default: <literal><symbol>$DEC_FFMPEG</symbol></literal> (FFmpeg) </para>
+            <para>Related command-line options:
+                <option>-F</option>, <option>--ffmpeg</option> and
+                <option>-M</option>, <option>--mplayer</option>
+            </para>
+            <warning>
+                <para>DVD mode sets the capturer to MPlayer disregarding the value of
+                    this setting.</para>
+            </warning>
+        </listitem>
+    </varlistentry>
+    <!-- There is NO such setting, but padding=0 can be used instead
+    <varlistentry>
+        <term id="term-disable_shadows"><literal>disable_padding</literal></term>
+        <listitem>
+            <para>Disables padding when set to <literal>1</literal>.</para>
+            <para>Default: <literal>0</literal></para>
+            <para>Equivalent command-line option: <option>-dp</option>, <option>-disable padding</option>.</para>
+        </listitem>
+    </varlistentry>
+    -->
+    <varlistentry>
+        <term id="term-disable_shadows"><literal>disable_shadows</literal></term>
+        <listitem>
+            <para>Disables drop shadows when set to <literal>1</literal>.</para>
+            <para>Default: <literal>0</literal></para>
+            <para>Equivalent command-line option: <option>-ds</option>, <option>--disable shadows</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-disable_timestamps"><literal>disable_timestamps</literal></term>
+        <listitem>
+            <para>Disables timestamps on captures when set to <literal>1</literal>.</para>
+            <para>Default: <literal>0</literal></para>
+            <para>Equivalent command-line option: <option>-dt</option>, <option>--disable timestamps</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-end_offset"><literal>end_offset</literal></term>
+        <listitem>
+            <para>End offset value (amount of time ignored from the end of videos).</para>
+            <para>Can be a percentage (of the detected length of each video)
+                or an amount of time, specified in the time syntax specified in &vcsmanpage;.</para>
+            <para>Default: <literal>5%</literal></para>
+            <para>Equivalent command-line option: <option>-E</option>, <option>--end-offset</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-extended_factor"><literal>extended_factor</literal></term>
+        <listitem>
+            <para>Extended factor value.</para>
+            <para>When set to a value different than <literal>0</literal> enables extended mode.</para>
+            <para>Default: <literal>0</literal></para>
+            <para>See the <ulink url="http://p.outlyer.net/dox/vcs:extended_mode">extended mode</ulink>
+                documentation.</para>
+            <para>Equivalent command-line option: <option>-e</option>, <option>--extended</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-fg_all"><literal>fg_all</literal></term>
+        <listitem>
+            <para>Sets the value of all <literal>fg_</literal> variables at once
+                (<xref linkend="term-fg_heading" />,
+                 <xref linkend="term-fg_sign" />,
+                 <xref linkend="term-fg_title" /> and
+                 <xref linkend="term-fg_tstamps" />).</para>
+            <para role="aside">Since version 1.12.2</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-fg_heading"><literal>fg_heading</literal></term>
+        <term id="term-fg_sign"><literal>fg_sign</literal></term>
+        <term id="term-fg_title"><literal>fg_title</literal></term>
+        <term id="term-fg_tstamps"><literal>fg_tstamps</literal></term>
+        <listitem>
+            <para>These variables control the font colours of each section in the contact sheet.</para>
+            <note>
+                <para>Valid colour values are those understood by <application>ImageMagick</application>,
+                    e.g. <ulink url="http://www.imagemagick.org/script/color.php#color_names">color
+                    names</ulink> or HTML/CSS-style color specifications
+                    (<replaceable class="parameter">#RRGGBB<optional>AA</optional></replaceable>,
+                    <replaceable class="parameter">#RGB<optional>A</optional></replaceable>).</para>
+                <para>See <ulink url="http://www.imagemagick.org/script/color.php" />
+                    for more details and additional formats.</para>
+            </note>
+            <tip>
+                <para>The command <literal>$ <userinput>convert -list color</userinput></literal>
+                    prints a list of all known colour names.</para>
+            </tip>
+            <para><literal>fg_heading</literal> &emdash; File meta information.
+                Default: <constant>Black</constant>
+                [&equiv; RGB(0,0,0)]</para>
+            <para><literal>fg_title</literal> &emdash; Title (with option <option>-T</option>).
+                Default: <constant>Black</constant>
+                [&equiv; RGB(0,0,0)]</para>
+            <para><literal>fg_tstamps</literal> &emdash; Timestamps.
+                Default: <constant>White</constant>
+                [&equiv; RGB(255,255,255)]</para>
+            <para><literal>fg_sign</literal> &emdash; Footer.
+                Default: <constant>Black</constant>
+                [&equiv; RGB(0,0,0)]</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-font_all"><literal>font_all</literal></term>
+        <listitem>
+            <para>Sets the value of all <literal>font_</literal> variables at once
+                (<xref linkend="term-font_heading" />,
+                 <xref linkend="term-font_sign" />,
+                 <xref linkend="term-font_title" /> and
+                 <xref linkend="term-font_tstamps" />)</para>
+            <para>Additional details: Since 1.12.2</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-font_heading"><literal>font_heading</literal></term>
+        <term id="term-font_sign"><literal>font_sign</literal></term>
+        <term id="term-font_title"><literal>font_title</literal></term>
+        <term id="term-font_tstamps"><literal>font_tstamps</literal></term>
+        <listitem>
+            <para>These variables control the fonts used in each section of the contact sheet.</para>
+            <para><literal>font_heading</literal> &emdash; File meta information.
+            Default: <constant>DejaVu-Sans-Book</constant></para>
+            <para><literal>font_title</literal> &emdash; Title (with option <option>-T</option>).
+            Default: <constant>DejaVu-Sans-Book</constant></para>
+            <para><literal>font_tstamps</literal> &emdash; Used for timestamps over the thumbnails.
+            Default: <constant>DejaVu-Sans-Book</constant></para>
+            <para><literal>font_sign</literal> &emdash; Footer / signature.
+            Default: <constant>DejaVu-Sans-Book</constant></para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-format"><literal>format</literal></term>
+        <listitem>
+            <para>Output file format</para>
+            <para>Default: <literal>png</literal></para>
+            <note>
+                <para>Should match the extension of a format known by <application>ImageMagick</application>.</para>
+            </note>
+            <para>Related command-line options:
+                <option>-j</option>, <option>--jpeg</option> and
+                <option>--jpeg2</option>
+            </para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-getopt"><literal>getopt</literal></term>
+        <listitem>
+            <para><acronym>GNU</acronym> <command>getopt</command> command</para>
+            <para>Default: <literal>getopt</literal></para>
+            <warning>
+                <para>The <command>getopt</command> command name must be set correctly or vcs won't work.</para>
+                <para>Must be a version compatible with <acronym>GNU</acronym> syntax.</para>
+                <para>Can only be set in configuration files (i.e. not from the command-line).</para>
+            </warning>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-height"><literal>height</literal></term>
+        <listitem>
+            <para>Height of individual captures.</para>
+            <para>Can be a fixed number of pixels or a percentage.</para>
+            <para>The default is the same as input i.e. <literal>100%</literal>.</para>
+            <para>Equivalent command-line option: <option>-H</option>, <option>--height</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-interval"><literal>interval</literal></term>
+        <listitem>
+            <para>Interval between captures, when the mode of operation is to capture
+                at fixed intervals.</para>
+            <para>Accepts the same format as any option accepting times, see &vcsmanpage; for details
+                on the acceptable syntax.</para>
+            <para>Default: <literal>300</literal> (&equiv; 5 minutes).</para>
+            <note>
+                <para>Unlike its command-line counterpart (<option>-i</option> or <option>--interval</option>),
+                    changing the value of <symbol>interval</symbol> doesn't automatically
+                    switch modes to capture at intervals.</para>
+                <para>The mode of operation is controlled by <xref linkend="term-timecode_from" />.</para>
+            </note>
+            <para>Equivalent command-line option: <option>-i</option>, <option>--interval</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-nonlatin_filenames"><literal>nonlatin_filenames</literal></term>
+        <listitem>
+            <para>Enables or disables the usage of an alternate font to print
+                filenames in the contact sheet meta-information section.</para>
+            <para>Set to <literal>1</literal> to use <xref linkend="term-nonlatin_font" /> to print filenames.</para>
+            <para>Default: <literal>0</literal>
+                &nbsp;&rArr;&nbsp; use the standard font, <xref linkend="term-font_heading"/>.</para>
+            <para role="aside">Since 1.12.2</para>
+            <para>Equivalent command-line option: <option>--nonlatin</option>, <option>-Ik</option>, <option>-Ij</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-nonlatin_font"><literal>nonlatin_font</literal></term>
+        <listitem>
+            <para>Font used for non-latin filenames when <xref linkend="term-nonlatin_filenames" />
+                is enabled.</para>
+            <para>Default: (picked automatically)</para>
+            <note>
+                <para>This font is, when possible, picked automatically.</para>
+                <para>Can be set manually with the <option>-Ik</option> or <option>-Ij</option> option.</para>
+            </note>
+            <para>Equivalent command-line option: <option>-Ik</option>, <option>-Ij</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-numcaps"><literal>numcaps</literal></term>
+        <listitem>
+            <para>Number of captures, when the mode of operation is to do a fixed
+                number of captures.</para>
+            <para>Default: <literal>16</literal>.</para>
+             <note>
+                <para>Unlike its command-line counterpart (<option>-n</option> or <option>--numcaps</option>),
+                    changing the value of <symbol>numcaps</symbol> doesn't automatically
+                    switch modes to do a fixed number of captures.</para>
+                <para>The mode of operation is controlled by <xref linkend="term-timecode_from" />.</para>
+            </note>
+            <para>Equivalent command-line option: <option>-n</option>, <option>--numcaps</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-padding"><literal>padding</literal></term>
+        <listitem>
+            <para>Number of pixels between captures when placed in the contact sheet.</para>
+            <para>Default: <literal>2</literal></para>
+            <para>Related command-line option: <option>-dp</option>, <option>--disable padding</option>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-plain_messages"><literal>plain_messages</literal></term>
+        <listitem>
+            <para>Allows disabling colourised feedback to the console.</para>
+            <para>Set to <literal>1</literal> to print plain, monochrome, feedback.</para>
+            <para>Default: <literal>0</literal> (&equiv; don't disable colours).</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-pts_meta"><literal>pts_meta</literal></term>
+        <term id="term-pts_sign"><literal>pts_sign</literal></term>
+        <term id="term-pts_title"><literal>pts_title</literal></term>
+        <term id="term-pts_tstamps"><literal>pts_tstamps</literal></term>
+        <listitem>
+            <para>These variables control font size of each section in the contact sheet.</para>
+            <para>These sizes are expressed in <emphasis>points</emphasis>.</para>
+
+            <para><literal>pts_meta</literal> &emdash; File meta-information.
+            Default: <literal>14</literal></para>
+            <para><literal>pts_title</literal> &emdash; Title (with option <option>-T</option>).
+            Default: <literal>33</literal>.</para>
+            <para><literal>pts_tstamps</literal> &emdash; Timestamps.
+            Default: <literal>14</literal>.
+                <note>
+                    <para>The value of <symbol>pts_tstamps</symbol> is reduced for smaller captures.</para>
+                </note>
+            </para>
+            <para><literal>pts_sign</literal> &emdash; Footer/signature.
+            Default: <literal>10</literal></para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-quality"><literal>quality</literal></term>
+        <listitem>
+            <para>Image quality (level of compression) when outputting to lossy formats.</para>
+            <para><literal>0</literal> to <literal>100</literal>, with <literal>100</literal>
+                being the best quality (the least compression).</para>
+            <para>Default: <literal>92</literal>.</para>
+            <note>
+                <para>This value only affects the final image.</para>
+            </note>
+        </listitem>
+    </varlistentry>
+    <!-- GONE in 1.13
+    <varlistentry>
+        <term id="term-safe_rename_pattern"><literal>safe_rename_pattern</literal></term>
+        <listitem>
+            <para>Pattern used for output files to avoid overwriting existing files.</para>
+            <para>Default: <literal>%b-%N.%e</literal></para>
+            <para>%b: Basename</para>
+            <para>%N: Incremental number</para>
+            <para>%e: extension</para>
+            <warning>
+                <para>Scheduled for removal in 1.13</para>
+            </warning>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-shoehorned"><literal>shoehorned</literal></term>
+        <listitem>
+            <para>Inserts additional parameters into ffmpeg or mplayer capture commands</para>
+            <warning>
+                <para>Scheduled for removal in 1.13</para>
+            </warning>
+        </listitem>
+    </varlistentry>
+    -->
+    <varlistentry>
+        <term id="term-signature"><literal>signature</literal></term>
+        <listitem>
+            <para>Text before the user name in the footer.</para>
+            <para>Default: <literal>&quot;Preview created by&quot;</literal>.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-stderr"><literal>stderr</literal></term>
+        <listitem>
+            <para>Standard error of programs when probing and capturing is sent here.</para>
+            <para>Default: <filename class="devicefile">/dev/null</filename>.</para>
+            <note>
+                <para>Setting it to <filename class="devicefile">/dev/stderr</filename> to
+                    will return capturer programs to their normal behaviour.</para>
+            </note>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-stdout"><literal>stdout</literal></term>
+        <listitem>
+            <para>Standard output of programs when probing and capturing is sent here.</para>
+            <para>Default: <filename class="devicefile">/dev/null</filename>.</para>
+            <note>
+                <para>Setting it to <filename class="devicefile">/dev/stdout</filename> to
+                    will return capturer programs to their normal behaviour.</para>
+            </note>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-timecode_from"><literal>timecode_from</literal></term>
+        <listitem>
+            <para>Controls the main mode of operation: capture at intervals or capture
+                a fixed number of snapshots.</para>
+            <para>Possible values are <literal><symbol>$TC_INTERVAL</symbol></literal> to
+                capture at intervals (will use <xref linkend="term-interval" />),
+                and <literal><symbol>$TC_NUMCAPS</symbol></literal> to capture a fixed
+                number of images (will use <xref linkend="term-numcaps" />).</para>
+            <para>Default: <literal><symbol>$TC_INTERVAL</symbol></literal>.</para>
+            <note>
+                <para>This setting is affected by command-line options <option>-i</option>
+                    and <option>-n</option>.</para>
+            </note>
+            <para>Related command-line options:
+                <option>-i</option>, <option>--interval</option> and
+                <option>-n</option>, <option>--numcaps</option>
+            </para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-user"><literal>user</literal></term>
+        <listitem>
+            <para>User name for the footer's signature.</para>
+            <para>Default: <command>$(id -un)</command> (&equiv; system user name).</para>
+            <para>Related command-line options:
+                <option>-u</option>, <option>--user</option> and
+                <option>-U</option>, <option>--fullname</option>
+            </para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-verbosity"><literal>verbosity</literal></term>
+        <listitem>
+            <para>Verbosity level.</para>
+            <para>Possible values:
+            <segmentedlist>
+            <?dbhtml list-presentation="table"?>
+            <?dbfo list-presentation="table"?>
+                <segtitle>Value</segtitle>
+                <segtitle>Meaning</segtitle>
+                <seglistitem>
+                    <seg><literal><symbol>$V_ALL</symbol></literal></seg>
+                    <seg>Print everything. Equivalent to <symbol>$V_NOTICE</symbol>.</seg>
+                </seglistitem>
+                <seglistitem>
+                    <seg><literal><symbol>$V_NONE</symbol></literal></seg>
+                    <seg>Print no feedback at all. Equivalent to command-line option <option>-qq</option>.</seg>
+                </seglistitem>
+                <seglistitem>
+                    <seg><literal><symbol>$V_ERROR</symbol></literal></seg>
+                    <seg>Print only errors.</seg>
+                </seglistitem>
+                <seglistitem>
+                    <seg><literal><symbol>$V_WARN</symbol></literal></seg>
+                    <seg>Print warnings and errors.</seg>
+                </seglistitem>
+                <seglistitem>
+                    <seg><literal><symbol>$V_INFO</symbol></literal></seg>
+                    <seg>Print informational messages, warnings and errors.
+                        This encompasses all messages, so it is equivalent to <symbol>$V_ALL</symbol>.</seg>
+                </seglistitem>
+            </segmentedlist>
+            </para>
+            <para>Default: <literal><symbol>$V_ALL</symbol></literal>.</para>
+            <para>Related command-line option: <option>-q</option>, <option>--quiet</option>.</para>
+        </listitem>
+    </varlistentry>
+</variablelist>
+<!-- vim:set ts=4 et: -->
+

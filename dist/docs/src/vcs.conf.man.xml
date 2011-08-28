@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2313 2011-08-27 03:06:44Z toni $
+$Id: vcs.conf.man.xml 2315 2011-08-28 02:54:41Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -13,6 +13,9 @@ See vcs.man.xml for comments on docbook+man handling.
 <!ENTITY package   "vcs.conf">
 <!ENTITY section   "5">
 <!ENTITY emdash    "&#x2014;">
+<!ENTITY equiv  "&#8801;">
+<!ENTITY rArr   "&#8658;">
+<!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
 
 <!--
 XInclude trickery
@@ -51,7 +54,12 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             <firstname>&firstname;</firstname>
             <surname>&surname;</surname>
             <contrib />
-            <address><email>&email;</email></address>
+            <address>
+                <email>&email;</email>
+                <otheraddr>
+                    <ulink url="http://corvera.eu./" />
+                </otheraddr>
+            </address>
         </author>
         <copyright>
             <year>2007-2011</year>
@@ -63,8 +71,8 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <edition>$Rev: 2313 $</edition>
-        <!--<date>$Date: 2011-08-27 05:06:44 +0200 (ds, 27 ago 2011) $</date>-->
+        <releaseinfo>$Rev: 2315 $</releaseinfo>
+        <!--<date>$Date: 2011-08-28 04:54:41 +0200 (dg, 28 ago 2011) $</date>-->
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -168,7 +176,7 @@ fg_all=white # White foreground</programlisting>
             online at <ulink url="http://p.outlyer.net/dox/vcs:conf_files" /></para>
         <xi:include
             xmlns:xi="http://www.w3.org/2001/XInclude"
-            href="mansrc/settings.man.inc.xml" />
+            href="./settings.man.inc.xml" />
     </refsect1>
     <refsect1 id="see_also">
         <title>SEE ALSO</title>

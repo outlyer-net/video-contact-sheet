@@ -94,13 +94,17 @@ make DESTDIR=%buildroot prefix=%{prefix} install
 %{prefix}/share/vcs/profiles/black.conf
 %{prefix}/share/vcs/profiles/mosaic.conf
 %{prefix}/share/vcs/profiles/white.conf
-# Manpage
+# Manpages
 %{_mandir}/man1/%{name}.1.gz
+%{_mandir}/man5/%{name}.conf.5.gz
 %doc CHANGELOG
 # Config example
 %doc examples/vcs.conf.example
 
 %changelog
+* Sun Aug 28 2011 - outlyer (at) gmail (dot) com
+- Install additional manpage for configuration file
+
 * Tue Aug 24 2010 - outlyer (at) gmail (dot) com
 - Install manpage
 

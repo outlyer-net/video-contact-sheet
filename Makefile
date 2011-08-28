@@ -1,62 +1,38 @@
-#!/usr/bin/make -f
+#
 # $Id$
+#
 
 srcdir=dist
-VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
+#VER=$(shell grep VERSION= $(srcdir)/vcs | sed 's/.*"\([^"]*\)".*/\1/')
+VER=$(shell sed -n '/VERSION=/s/.*"\([^"]*\)".*/\1/p' $(srcdir)/vcs)
 
-ALL=$(addprefix $(srcdir)/,vcs.1 vcs.conf.5 \
-		$(addprefix vcs.man,.html .xhtml) \
-		$(addprefix vcs.conf.man,.html .xhtml) \
-	)
-# Common part of command to convert docbook to man
-DOCBOOK_TO_MAN=xsltproc -o $(srcdir)/ -nonet \
-		--xinclude \
-		-param man.charmap.use.subset "0" \
-		-param make.year.ranges "1" \
-		-param make.single.year.ranges "1" \
-		/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
+all:
+	@echo "-------------------------------------------------------------------------------"
+	@echo " Use: "
+	@echo "  $$ $(MAKE) dist        # to create the actual v$(VER) distribution files"
+	@echo "  $$ $(MAKE) manpages    # to create only the manpages (in $(srcdir)/docs)"
+	@echo "  $$ $(MAKE) docs        # to create all documentation formats (in $(srcdir)/docs)"
+	@echo
+	@echo "  $$ $(MAKE) lint        # to validate documentation sources"
+	@echo "  $$ $(MAKE) clean       # to clean generated files"
+	@echo "  $$ $(MAKE) distclean   # to clean generated and distribution files"
+	@echo "  $$ $(MAKE) uploadclean # to clean non-distribution files"
+	@echo "------------------------------------------------------------------------------"
 
-all: $(ALL)
-	@echo "Use $(MAKE) dist to create the actual distribution files"
+docs: lint
+	$(MAKE) -C $(srcdir)/docs all
 
-# man2html produces output closer to man and better formatted but
-# easily broken while xsltproc produces cleaner, more robust, and
-# cross-referenced output
-$(srcdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
-	xsltproc -nonet \
-		--xinclude \
-		-param man.charmap.use.subset "0" \
-		-param make.year.ranges "1" \
-		-param make.single.year.ranges "1" \
-		/usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl \
-		"$<" > "$@"
-	sed -i \
-		's!</head>!<link rel="stylesheet" type="text/css" href="man.css"/></head>!' \
-		"$@"
+manpages: lint
+	$(MAKE) -C $(srcdir)/docs vcs.1 vcs.conf.5
 
-# Check all XML files for validity
-xmllint:
-	find . -type f -name '*.xml' -print0 | xargs -0 xmllint --xinclude -noout --valid
-
-$(srcdir)/vcs.man.html: $(srcdir)/vcs.1
-	man2html -r "$<" > "$@"
-
-$(srcdir)/vcs.conf.man.html: $(srcdir)/vcs.conf.5
-	man2html -r "$<" > "$@"
-
-$(srcdir)/vcs.1: $(srcdir)/vcs.man.xml
-	#xmlto -o `dirname $@`/ man $< 
-	$(DOCBOOK_TO_MAN) "$<"
-
-$(srcdir)/vcs.conf.5: $(srcdir)/vcs.conf.man.xml
-	$(DOCBOOK_TO_MAN) "$<"
-
+lint:
+	$(MAKE) -C $(srcdir)/docs lint
 
 tgz: vcs-$(VER).tar.gz
 
 vcs-$(VER).tar.gz:
-	cp -rvpP pkg/ vcs-$(VER)
-	cd vcs-$(VER) && make dist
+	cp -rvpP $(srcdir)/ vcs-$(VER)
+	make -C vcs-$(VER) dist
 	tar zcvf vcs-$(VER).tar.gz --exclude '.svn' --exclude '*.swp' --exclude '*.swo' vcs-$(VER)
 	$(RM) -r vcs-$(VER)
 
@@ -67,30 +43,35 @@ check-no-svn:
 		echo "**     Don't release from SVN working copy     **" ; \
 		echo '*************************************************' ; \
 		echo '*************************************************' ; \
+		echo ; \
 	fi
 
 check-rel:
 	@if head -n50 vcs | grep -q 'RELEASE=0' ; then \
-		echo 'RELEASE is set to 0!' ; false ; fi
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo '**           RELEASE is set to 0!              **' ; \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo ; \
+	fi
 
 dist: check-rel check-no-svn \
-		pkg/vcs.1 \
-		pkg/manpage.html \
 		vcs-$(VER).tar.gz \
 		PKGBUILD-$(VER) \
-		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
+		$(addprefix vcs-$(VER), .gz .bz2 .bash) \
 		CHANGELOG.gz CHANGELOG \
 		rpm deb
 
 # This shouldn't be re-built
-dist/mansrc/settings.man.inc.xml:
-	cd dist/mansrc && $(MAKE)
+devel_tools/mansrc/settings.man.inc.xml:
+	cd `dirname $@` && $(MAKE)
 
 PKGBUILD-$(VER): vcs-$(VER).tar.gz
-	cd pkg && ln -s ../vcs-$(VER).tar.gz ./
-	cd pkg && make PKGBUILD
-	$(RM) pkg/vcs-$(VER).tar.gz
-	mv pkg/PKGBUILD $@
+	cd $(srcdir) && ln -s ../vcs-$(VER).tar.gz ./
+	make -C $(srcdir) PKGBUILD
+	$(RM) $(srcdir)/vcs-$(VER).tar.gz
+	mv $(srcdir)/PKGBUILD $@
 
 vcs-$(VER).gz: $(srcdir)/vcs
 	gzip -c9 < vcs > $@
@@ -107,7 +88,12 @@ CHANGELOG.gz: $(srcdir)/CHANGELOG
 CHANGELOG: $(srcdir)/CHANGELOG
 	cp $< $@
 
-distclean:
+distclean: clean
+	$(RM) PKGBUILD-$(VER) vcs-$(VER).tar.gz $(addprefix vcs-$(VER), .gz .bz2 .bash) \
+			CHANGELOG.gz CHANGELOG *.deb *.rpm
+
+# That's the old distclean
+uploadclean:
 	$(RM) -ri vcs Makefile *.changes pkg
 
 deb:
@@ -120,6 +106,9 @@ rpm: vcs-$(VER).tar.gz
 	test -d ~/RPM/RPMS/noarch && ln -s ~/RPM/RPMS/noarch/vcs-$(VER)-*.rpm . || true
 
 clean:
-	-$(RM) vcs[-_]$(VER)* CHANGELOG* $(ALL)
+	-$(RM) vcs[-_]$(VER)* CHANGELOG*
+	make -C $(srcdir)/docs clean
 
-.PHONY: dist
+.PHONY: all docs manpages lint clean dist distclean uploadclean \
+		check-no-svn check-rel \
+		deb rpm tgz

@@ -39,7 +39,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <!ENTITY firstname "Toni">
   <!ENTITY surname   "Corvera">
   <!-- fullname could also be set to "&firstname; &surname;". -->
-  <!ENTITY fullname  "Toni Corvera">
+  <!ENTITY fullname  "&firstname; &surname;">
   <!ENTITY email     "outlyer@gmail.com">
   <!ENTITY section   "1">
   <!-- TITLE should be something like "User commands" or similar (see
@@ -61,7 +61,9 @@ Validation: xmllint -''-noout -''-valid manpage.xml
       <!--  <contrib>VCS author.</contrib> -->
       <address>
         <email>&email;</email>
-        <!-- <uri type="homepage">http://corvera.eu</uri> -->
+        <otheraddr>
+          <ulink url="http://corvera.eu./" />
+        </otheraddr>
       </address>
     </author>
     <copyright>
@@ -74,7 +76,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
         Version 2 or (at your option) any later version published by
         the Free Software Foundation.</para>
     </legalnotice>
-    <edition>$Rev$</edition>
+    <releaseinfo>$Rev$</releaseinfo>
     <!--<date>$Date$</date>-->
   </refentryinfo>
   <refmeta>
