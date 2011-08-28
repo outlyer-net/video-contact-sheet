@@ -5,8 +5,81 @@
 <!ENTITY rArr   "&#8658;">
 <!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
 ]>
-<!-- $Date: 2011-08-28 04:54:41 +0200 (dg, 28 ago 2011) $ -->
+<!-- $Date: 2011-08-29 01:37:19 +0200 (dl, 29 ago 2011) $ -->
 <variablelist id="settings">
+    <varlistentry>
+        <term id="term-all">All settings</term>
+        <listitem>
+            <para>
+                <!--
+                  $ grep '<term' src/settings.man.inc.xml |\
+                      sed -r -e '/<term id="term-all/d' \
+                          -e 's/^[[:space:]]*//' \
+                          -e 's!<term id="(.*)"><literal>.*$!<xref linkend="\1" />,!' \
+                          -e 's/^/                /' \
+                          -e '/(shoehorned|safe_rename_pattern)/d'
+                -->
+                <xref linkend="term-anonymous" />,
+                <xref linkend="term-bg_all" />,
+                <xref linkend="term-bg_heading" />,
+                <xref linkend="term-bg_contact" />,
+                <xref linkend="term-bg_sign" />,
+                <xref linkend="term-bg_title" />,
+                <xref linkend="term-bg_tstamps" />,
+                <xref linkend="term-columns" />,
+                <xref linkend="term-debug" />,
+                <xref linkend="term-decoder" />,
+                <xref linkend="term-disable_shadows" />,
+                <xref linkend="term-disable_shadows" />,
+                <xref linkend="term-disable_timestamps" />,
+                <xref linkend="term-end_offset" />,
+                <xref linkend="term-extended_factor" />,
+                <xref linkend="term-fg_all" />,
+                <xref linkend="term-fg_heading" />,
+                <xref linkend="term-fg_sign" />,
+                <xref linkend="term-fg_title" />,
+                <xref linkend="term-fg_tstamps" />,
+                <xref linkend="term-font_all" />,
+                <xref linkend="term-font_heading" />,
+                <xref linkend="term-font_sign" />,
+                <xref linkend="term-font_title" />,
+                <xref linkend="term-font_tstamps" />,
+                <xref linkend="term-format" />,
+                <xref linkend="term-getopt" />,
+                <xref linkend="term-height" />,
+                <xref linkend="term-interval" />,
+                <xref linkend="term-nonlatin_filenames" />,
+                <xref linkend="term-nonlatin_font" />,
+                <xref linkend="term-numcaps" />,
+                <xref linkend="term-padding" />,
+                <xref linkend="term-plain_messages" />,
+                <xref linkend="term-profiles" />,
+                <xref linkend="term-pts_meta" />,
+                <xref linkend="term-pts_sign" />,
+                <xref linkend="term-pts_title" />,
+                <xref linkend="term-pts_tstamps" />,
+                <xref linkend="term-quality" />,
+                <xref linkend="term-signature" />,
+                <xref linkend="term-stderr" />,
+                <xref linkend="term-stdout" />,
+                <xref linkend="term-timecode_from" />,
+                <xref linkend="term-user" />,
+                <xref linkend="term-verbosity" />
+            </para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-anonymous"><literal>anonymous</literal></term><!-- since 1.13 -->
+        <listitem>
+            <para>Enables or disables the anonymous mode.</para>
+            <para>Set to <literal>1</literal> to enable this mode, in which the contact sheet
+                footer won't include the
+                &laquo;Preview created by <link linkend="term-user"><replaceable>$user</replaceable></link>&raquo;
+                line.</para>
+            <para>Default: <literal>0</literal> (&equiv; disabled).</para>
+            <para>Equivalent command-line option: <option>--anonymous</option>.</para>
+        </listitem>
+    </varlistentry>
     <varlistentry>
         <term id="term-bg_all"><literal>bg_all</literal></term>
         <listitem>
@@ -315,6 +388,22 @@
             <para>Allows disabling colourised feedback to the console.</para>
             <para>Set to <literal>1</literal> to print plain, monochrome, feedback.</para>
             <para>Default: <literal>0</literal> (&equiv; don't disable colours).</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+        <term id="term-profiles"><literal>profiles</literal></term><!-- since 1.13 -->
+        <listitem>
+            <para>Loads profile(s).</para>
+            <para>Its value must be a profile name or a comma-separated list of profile names.</para>
+            <informalexample>
+                <para>Example:
+                    <userinput>
+                        <literal>profiles=<symbol>white</symbol>,<symbol>mosaic</symbol></literal>
+                    </userinput>
+                    will load the <literal>white</literal> and <literal>mosaic</literal> profiles.
+                </para>
+            </informalexample>
+            <para>Default: (empty).</para>
         </listitem>
     </varlistentry>
     <varlistentry>
