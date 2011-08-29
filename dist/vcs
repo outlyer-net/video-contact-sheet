@@ -4623,14 +4623,12 @@ while true ; do
 			# New syntax introduced in 1.11:
 			# -Ij:  Try to pick automatically a CJK font. Might fail and abort
 			# -Ij='Font name or file': Set font manually
-
-			if [[ $2 ]] ; then
-				# If an argument is passed, test it is one of the known ones
-				case "$2" in
-					k|j|k=*|j=*) ;;
-					*) error "-I must be followed by j or k!" && exit $EX_USAGE ;;
-				esac
-			fi
+			#
+			# If an argument is passed, test it is one of the known ones
+			case "$2" in
+				k|j|k=*|j=*) ;;
+				*) error "-I must be followed by j or k!" && exit $EX_USAGE ;;
+			esac
 			# It isn't tested for existence because it could also be a font
 			# which convert would understand without giving the full path
 			NONLATIN_FILENAMES=1
