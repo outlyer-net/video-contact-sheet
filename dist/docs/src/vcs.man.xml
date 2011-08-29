@@ -35,6 +35,7 @@ $ man vcs.1
 
 Validation: xmllint -''-noout -''-valid manpage.xml
 
+Spellcheck: aspell -l en-GB -H check FILENAME.xml
 -->
   <!ENTITY firstname "Toni">
   <!ENTITY surname   "Corvera">
@@ -50,7 +51,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <!ENTITY emdash    "&#x2014;">
   <!ENTITY xrefinterval 'See the accepted syntax at <xref linkend="interval_format" />.'>
 ]>
-<refentry>
+<refentry lang="en-GB">
   <refentryinfo>
     <title>&title;</title>
     <productname>&package;</productname>
@@ -336,7 +337,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
               <para>This value is not used when a explicit ending time is set (<option>--to</option>).</para>
               <para>Accepted formats:</para>
               <itemizedlist spacing="compact">
-                  <listitem><para>Timestamp (&xrefinterval;)</para></listitem>
+                  <listitem><para>Time stamp (&xrefinterval;)</para></listitem>
                   <listitem><para>Percentage of video length.</para></listitem>
               </itemizedlist>
               <para>The default is 5.5%.</para>
@@ -380,7 +381,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
           <term><option>--autoaspect</option></term>
           <listitem>
               <para>Try to guess aspect ratio from resolution.</para>
-              <para>A rude hardcoded method is used based only on known common dimensions.</para>
+              <para>A rude hard-coded method is used based only on known common dimensions.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -422,7 +423,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
           <term><option>-u <replaceable>NAME</replaceable></option></term>
           <term><option>--user <replaceable>NAME</replaceable></option></term>
           <listitem>
-              <para>Set the username (included by default in the contact sheet's footer)
+              <para>Set the user name (included by default in the contact sheet's footer)
                   to <replaceable>NAME</replaceable>.</para>
           </listitem>
       </varlistentry>
@@ -552,7 +553,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
           <term><option>--nonlatin</option></term>
           <listitem>
               <para>Use an alternate font in the heading for the video file name.</para>
-              <para>Required to display correctly file names in some languages with non-latin
+              <para>Required to display correctly file names in some languages with non-Latin
                   alphabets (Chinese, Japanese, Hangul, Cyrillic, ...).</para>
               <para>When no font name is given, a reasonable choice will be made if possible.</para>
               <para>When <replaceable>FONTNAME</replaceable> is given, it can be either
@@ -598,7 +599,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                   </varlistentry>
                   <varlistentry>
                       <term><option>-W<replaceable>p</replaceable></option></term>
-                      <listitem><para>Increase safe measuring precission (i.e. halve the probe stepping).</para>
+                      <listitem><para>Increase safe measuring precision (i.e. halve the probe stepping).</para>
                           <para>Repeat to increase further.</para>
                       </listitem>
                   </varlistentry>
@@ -608,7 +609,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
                   </varlistentry>
                   <varlistentry>
                       <term><option>-W<replaceable>o</replaceable></option></term>
-                      <listitem><para>Change ffmpeg's arguments order, might work
+                      <listitem><para>Change FFmpeg's arguments order, might work
                               with some files that fail otherwise.</para>
                       </listitem>
                   </varlistentry>
@@ -809,7 +810,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
   <refsect1 id="bugs">
     <!-- Or use this section to tell about upstream BTS. -->
     <title>BUGS</title>
-    <para>The upstream's bug tracker system can be found
+    <para>The upstream bug tracker system can be found
         at <ulink url="http://b.outlyer.net"/>, bugs can be reported
         through the <ulink url="http://b.outlyer.net"><acronym>BTS</acronym></ulink>
         or through e-mail addressed at <email>outlyer@gmail.com</email>.</para>
@@ -820,7 +821,7 @@ Validation: xmllint -''-noout -''-valid manpage.xml
             for maximum compatibility.</para>
     </note>
     <para>Most testing is done on <systemitem class="osname">Debian Sid</systemitem>, plus
-        <systemitem class="osname">FreeBSD</systemitem> for <acronym>BSD</acronym> compatibilty
+        <systemitem class="osname">FreeBSD</systemitem> for <acronym>BSD</acronym> compatibility
         tests.</para>
     <para>Using <acronym>OS</acronym>es other than
         <systemitem class="osname">Debian Sid</systemitem>

@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2315 2011-08-28 02:54:41Z toni $
+$Id: vcs.conf.man.xml 2329 2011-08-29 03:14:31Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -46,7 +46,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
 -->
 <!ENTITY % local.refcomponent.mix "| xi:include">
 ]><!--/!DOCTYPE-->
-<refentry>
+<refentry lang="en-GB">
     <refentryinfo>
         <title>&title;</title>
         <productname>&package;</productname>
@@ -71,8 +71,8 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <releaseinfo>$Rev: 2315 $</releaseinfo>
-        <!--<date>$Date: 2011-08-28 04:54:41 +0200 (dg, 28 ago 2011) $</date>-->
+        <releaseinfo>$Rev: 2329 $</releaseinfo>
+        <!--<date>$Date: 2011-08-29 05:14:31 +0200 (dl, 29 ago 2011) $</date>-->
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -118,12 +118,19 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
                 <varlistentry>
                     <term><literal>vcs:conf:</literal></term>
                     <listitem><para>Marks a file as following this format.</para>
-                        <para>Files without this field will be rejected.</para>
+                        <para>Files without this field will be rejected.
+                            <footnote>
+                                <para>Rejected in some cases.
+                                    Add this field when creating a configuration or
+                                    profile file to be on the safe side since it
+                                    will be truly required in the future.</para>
+                            </footnote>
+                        </para>
                     </listitem>
                 </varlistentry>
                 <varlistentry>
                     <term><literal>vcs:desc:</literal> <replaceable>DESCRIPTION</replaceable></term>
-                    <listitem><para>Describes this particular file's purporse,
+                    <listitem><para>Describes this particular file's purpose,
                             it is shown e.g. when listing available profiles.
                         </para>
                         <para>It is currently ignored for configuration files.</para>
@@ -183,6 +190,10 @@ fg_all=white # White foreground</programlisting>
         <para>
             <citerefentry>
                 <refentrytitle>vcs</refentrytitle>
+                <manvolnum>1</manvolnum>
+            </citerefentry>,
+            <citerefentry>
+                <refentrytitle>id</refentrytitle>
                 <manvolnum>1</manvolnum>
             </citerefentry>
         </para>

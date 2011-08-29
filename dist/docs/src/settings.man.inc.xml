@@ -5,8 +5,8 @@
 <!ENTITY rArr   "&#8658;">
 <!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
 ]>
-<!-- $Date: 2011-08-29 01:52:52 +0200 (dl, 29 ago 2011) $ -->
-<variablelist id="settings">
+<!-- $Date: 2011-08-29 05:14:31 +0200 (dl, 29 ago 2011) $ -->
+<variablelist id="settings" lang="en-GB">
     <varlistentry>
         <term id="term-all">All settings</term>
         <listitem>
@@ -101,8 +101,8 @@
             <para>These variables control the background colours of each section in the contact sheet.</para>
             <note>
                 <para>Valid colour values are those understood by <application>ImageMagick</application>,
-                    e.g. <ulink url="http://www.imagemagick.org/script/color.php#color_names">color
-                    names</ulink> or <acronym>HTML</acronym>/<acronym>CSS</acronym>-style color
+                    e.g. <ulink url="http://www.imagemagick.org/script/color.php#color_names">colour
+                    names</ulink> or <acronym>HTML</acronym>/<acronym>CSS</acronym>-style colour
                     specifications
                     (<replaceable class="parameter">#RRGGBB<optional>AA</optional></replaceable>,
                     <replaceable class="parameter">#RGB<optional>A</optional></replaceable>).</para>
@@ -148,7 +148,7 @@
     <varlistentry>
         <term id="term-decoder"><literal>decoder</literal></term>
         <listitem>
-            <para>Controls which capturer to use</para>
+            <para>Controls which capturer to use.</para>
             <para>Symbolic values: <literal><symbol>$DEC_FFMPEG</symbol></literal> &rArr; FFmpeg,
                 <literal><symbol>$DEC_MPLAYER</symbol></literal> &rArr; MPlayer</para>
             <para>Default: <literal><symbol>$DEC_FFMPEG</symbol></literal> (FFmpeg) </para>
@@ -349,7 +349,7 @@
     <varlistentry>
         <term id="term-nonlatin_font"><literal>nonlatin_font</literal></term>
         <listitem>
-            <para>Font used for non-latin filenames when <xref linkend="term-nonlatin_filenames" />
+            <para>Font used for non-Latin filenames when <xref linkend="term-nonlatin_filenames" />
                 is enabled.</para>
             <para>Default: (picked automatically)</para>
             <note>
@@ -388,6 +388,7 @@
             <para>Allows disabling colourised feedback to the console.</para>
             <para>Set to <literal>1</literal> to print plain, monochrome, feedback.</para>
             <para>Default: <literal>0</literal> (&equiv; don't disable colours).</para>
+            <para>Related command-line option: <option>-Wc</option>.</para>
         </listitem>
     </varlistentry>
     <varlistentry>
@@ -402,6 +403,7 @@
                 </para>
             </informalexample>
             <para>Default: (empty).</para>
+            <para>Equivalent command-line option: <option>-p</option>, <option>--profile</option>.</para>
         </listitem>
     </varlistentry>
     <varlistentry>
