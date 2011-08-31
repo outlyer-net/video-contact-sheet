@@ -9,12 +9,12 @@
 #   with patches from Phil Grundig and suggestions/corrections from
 #   many others (see homepage)
 #
-# This library is free software; you can redistribute it and/or
+# This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
 # version 2.1 of the License, or (at your option) any later version.
 #
-# This library is distributed in the hope that it will be useful,
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
@@ -813,7 +813,7 @@ parse_override() {
 	local token= tokenmap=
 	for token in $(echo "$varval" | grep -o '\$[[:alnum:]_]*' | sed 's/^\$//') ; do
 		# Locate the mapping
-		tokenmap=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$token")
+		tokenmap=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$token") || true
 		if [[ -z $tokenmap ]]; then
 			# No mapping, leave intact
 			continue

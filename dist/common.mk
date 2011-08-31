@@ -17,14 +17,17 @@ TGZ=vcs-$(VERSION).tar.gz
 
 MANDIR:=$(prefix)/share/man
 
-all:
-	# Nothing to be done
-	#   Automatically detected value:
+all: docs/vcs.1 docs/vcs.conf.5
+	#
+	# Automatically detected value:
 	#   PACKAGER=$(PACKAGER)
 	# To set it manually add it to Make's command-line like:
 	#  $$ $(MAKE) PACKAGER="This Is My Name"
 
 dist: vcs.spec
+
+docs/%:
+	$(MAKE) -C docs $*
 
 # Files installed in packages but not outside
 prepackage: examples/vcs.conf.example
@@ -48,7 +51,7 @@ uninstall:
 	-rmdir -p $(DESTDIR)$(prefix)/share/vcs/profiles
 	-rmdir -p $(DESTDIR)$(MANDIR)/man1 $(DESTDIR)$(MANDIR)/man5
 
-examples/vcs.conf.example: examples/vcs.conf
+examples/vcs.conf.example: ../vcs.conf.example
 	sed -e 's/^/#/;s/^#$$//;s/^##/#/' < $< > $@
 
 vcs.spec: rpm/vcs.spec.in vcs
@@ -69,7 +72,8 @@ PKGBUILD: arch/PKGBUILD.in $(TGZ) vcs
 		-e "s/@SHA1@/$$SHA1/g" -e "s/@SHA256@/$$SHA256/g" > $@
 
 clean:
-	-$(RM) examples/vcs.conf.example
+	#-$(RM) examples/vcs.conf.example
+	$(MAKE) -C docs clean
 
 distclean: clean
 	-$(RM) vcs.spec PKGBUILD
