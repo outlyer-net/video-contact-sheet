@@ -9,5 +9,7 @@ ifeq ($(PACKAGER),)
   PACKAGER:=$(shell getent passwd "`id -un`" | cut -d: -f5 | cut -d, -f1)
 endif
 
+GMAKE?=make
+
 include common.mk
 

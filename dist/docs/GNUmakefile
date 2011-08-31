@@ -1,5 +1,5 @@
 #
-# $Id: Makefile 2337 2011-08-31 18:59:50Z toni $
+# $Id: GNUmakefile 2339 2011-08-31 19:14:11Z toni $
 #
 # This Makefile uses GNU Make syntax.
 # The distribution tarball should already include the files generated
@@ -17,10 +17,10 @@ INTERMEDIATE=$(addprefix $(srcdir)/, \
 			 	$(addsuffix .tex, vcs.man vcs.conf.man) \
 			)
 
-DOCBOOK_XSL:=/usr/share/xml/docbook/stylesheet/docbook-xsl
-ifeq $($(shell uname -o),FreeBSD)
-DOCBOOK_XSL=/usr/share/xml/docbook/stylesheet/docbook-xsl
+ifeq ($(shell uname),FreeBSD)
+DOCBOOK_XSL:=/usr/local/share/xsl/docbook
 endif
+DOCBOOK_XSL?=/usr/share/xml/docbook/stylesheet/docbook-xsl
 # Common part of command to convert docbook to man
 DOCBOOK_TO_MAN=xsltproc -o $(distdir)/ -nonet \
 		--xinclude \

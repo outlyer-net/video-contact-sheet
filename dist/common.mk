@@ -36,8 +36,8 @@ vcs-$(VERSION).tar.gz: all
 	tar zcf vcs-$(VERSION).tar.gz vcs-$(VERSION)/
 	$(RM) -r vcs-$(VERSION)
 
-docs/%:
-	$(MAKE) -C docs $*
+docs/vcs.1 docs/vcs.conf.5:
+	$(GMAKE) -C docs `basename $@`
 
 # Files installed in packages
 prepackage: examples/vcs.conf.example

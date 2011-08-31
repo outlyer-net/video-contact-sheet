@@ -9,6 +9,7 @@ PACKAGER!=finger -lp `echo $USER` 2>/dev/null | head -n1 | cut -d: -f3
 PACKAGER!=getent passwd "`id -un`" | cut -d: -f5 | cut -d, -f1
 .endif
 
+GMAKE?=gmake
 RM?=rm -f
 
 include common.mk
