@@ -59,12 +59,6 @@ export LC_NUMERIC=C
 
 # {{{ # TO-DO
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
-# * [[x2]] Find out if egrep is safe to use or grep -E is more commonplace. =>
-#+         SUS v2: egrep is deprecated, grep -E replaces it
-# *        "grep -o" alternative:
-#          $ sed -n -e 's/\(SEARCH\)/\1\\
-#              /gp' | sed -e '/^[[:space:]]*$/d' -e 's/.*\(SEARCH\).*/\1/'
-#           possibly + -e '/^$/d' and -e '/SEARCH/!d'
 # * Change default DVD_TITLE to 0
 # * Deprecation schedule:
 #     DEPRECATED FROM | EXPECTED REMOVAL | DESCRIPTION
@@ -91,6 +85,14 @@ export LC_NUMERIC=C
 #     displayed and documented in lowercase
 # * Optimisations:
 #   - Reduce the number of forks/subshells
+# * Portability notes
+#   - 'sed -r' is not portable, works in GNU
+#   - 'grep -o' is not portable, works in GNU and FreeBSD
+#      Alternative:
+#      sed -n -e 's/\(SEARCH\)/\1\\
+#              /gp' | sed -e '/^[[:space:]]*$/d' -e 's/.*\(SEARCH\).*/\1/'
+#      possibly + -e '/^$/d' and -e '/SEARCH/!d'
+#   - 'egrep' is deprecated in SUS v2, 'grep -E' replaces it [[x2]]
 # }}} # TO-DO
 
 # {{{ # Constants
