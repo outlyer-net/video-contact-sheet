@@ -1,0 +1,159 @@
+#
+# vcs:conf: $Rev: 2333 $
+# Example vcs.conf file
+# This example files contains all the default values, commented out.
+# For each setting, where an equivalent command-line option exists it will be
+# listed in the comments
+#
+# Location:
+#   Configuration files can be placed at /etc/vcs.conf (site-wide),
+#   ~/.vcs.conf (current user, hidden file!), ./vcs.conf (current dir) or
+#   ~/.vcs/vcs.conf (current user, new alternative location)
+#
+# Syntax:
+#   * Comments start with '#' or ';'
+#   * '#' can be used in values by writing $#
+#   * Semicolons (;) can't be used in values
+#   * Options are of the form name=value
+#     - Options can refer to the *current* value of other options, i.e.
+#       font_sign=$font_heading will assign to 'font_sign' the same value
+#       as 'font_heading'. If font_heading is changed after that, font_sign
+#       won't be affected.
+#     - See <http://p.outlyer.net/dox/vcs:conf_files> for the full list
+
+# Height of individual captures. Percentage or fixed size (in pixels)
+height=100% # option -H
+
+# Amount ignored from the end of the video (think of it as an anti-spoiler
+# measure). Percentage (of video duration) or time (e.g. 2m). Set to 0
+# to disable it.
+end_offset=5% # option -E
+
+########################
+# Contact Sheet Layout #
+########################
+
+columns=2 # Number of columns in the contact sheet (option -c)
+
+interval=1m # Interval between captures (option -i)
+
+# Number of captures. Note setting this isn't enough to use a fixed number, the
+# mode must also be changed (option 'timecode_from', see below). (option -n)
+captures=16
+
+# Mode of operation, can be either $TC_NUMCAPS or $TC_INTERVAL (the default)
+# $TC_NUMCAPS   Fix the number of captures, adjust interval accordingly
+# $TC_INTERVAL  Fix interval, adjust the number of captures accordingly
+# (options -i and -n set this implicitly)
+timecode_from=$TC_INTERVAL
+
+# Modifier for extended mode (option -e).
+# Beware, setting it to something different from 0 automatically enables extended mode!
+extended_factor=0
+
+# Extra padding added around each capture.
+# This has *no effect* when shadows are enabled (the default).
+# Tweaking this might break alignment when using extended mode (-e)
+padding=2
+
+# Anonymous mode, set to 1 to disable the "Preview created by {value of user}"
+# line in the footer. (option --anonymous)
+anonymous=0
+
+# Profiles to load by default. (option -p)
+# *MUST* exist.
+profiles=
+
+###############
+# Output file #
+###############
+
+# Output format. Use the file extension (e.g. 'png', 'jpg', 'jp2')
+# Any format accepted by ImageMagick can be used here (even pdf or gif, not
+# that they'll look very good though)
+# (options: -j for JPEG, -j2 for JPEG 2000)
+format=png
+
+quality=92 # Output quality for lossy formats (e.g. jpg)
+
+####################
+# Cosmetic touches #
+####################
+
+user=`id -un` # User name, will be used in the contact sheet footer (option -u)
+
+# Used in the signature, e.g. "Preview created by {value of user}"
+signature=Preview created by
+
+disable_shadows=0 # Disable shadows by default (option -ds)
+
+disable_timestamps=0 # Disable timestamps by default (option -dt)
+
+#####################
+# Colours and fonts #
+#####################
+
+# * Colours can be defined either by their name or through hexcodes
+#   use the command 'identify -list color' for a list of known names
+# * Colours can use transparency, although this usually only makes sense
+#   for timestamps, which are overlaid on captures.
+# * Beware when specifying colours in hex format color=#hex is ok
+#   but color = #hex not, spaces can be used with color = $#hex
+# * Font sizes are expressed in points and hence might need adjustment
+#   when the font is changed.
+# * Font names can be either font paths (e.g. /usr/something/ttf/font.ttf)
+#   or font names as understood by ImageMagick, use the command
+#   'identify -list font' for a list of fonts known to ImageMagick
+
+bg_heading=#afcd7a # Heading/meta-information section background colour
+fg_heading=Black # Heading font colour
+font_heading=DejaVu-Sans-Book # Heading font
+pts_heading=14 # Font size for heading
+
+bg_title=White # Background for the title (if activated with option -T)
+fg_title=Black # Title font colour
+font_title=$font_heading # Title font
+
+bg_contact=White # Background for the contact sheet
+
+bg_tstamps=#000000aa # Background for timestamps. Note the use of transparency
+fg_tstamps=White # Timestamps font colour
+font_tstamps=$font_heading # Timestamps font
+pts_tstamps=14 # Font size for timestamps
+
+# Background for the signature, i.e. the section after the contact sheet with
+# vcs and user identification
+bg_sign=SlateGray
+fg_sign=Black # Font colour for the signature
+font_sign=$font_heading # Font for the signature
+pts_sign=10 # Font size for signature
+
+# Font to use for file name when the non-latin mode (--nonlatin) is enabled
+# Option: -Ik=fontname
+nonlatin_font=	# Autodetected (hopefully)
+
+######################
+# Lower level tweaks #
+######################
+
+# Decoder to use by default, can be either $DEC_FFMPEG (default) or
+# $DEC_MPLAYER
+# (options: -M for MPlayer, -F for FFMpeg)
+decoder=$DEC_FFMPEG
+
+# Output from commands, useful to locate errors
+stdout=/dev/null
+stderr=/dev/null
+
+# Verbosity level, very verbose by default.
+# Possible values: $V_ALL (default), $V_ERROR, $V_WARN, $V_INFO, $V_NONE
+# (options: -q for quietness)
+verbosity=$V_ALL
+
+# 1 disables colours in console output
+simple_feedback=0
+
+debug=0 # When 1, enables debugging mode (option -D)
+
+getopt=getopt # GNU Getopt executable name
+

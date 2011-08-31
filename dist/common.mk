@@ -17,19 +17,29 @@ TGZ=vcs-$(VERSION).tar.gz
 
 MANDIR:=$(prefix)/share/man
 
-all: docs/vcs.1 docs/vcs.conf.5
+all: docs/vcs.1 docs/vcs.conf.5 vcs.spec
 	#
 	# Automatically detected value:
 	#   PACKAGER=$(PACKAGER)
 	# To set it manually add it to Make's command-line like:
 	#  $$ $(MAKE) PACKAGER="This Is My Name"
 
-dist: vcs.spec
+dist: vcs-$(VERSION).tar.gz
+
+vcs-$(VERSION).tar.gz: all
+	$(RM) -r vcs-$(VERSION) vcs-$(VERSION).tar.gz
+	mkdir vcs-$(VERSION)
+	tar c --exclude='.svn' \
+			--exclude='*.swp' --exclude='*.swo' \
+			--exclude='vcs-$(VERSION)' . |\
+		tar x -C vcs-$(VERSION)
+	tar zcf vcs-$(VERSION).tar.gz vcs-$(VERSION)/
+	$(RM) -r vcs-$(VERSION)
 
 docs/%:
 	$(MAKE) -C docs $*
 
-# Files installed in packages but not outside
+# Files installed in packages
 prepackage: examples/vcs.conf.example
 
 install:
@@ -51,7 +61,7 @@ uninstall:
 	-rmdir -p $(DESTDIR)$(prefix)/share/vcs/profiles
 	-rmdir -p $(DESTDIR)$(MANDIR)/man1 $(DESTDIR)$(MANDIR)/man5
 
-examples/vcs.conf.example: ../vcs.conf.example
+examples/vcs.conf.example: docs/src/vcs.conf.example
 	sed -e 's/^/#/;s/^#$$//;s/^##/#/' < $< > $@
 
 vcs.spec: rpm/vcs.spec.in vcs
@@ -76,6 +86,6 @@ clean:
 	$(MAKE) -C docs clean
 
 distclean: clean
-	-$(RM) vcs.spec PKGBUILD
+	-$(RM) vcs.spec PKGBUILD vcs-$(VERSION).tar.gz
 
 .PHONY: all install clean tgz

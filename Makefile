@@ -30,11 +30,11 @@ lint:
 
 tgz: vcs-$(VER).tar.gz
 
-vcs-$(VER).tar.gz:
-	cp -rvpP $(srcdir)/ vcs-$(VER)
-	make -C vcs-$(VER) dist
-	tar zcvf vcs-$(VER).tar.gz --exclude '.svn' --exclude '*.swp' --exclude '*.swo' vcs-$(VER)
-	$(RM) -r vcs-$(VER)
+vcs-$(VER).tar.gz: $(srcdir)/vcs-$(VER).tar.gz
+	mv $< $@
+
+$(srcdir)/vcs-$(VER).tar.gz:
+	make -C $(srcdir) distclean `basename $@`
 
 check-no-svn:
 	@if [ -d .svn ]; then \
