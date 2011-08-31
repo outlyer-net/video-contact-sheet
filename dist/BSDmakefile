@@ -1,14 +1,15 @@
+#
+# $Id$
+# Makefile for BSD-make
+#
 
-
-VERSION!=head -50 vcs | grep 'declare -r VERSION=' | perl -pe 's/.*"(.*)".*/\1/'
+VERSION!=sed -n '/VERSION=/s/.*"\([^"]*\)".*/\1/p' vcs
 PACKAGER!=finger -lp `echo $USER` 2>/dev/null | head -n1 | cut -d: -f3
 .if empty($(PACKAGER))
-PACKAGER!=grep ^`id -un` /etc/passwd | cut -d: -f5 | cut -d, -f1
+PACKAGER!=getent passwd "`id -un`" | cut -d: -f5 | cut -d, -f1
 .endif
 
-.if empty($(RM))
-RM=rm -f
-.endif
+RM?=rm -f
 
 include common.mk
 
