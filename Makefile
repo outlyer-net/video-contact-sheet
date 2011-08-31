@@ -97,8 +97,8 @@ uploadclean:
 	$(RM) -ri vcs Makefile *.changes pkg
 
 deb:
-	cd pkg && debuild -us -uc -b && debclean
-	$(RM) vcs_*.changes vcs_*.build
+	cd pkg && debuild -k0x5812006E -us -uc && debclean
+	#$(RM) vcs_*.changes vcs_*.build
 
 rpm: vcs-$(VER).tar.gz
 	rpmbuild --clean -tb vcs-$(VER).tar.gz
