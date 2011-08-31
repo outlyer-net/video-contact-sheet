@@ -1,12 +1,26 @@
 #
-# $Id: common.mk 2335 2011-08-31 14:59:46Z toni $
+# $Id: Makefile 2337 2011-08-31 18:59:50Z toni $
 #
-# This makefile should be understood by both GNU make and FreeBSD make
+# This Makefile uses GNU Make syntax.
+# The distribution tarball should already include the files generated
+# here so there's usually no need to use it.
+#
 
-ALL=$(MANPAGES) $(XHTML) $(HTML) $(PDF)
-INTERMEDIATE=$(PDF)
+distdir:=.
+srcdir=src
 
+ALL=$(addprefix $(distdir)/,vcs.1 vcs.conf.5 \
+		$(addprefix vcs.man,.html .xhtml .pdf) \
+		$(addprefix vcs.conf.man,.html .xhtml .pdf) \
+	)
+INTERMEDIATE=$(addprefix $(srcdir)/, \
+			 	$(addsuffix .tex, vcs.man vcs.conf.man) \
+			)
+
+DOCBOOK_XSL:=/usr/share/xml/docbook/stylesheet/docbook-xsl
+ifeq $($(shell uname -o),FreeBSD)
 DOCBOOK_XSL=/usr/share/xml/docbook/stylesheet/docbook-xsl
+endif
 # Common part of command to convert docbook to man
 DOCBOOK_TO_MAN=xsltproc -o $(distdir)/ -nonet \
 		--xinclude \
@@ -72,6 +86,8 @@ lint:
 	# Use `$(MAKE) xhtml' before running `$(MAKE) $@' to
 	#  actually validate XHTML
 	find . -type f -name '*.xhtml' -exec bash -c "echo '[ {} ]' && tidy -utf8 -eq '{}'" \;
+
+xhtml: $(filter %.xhtml, $(ALL))
 
 $(distdir)/vcs.man.html: $(distdir)/vcs.1
 	man2html -r "$<" > "$@"
