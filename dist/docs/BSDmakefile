@@ -1,0 +1,14 @@
+#
+# $Id$
+#
+# FreeBSD-specific syntax section of the Makefile
+
+include definitions.mk
+
+HTML!=echo $(BASENAMES) | sed 's/$$/.html/'
+XHTML!=echo $(BASENAMES) | sed 's/$$/.xhtml/'
+PDF!=echo $(BASENAMES) | sed 's/$$/.pdf/'
+TEX!=echo $(BASENAMES) | sed 's/$$/.tex/'
+
+include common.mk
+

@@ -1,17 +1,10 @@
 #
-# $Id: Makefile 2327 2011-08-28 23:52:52Z toni $
+# $Id: common.mk 2335 2011-08-31 14:59:46Z toni $
 #
+# This makefile should be understood by both GNU make and FreeBSD make
 
-distdir:=.
-srcdir=src
-
-ALL=$(addprefix $(distdir)/,vcs.1 vcs.conf.5 \
-		$(addprefix vcs.man,.html .xhtml .pdf) \
-		$(addprefix vcs.conf.man,.html .xhtml .pdf) \
-	)
-INTERMEDIATE=$(addprefix $(srcdir)/, \
-			 	$(addsuffix .tex, vcs.man vcs.conf.man) \
-			)
+ALL=$(MANPAGES) $(XHTML) $(HTML) $(PDF)
+INTERMEDIATE=$(PDF)
 
 DOCBOOK_XSL=/usr/share/xml/docbook/stylesheet/docbook-xsl
 # Common part of command to convert docbook to man
@@ -79,8 +72,6 @@ lint:
 	# Use `$(MAKE) xhtml' before running `$(MAKE) $@' to
 	#  actually validate XHTML
 	find . -type f -name '*.xhtml' -exec bash -c "echo '[ {} ]' && tidy -utf8 -eq '{}'" \;
-
-xhtml: $(filter %.xhtml, $(ALL))
 
 $(distdir)/vcs.man.html: $(distdir)/vcs.1
 	man2html -r "$<" > "$@"
