@@ -93,6 +93,9 @@ export LC_NUMERIC=C
 #              /gp' | sed -e '/^[[:space:]]*$/d' -e 's/.*\(SEARCH\).*/\1/'
 #      possibly + -e '/^$/d' and -e '/SEARCH/!d'
 #   - 'egrep' is deprecated in SUS v2, 'grep -E' replaces it [[x2]]
+# * UNIX filter equivalencies
+#   - cut -d: -f1 === awk -F: '{print $1}' === awk '{BEGIN FS=":"}; {print $1}'
+#   - grep -v pattern === sed '/pattern/d'
 # }}} # TO-DO
 
 # {{{ # Constants
@@ -1317,22 +1320,20 @@ get_interval() {
 	#   2: quote secs.ms
 	#   3: quote SECSs.ms
 	#   4: quote secs at end of string
-	#   ...
-	NEWCODETEST=$(echo $s | sed -r \
-							-e 's/([0-9]*)([hms])/"\1"\2/g' \
-							-e 's/([0-9]*\.[0-9]*)/"\1"/g' \
-							-e 's/(([0-9][0-9]*)s?\.([0-9][0-9])*)$/"\2"s"\3"/' \
-							-e 's/([0-9][0-9]*)$/"\1"s/' )
-	#   ... now add the products and additions
+	#   ... from hereon add the products and additions
 	#   5: h * 3600
 	#   6: m * 60
 	#   7: s (* 1)
 	#   8: strip trailing, empty, addition
-	NEWCODETEST=$(echo "$NEWCODETEST" | sed -r \
+	NEWCODETEST=$(echo $s | sed \
+							-e 's/\([0-9]*\)\([hms]\)/"\1"\2/g' \
+							-e 's/\([0-9]*\.[0-9]*\)/"\1"/g' \
+							-e 's/\(\([0-9][0-9]*\)s?\.\([0-9][0-9]\)*\)$/"\2"s"\3"/' \
+							-e 's/\([0-9][0-9]*\)$/"\1"s/' \
 							-e 's/h/ * 3600 + /g' \
 							-e 's/m/ * 60 + /g' \
 							-e 's/s/ + /g' \
-							-e 's/ \+ $//g' \
+							-e 's/ + $//' \
 							)
 	for item in $(echo "$s" | grep -o '[0-9]*[hms]') ;do
 		n="\"$(echo $item | grep -o '[0-9]*')\"" # Number, quoted
@@ -4448,7 +4449,7 @@ TEMP=$("$GETOPT" -n "$0" -s bash \
 eval set -- "$TEMP"
 
 while true ; do
-	case "$1" in
+	case $1 in
 		-i|--interval)
 			check_constraint 'interval' "$2" "$1" || die
 			INTERVAL=$(get_interval $2)
@@ -4467,9 +4468,9 @@ while true ; do
 			;;
 		-o|--output)
 			current=${#OUTPUT_FILES[@]}
-			OUTPUT_FILES[$current]="$2"
+			OUTPUT_FILES[$current]=$2
 			shift ;;
-		-u|--username) USERNAME="$2" ; USR_USERNAME="$USERNAME" ; shift ;;
+		-u|--username) USERNAME=$2 ; USR_USERNAME=$USERNAME ; shift ;;
 		-U|--fullname)
 			# -U accepts an optional argument, 0, to make an anonymous signature
 			# --fullname accepts no argument
@@ -4487,9 +4488,9 @@ while true ; do
 			else # No argument, default handling (try to guess real name)
 				idname=$(id -un)
 				if type -p getent >/dev/null ; then
-					USERNAME=$(getent passwd "$idname" | cut -d':' -f5 |sed 's/,.*//g')
+					USERNAME=$(getent passwd "$idname" | cut -d':' -f5 | sed 's/,.*//g')
 				else
-					USERNAME=$(grep "^$idname:" /etc/passwd | cut -d':' -f5 |sed 's/,.*//g')
+					USERNAME=$(grep "^$idname:" /etc/passwd | cut -d':' -f5 | sed 's/,.*//g')
 				fi
 				if [[ -z $user ]]; then
 					USERNAME=$idname
