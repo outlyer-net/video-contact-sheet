@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2329 2011-08-29 03:14:31Z toni $
+$Id: vcs.conf.man.xml 2342 2011-09-01 13:19:47Z toni $
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -71,8 +71,8 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <releaseinfo>$Rev: 2329 $</releaseinfo>
-        <!--<date>$Date: 2011-08-29 05:14:31 +0200 (dl, 29 ago 2011) $</date>-->
+        <releaseinfo>$Rev: 2342 $</releaseinfo>
+        <!--<date>$Date: 2011-09-01 15:19:47 +0200 (dj, 01 set 2011) $</date>-->
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
@@ -120,10 +120,10 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
                     <listitem><para>Marks a file as following this format.</para>
                         <para>Files without this field will be rejected.
                             <footnote>
-                                <para>Rejected in some cases.
-                                    Add this field when creating a configuration or
-                                    profile file to be on the safe side since it
-                                    will be truly required in the future.</para>
+                                <para><filename>./vcs.conf</filename> won't be rejected if this
+                                    field is missing, though it's preferable to include it
+                                    to be ease moving the file to a different location or
+                                    turning it into a profile.</para>
                             </footnote>
                         </para>
                     </listitem>
