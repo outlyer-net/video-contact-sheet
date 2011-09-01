@@ -6,6 +6,7 @@
     * Remove meaningless decimals when generating config files
     * New setting: 'profiles', allows loading profiles automatically and also
       loading profiles from other profiles
+    * Change also title colours in 'black' and 'white' profiles
     * BUGFIXES:
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
