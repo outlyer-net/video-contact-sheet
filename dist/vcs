@@ -4630,7 +4630,7 @@ while true ; do
 			# -Ij='Font name or file': Set font manually
 			#
 			# If an argument is passed, test it is one of the known ones
-			case "$2" in
+			case $2 in
 				k|j|k=*|j=*) ;;
 				*) error "-I must be followed by j or k!" && exit $EX_USAGE ;;
 			esac
@@ -4667,12 +4667,12 @@ while true ; do
 				warn "Setting 'getopt' can't be overridden from the command line."
 			else
 				cmdline_override "$2"
-				POST_GETOPT_HOOKS=( "${POST_GETOPT_HOOKS[@]}" 1:cmdline_overrides_flush )
+				POST_GETOPT_HOOKS+=( 1:cmdline_overrides_flush )
 			fi
 			shift
 			;;
 		-W)
-			case "$2" in
+			case $2 in
 				# (classic) Workaround mode. See wa_ss_* declarations at the start for details
 				o) wa_ss_af='-ss ' ; wa_ss_be='' ;;
 				# Console colout
@@ -4724,7 +4724,7 @@ while true ; do
 		-k|--funky) # Funky modes
 			case "$2" in # Note older versions (<1.0.99) were case-insensitive
 				p|polaroid) # Same as overlap + rotate + polaroid
-					inf "Changed to polaroid funky mode."
+					inf "Polaroid mode enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_polaroid' 'filt_randrot' )
 					CSHEET_DELEGATE='csheet_overlap'
 					# XXX: The newer version has a lot less flexibility with these many
@@ -4735,23 +4735,27 @@ while true ; do
 					PTS_TSTAMPS=$(( $PTS_TSTAMPS * 3 / 2 ))
 					;;
 				c|photos) # Same as overlap + rotate + photoframe, this is the older polaroid
-					inf "Changed to photos funky mode."
+					inf "Photos mode enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_photoframe' 'filt_randrot' )
 					CSHEET_DELEGATE='csheet_overlap'
 					# The timestamp must change location to be visible most of the time
 					grav_timestamp=NorthWest
 					;;
 				o|overlap) # Random overlap mode
+					inf "Overlap mode enabled."
 					CSHEET_DELEGATE='csheet_overlap'
 					grav_timestamp=NorthWest
 					;;
 				r|rotate) # Random rotation
+					inf "Random rotation of captures enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_randrot' )
 					;;
 				f|photoframe) # White photo frame
+					inf "Photoframe mode enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_photoframe' )
 					;;
 				L|polaroidframe) # White polaroid frame
+					inf "Polaroid frame mode enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_polaroid ')
 					grav_timestamp=South
 					FG_TSTAMPS=Black
@@ -4759,15 +4763,15 @@ while true ; do
 					PTS_TSTAMPS=$(( $PTS_TSTAMPS * 3 / 2 ))
 					;;
 				i|film)
-					inf "Enabled film mode."
+					inf "Film mode enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_film' )
 					;;
 				x|random) # Random colours/fonts
-					inf "Enabled random colours and fonts."
+					inf "Fonts and colours randomisation enabled."
 					randomize_look
 					;;
 				*)
-					error "Unknown funky mode. Got '$2'."
+					error "Unknown funky mode requested. Got '$2'."
 					exit $EX_USAGE
 					;;
 			esac
@@ -5086,6 +5090,8 @@ for arg do process "$arg" ; done
 #          in elements though
 # * bash3: [[ STR =~ EREGEX ]] is faster than grep/egrep (no forking)
 #          bash 3.2 changed semantics vs bash 3.1
+#          quoting the ERE poses a problem (newer bash will interpret as plain string, older
+#          as ERE), storing the ERE in a variable or writing it unquoted solves this problem
 # * bash4: |& (inherited from csh?) pipes both stdout and stderr
 # * performance: bash loops are often slower than awk or perl
 # * performance: grep + cut proved faster than an equivalent sed -r s// replacement
