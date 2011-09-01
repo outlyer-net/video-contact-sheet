@@ -31,11 +31,14 @@
       - Added new distribution profile: compact
       - Added new example profiles (black-mosaic and black-compact-chain), the
         latter demonstrating how a profile can load other profiles
+      - List also builtin profiles with --profile :list
     * UNDOCUMENTED/DEBUG:
       - Undocumented options:
          - Don't fail on unknown sub-options
          - New sub-options: trace, display and discard
          - Debugging facility: --undocumented trace=funcname
+         - Show $POSIXLY_CORRECT in 'vcs -DD' output
+         - Show awk version, if possible, in 'vcs -DD' output
     * INTERNAL:
       - Check ImageMagick through convert instead of identify
       - Don't run filters in subshells

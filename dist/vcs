@@ -38,8 +38,8 @@ set -e
 
 # GAWK 3.1.3 to 3.1.5 print decimals (with printf) according to locale (i.e.
 #+decimal comma separator in some locales, which is apparently POSIX correct).
-#+Older and newer versions, though, need either POSIXLY_CORRECT=1, --posix or
-#+ --use-lc-numeric to honour locale.
+#+Older and newer versions, though, need either POSIXLY_CORRECT to be set (even
+#+be empty), --posix or --use-lc-numeric to honour locale.
 # MAWK appears to always use dots.
 # Info: <http://www.gnu.org/manual/gawk/html_node/Conversion.html>
 #export POSIXLY_CORRECT=1 # Immitate behaviour in newer gawk
@@ -86,7 +86,7 @@ export LC_NUMERIC=C
 # * Optimisations:
 #   - Reduce the number of forks/subshells
 # * Portability notes
-#   - 'sed -r' is not portable, works in GNU
+#   - 'sed -r' is not portable, works in GNU, XXX FreeBSD equivalent -E?
 #   - 'grep -o' is not portable, works in GNU and FreeBSD
 #      Alternative:
 #      sed -n -e 's/\(SEARCH\)/\1\\
@@ -673,6 +673,9 @@ load_profile() {
 	if [[ ${p:0:1} == ':' ]]; then
 		case $p in
 		:list)
+			echo "Builtin profiles:"
+			echo ' * classic: Classic colour scheme from previous versions'
+			echo ' * 1.0: Initial colour scheme from ancient versions'
 			# No need to be efficient here...
 			echo "Profiles located:"
 			local path= profname=
@@ -4771,7 +4774,7 @@ while true ; do
 			shift
 			;;
 		-p|--profile)
-			case "$2" in
+			case $2 in
 			  classic) # Classic colour scheme
 			    BG_HEADING=YellowGreen BG_SIGN=SlateGray BG_CONTACT=White
 			    BG_TITLE=White FG_HEADING=Black FG_SIGN=Black
@@ -4786,7 +4789,7 @@ while true ; do
 			shift
 			;;
 		-C|--config)
-			if echo "$2" | grep -q '^:' ; then
+			if [[ $2 =~ ^: ]]; then
 				if [[ $2 = ':pwd' ]]; then
 					cfg=./vcs.conf
 				else
@@ -4977,6 +4980,18 @@ while true ; do
 				[[ $decoder -eq $DEC_MPLAYER ]] && d='mplayer'
 				[[ $decoder -eq $DEC_FFMPEG ]] && d='ffmpeg'
 				infplain '[ svn $Rev$ ]'
+				# Even when empty, POSIXLY_CORRECT has an effect, check if it's
+				# set ([[BIS]])
+				if [[ -n ${POSIXLY_CORRECT+x} ]]; then
+					pc="'${POSIXLY_CORRECT}'"
+				else
+					pc='not set'
+				fi
+				# AWK version can't be checked in all variants
+				awkv=$(awk --version 2>/dev/null | head -1) || true
+				if [[ -n $awkv ]]; then
+					awkv="${NL}AWK:                $awkv"
+				fi
 				cat >&2 <<-EOD
 					=== Setup ===
 					GETOPT:             $GETOPT
@@ -4989,11 +5004,11 @@ while true ; do
 					Identif. (av.):     [ ${IDENTIFIERS_AVAIL[*]} ]
 					Pref. capturer:     $preferred_capturer
 					Safe step:          $QUIRKS_LEN_STEP
+					POSIXLY_CORRECT:    $pc
 					=== Versions ===
-					Bash:        $BASH_VERSION
-					Getopt:      $($GETOPT --version)
+					Bash:               $BASH_VERSION
+					Getopt:             $($GETOPT --version)$awkv
 EOD
-			# FIXME: Any portable way to print AWK version?
 				exit
 			fi
 			DEBUG=1
@@ -5057,6 +5072,7 @@ for arg do process "$arg" ; done
 # These are some notes for my own reference (or for those trying to read the script)
 # regarding bash syntax nuissances.
 #
+# * see http://www.gnu.org/s/bash/manual/html_node/Bash-Variables.html for builtin vars
 # * herestring redirection, '<<<$string', (used extensively in vcs) was introduced in bash 2.05b
 # * sed s/[ ,]/ * /g <=> ${var//[ ,]/ * }      [Much faster due to not forking]
 #   sed s/[ ,]/ * /  <=> ${var/[ ,]/ * }
