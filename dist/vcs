@@ -2912,7 +2912,9 @@ get_vcodec_name() {
 		0x10000001) vcodec="MPEG-1" ;;
 		0x10000002) vcodec="MPEG-2" ;;
 		0x00000000) vcodec="Raw video" ;; # How correct is this?
-		avc1|H264) vcodec="MPEG-4 AVC" ;; # H264 is used in mov/mp4
+		# H264 is used in mov/mp4.
+		# 0x07 was seen in mplayer 1.0rc2-4.2.1 (FreeBSD)
+		0x00000007|avc1|H264) vcodec="MPEG-4 AVC" ;;
 		DIV3) vcodec="DivX ;-) Low-Motion" ;; # Technically same as mp43
 		DX50) vcodec="DivX 5" ;;
 		FMP4) vcodec="FFmpeg" ;; # XXX: Would LAVC be a better name?
