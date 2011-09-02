@@ -92,6 +92,7 @@ export LC_NUMERIC=C
 #      sed -n -e 's/\(SEARCH\)/\1\\
 #              /gp' | sed -e '/^[[:space:]]*$/d' -e 's/.*\(SEARCH\).*/\1/'
 #      possibly + -e '/^$/d' and -e '/SEARCH/!d'
+#   - 'expr' is not a builtin, 'expr match' is not understood in, at least, FreeBSD
 #   - 'egrep' is deprecated in SUS v2, 'grep -E' replaces it [[x2]]
 # * UNIX filter equivalencies
 #   - cut -d: -f1 === awk -F: '{print $1}' === awk '{BEGIN FS=":"}; {print $1}'
@@ -1180,8 +1181,7 @@ ord() {
 
 # Get file extension
 filext() {
-	#grep -o '\.[^.]*$' <<<"$1" | cut -d. -f2
-	expr match "$1" '.*\.\(.*\)'
+	awk -F. '{print $NF}' <<<"$1"
 }
 
 # Checks if a 'command' is defined either as an available binary, a function
