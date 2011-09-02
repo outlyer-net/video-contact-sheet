@@ -2659,8 +2659,9 @@ init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshe
 	let 'repeat += 1'
 	#$(yes -- '-clone 0 ( -size 1x5 xc:black ) ' | head -n $repeat) \
 	#-append -crop ${rw}x${h}+0+0 \
+	# Can't use "yes -- '-clone 0'" outside GNU
 	convert -background black -fill black "$sprocket" \
-		$(yes -- '-clone 0' | head -$repeat) \
+		$(yes 'clone 0' | head -$repeat | sed 's/^/-/') \
 		-append \
 		"$reel_strip"
 	FILMSTRIP=$reel_strip
