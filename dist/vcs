@@ -3240,6 +3240,15 @@ classic_identify() {
 	# Ensure sanity of the most important values
 	is_float "${VID[$LEN]}" || return $RET_NOLEN
 	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
+	# Mplayer can identify video as 0x0
+	if [[ ${VID[$W]} -eq 0 ]]; then
+		VID[$W]=${FFMPEG_ID[$W]}
+	fi
+	if [[ ${VID[$H]} -eq 0 ]]; then
+		VID[$H]=${FFMPEG_ID[$H]}
+	fi
+	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
+	[[ ${VID[$W]} -gt 0 ]] && [[ ${VID[$H]} -gt 0 ]] || return $RET_NODIM
 
 	# FPS at least with two decimals
 	if [[ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]]; then
@@ -3289,7 +3298,6 @@ classic_identify() {
 
 	# Re-check sanity of the most important values
 	is_float "${VID[$LEN]}" || return $RET_NOLEN
-	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
 
 	RESULT=( "${VID[@]}" )
 }
