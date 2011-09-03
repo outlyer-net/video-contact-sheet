@@ -9,7 +9,7 @@ G=$(tput setaf 2 ; tput bold )
 R=$(tput setaf 1 ; tput bold)
 CLR=$(tput sgr0)
 
-set +e
+RET=0
 
 function unittest {
 	let 'TESTNUM++'
@@ -22,6 +22,7 @@ function unittest {
 	expected=$(cut -d' ' -f2- <<<"$a" | sed 's/.*://')
 	echo "$fn($args) -> $expected" >&2
 	ret=$($fn $args)
+	RET=$[ $RET + $?]
 	if [[ $ret != $expected ]] && ! fptest "$ret" ~ "$expected" ; then
 		echo -n "${R}FAILED	=> $ret != '$expected'"
 	else
