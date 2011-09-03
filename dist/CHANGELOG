@@ -43,14 +43,15 @@
          - Don't fail on unknown sub-options
          - New sub-options: trace, display and discard
          - Debugging facility: --undocumented trace=funcname
-         - Show $POSIXLY_CORRECT in 'vcs -DD' output
-         - Show awk version, if possible, in 'vcs -DD' output
+         - Display $POSIXLY_CORRECT and sed's path in 'vcs -DD' output
+         - Display awk and sed versions, if possible, in 'vcs -DD' output
     * INTERNAL:
       - Check ImageMagick through convert instead of identify
       - Don't run filters in subshells
       - Fix some typos
       - Bugfix: Actually use passed timestamp in filt_apply_timestamp()
       - Bugfix: Don't accept --shoehorn (was deprecated and unhandled)
+      - Set LANG to C
 
 1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
