@@ -52,6 +52,7 @@
       - Bugfix: Actually use passed timestamp in filt_apply_timestamp()
       - Bugfix: Don't accept --shoehorn (was deprecated and unhandled)
       - Set LANG to C
+      - Added simeq() and '~' fptest operator
 
 1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]

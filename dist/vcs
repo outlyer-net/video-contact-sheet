@@ -1104,8 +1104,13 @@ rtomult() {
 
 # numeric test eqivalent for floating point
 # fptest($1 = op1, $2 = operator, $3 = op2)
+# special operator: '~' uses fsimeq()
 fptest() {
 	local op=
+ 	# Empty operands
+	if [[ ( -z $1 ) || ( -z $3 ) ]]; then
+		assert "[[ \"'$1'\" && \"'$3'\" ]] && false"
+	fi
 	case $2 in
 		-gt) op='>' ;;
 		-lt) op='<' ;;
@@ -1113,17 +1118,23 @@ fptest() {
 		-le) op='<=' ;;
 		-eq) op='==' ;;
 		-ne) op='!=' ;;
+		~)
+			fsimeq "$1" "$3"
+			return $?
+			;;
 		*) assert "[[ \"'$1' '$2' '$3'\" ]] && false" && return $EX_SOFTWARE
 	esac
- 	# Empty operands
-	if [[ ( -z $1 ) || ( -z $3 ) ]]; then
-		assert "[[ \"'$1'\" && \"'$3'\" ]] && false"
-	else
-		awk "BEGIN { if ($1 $op $3) exit 0 ; else exit 1 }"
-	fi
+	awk "BEGIN { if ($1 $op $3) exit 0 ; else exit 1 }"
+}
+
+# floating point fuzzy equality, like fptest
+# fsimeq($1 = op1, $2 = op2)
+fsimeq() {
+	awk "BEGIN { if (($1 - $2)^2 < 0.000000001) exit 0 ; else exit 1 }"
 }
 
 # Keep a number of decimals *rounded*
+# keepdecimals($1 = num, $2 = number of decimals)
 keepdecimals() {
 	local N="$1" D="$2"
 	awk "BEGIN { printf \"%.${D}f\", (($N)+0) }"
@@ -1322,19 +1333,21 @@ get_interval() {
 	#  This is the only place where leading zeroes have no meaning.
 	# sed expressions:
 	#   1: add spaces after h,m,s and before '.'
-	#   2: quote numbers preceded by a space
-	#   3: quote the first number
+	#   2: add a space at the start (every number will now have a space in front)
+	#   3: quote numbers preceded by a space
 	#   4: replace h with a product by 3600 and an addition
 	#   5: replace m with a product by 60 and an addition
 	#   6: replace s with an addition
-	#   7: remove last empty addition
+	#   7: add a '+' between consecutive quoted values
+	#   8: remove last empty addition
 	NEWCODETEST=$(echo "$s" | sed \
 							-e 's/\([hms]\)/\1 /g' -e 's/\./ ./g' \
+							-e 's/^/ /' \
 							-e 's/ \([0-9.][0-9.]*\)/ "\1"/g' \
-							-e 's/^\([0-9.][0-9.]*\)/"\1"/' \
 							-e 's/h/ * 3600 + /g' \
 							-e 's/m/ * 60 + /g' \
 							-e 's/s/ + /g' \
+							-e 's/"[[:space:]]*"/" + "/g' \
 							-e 's/+ *$//' \
 							)
 	for item in $(echo "$s" | grep -o '[0-9]*[hms]') ;do
@@ -1359,7 +1372,7 @@ get_interval() {
 	t=${t/% + /} # Strip empty addition
 	r=$(awkexf "$t" 2>/dev/null)
 
-	local NEWR=$(awkexf "$NEWCODETEST" 2>/dev/null)
+	local NEWR=$(awkexf "$NEWCODETEST" 2>/dev/null) || true
 echo "$r =? $NEWR" >&2
 	assert "[[ '$NEWR' == '$r' ]]"
 
