@@ -2902,7 +2902,7 @@ safe_length_measure() {
 		fi
 		for rew in $(seqr $QUIRKS_LEN_STEP $maxrew $QUIRKS_LEN_STEP); do
 			newlen=$(keepdecimals_lower $(awkexf "$len - $rew") 3)
-			warn "   ... trying $newlen"
+			warn "   ... trying $(pretty_stamp $newlen)"
 			if probe_video "$f" "$newlen" ; then
 				echo $newlen
 				return 0
