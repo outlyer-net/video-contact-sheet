@@ -1,5 +1,5 @@
 #
-# $Id: Makefile 2317 2011-08-28 03:16:16Z toni $
+# $Id$
 #
 
 docsdir=../dist/docs

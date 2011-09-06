@@ -1,5 +1,5 @@
 #
-# $Id: GNUmakefile 2339 2011-08-31 19:14:11Z toni $
+# $Id$
 #
 # This Makefile uses GNU Make syntax.
 # The distribution tarball should already include the files generated
