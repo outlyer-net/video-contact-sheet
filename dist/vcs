@@ -2953,6 +2953,7 @@ get_vcodec_name() {
 		XVID) vcodec="Xvid" ;;
 		3IV2) vcodec="3ivx Delta 4.0" ;; # Rare but seen
 		FLV1) vcodec="Sorenson Spark (FLV1)" ;;
+		FPS1) vcodec="Fraps" ;;
 
 		# These are known FourCCs that I haven't tested against so far
 		WVC1) vcodec="VC-1" ;;
@@ -3013,6 +3014,7 @@ translate_ffmpeg_vcodec_id() {
 
 		vc1)        mpid="WVC1" ;; # In FF: WMVA = vc1
 		flv)        mpid="FLV1" ;;
+		fraps)      mpid="FPS1" ;;
 		# Not supported (ff just prints the FourCC)
 		# IV4*, vp4
 		vp3) mpid="VP30" ;;
