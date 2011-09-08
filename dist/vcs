@@ -4165,10 +4165,10 @@ internal_integrity_test() {
 		"is_pos_or_percent % 1 #Percent recognition"
 	)
 	for t in "${TESTS[@]}"; do
-		comm=$(sed 's!.* #!!g' <<<$t)
-		# Expected value
-		val=$(grep -o "[^ ]* #$comm\$"<<<$t | cut -d' ' -f1)
-		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		comm=${t/#*#/} # 's/.*#//'
+		t=${t/%#*/}    # 's/#.*//'
+		val=$(awk '{print $NF}' <<<$t)
+		op=$(sed "s! $val *\$!!" <<<$t)
 		[[ -n $comm ]] || comm=unnamed
 		ret=0
 		$op || {
