@@ -183,11 +183,11 @@ declare -i TIMECODE_FROM=$TC_INTERVAL
 # mplayer seems to fail for mpeg or WMV9 files, at least on my system
 # also, ffmpeg allows better seeking: ffmpeg allows exact second.fraction
 # seeking while mplayer apparently only seeks to nearest keyframe
-declare -i decoder=$DEC_FFMPEG # Deprecated
-# New in 1.13. Replaced the old 'decoder' symbolic option.
+declare -i DECODER=$DEC_FFMPEG # Deprecated
+# New in 1.13. Replaces the old 'decoder' symbolic option.
 # The value is *not* the name of the executable, but a supported capturer,
-#+right now 'ffmpeg' or 'mplayer'. Equivalent configuration option: 'capturer'
-declare preferred_capturer=ffmpeg
+#+right now 'ffmpeg' or 'mplayer'. Equivalent configuration setting: 'capturer'
+declare PREFERRED_CAPTURER=ffmpeg
 # Options used in imagemagick, these options set the final aspect
 # of the contact sheet
 declare FORMAT=png     # ImageMagick decides the type from the extension
@@ -568,13 +568,13 @@ declare -ra OVERRIDE_MAP=(
 
 	# TODO: These variables are evaluated to constants, would be better to
 	#       use some symbolic system (e.g. decoder=f instead of decoder=$DEC_FFMPEG)
-	"decoder:=:=:D"
+	"DECODER:=:=:D"
 	#"capture_mode:TIMECODE_FROM:alias:T"
 	"TIMECODE_FROM:=:=:T"
 	"VERBOSITY:=:=:V"
 	"SIMPLE_FEEDBACK:=:=:b"
-	"preferred_capturer:=:=:x"
-	"capturer:preferred_capturer:=:x"
+	"PREFERRED_CAPTURER:=:=:x"
+	"CAPTURER:PREFERRED_CAPTURER:=:x"
 
 	"HEIGHT:=:=:h"
 	"PADDING:=:=:n"
@@ -763,7 +763,7 @@ check_constraint() {
 		I) checkfn=is_interv_or_percent ; domain='intervals or percentages' ;;
 		P) checkfn=is_profile_list ; domain='comma-separated profile names' ;;
 		x)
-			case "$v" in
+			case "$p" in
 				preferred_capturer|capturer)
 					checkfn=is_known_capturer
 					domain='mplayer or ffmpeg'
@@ -897,7 +897,7 @@ parse_override() {
 	# Escape single quotes, since it will be single-quoted:
 	varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
 	evcode="USR_$ivar='$varval'"
-	if [[ $curvarval == "$varval" ]]; then
+	if [[ $curvarval == $varval ]]; then
 		retflag='='
 	else
 		evcode="$ivar='$varval'; $evcode"
@@ -1425,7 +1425,7 @@ pretty_stamp() {
 	# Fully implemented in AWK to discard bc.
 	# As a bonus now it's much faster and compact
 	awk "BEGIN {
-		t=$1 ; NOTMS=($DEC_MPLAYER==$decoder);
+		t=$1 ; NOTMS=($DEC_MPLAYER==$DECODER);
 		MS=(t - int(t));
 		h=int(t / 3600);
 		t=(t % 3600);
@@ -2207,7 +2207,9 @@ create_temp_dir() {
 }
 
 # Resolve path. Realpath is not always available and readlink [[LC]] behaves differently in
-# GNU and BSD. FIXME: Has AWK or bash something similar? This is the only place requiring perl!
+# GNU and BSD.
+# XXX: Has AWK or bash something similar? This is the only place requiring perl!
+# realpathr($1 = path) -> canonical path
 realpathr() {
 	perl -e "use Cwd qw(realpath);print realpath('$1')"
 }
@@ -2485,7 +2487,7 @@ capture_and_evade() {
 capture_impl() {
 	trace $@
 	local f=$1 stamp=$2 ofile=$3
-	# globals: $decoder
+	# globals: $DECODER
 
 	# Avoid recapturing if timestamp is already captured.
 	# The extended set includes the standard set so when using the extended mode
@@ -2493,7 +2495,7 @@ capture_impl() {
 	#+have ms precission
 	local key=
 	# Normalise key values' decimals
-	if [[ $decoder -eq $DEC_MPLAYER ]]; then
+	if [[ $DECODER -eq $DEC_MPLAYER ]]; then
 		key=$(awkex "int($stamp)")
 	else
 		key=$(awkex $stamp)
@@ -2581,7 +2583,6 @@ filt_apply_stamp() {
 # filt_photoframe($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filt_photoframe() {
 	trace $@
-#	local file="$1" ts=$2 w=$3 h=$4
 # Tweaking the size gives a nice effect too
 # w=$(( $w - ( $RANDOM % ( $w / 3 ) ) ))
 	# The border is relative to the input size (since 1.0.99), with a maximum of 6
@@ -2604,12 +2605,11 @@ filt_softshadow() {
 # filt_polaroid($1 = filename, $2 = timestamp, $3 = width, $4 = height)
 filt_polaroid() {
 	trace $@
-#	local file="$1" ts=$2 w=$3 h=$4
 	local border=$(( ($3*$4) / 3600 )) # Read filt_photoframe for details
 	[[ $border -lt 7 ]] || border=6
 	RESULT="\(  -fill white -background white "
 	RESULT+="   -bordercolor white -mattecolor white -frame ${border}x${border} "
-	# FIXME: This is rather ugly (double-flipping) there's surely a better way
+	# XXX: Double-flipping, there's surely a better way
 	RESULT+="   \( -flip -splice 0x$(( $border*5 )) \) "
 	RESULT+="   -flip -bordercolor grey60 -border 1 +repage "
 	RESULT+="\)"
@@ -2627,7 +2627,7 @@ filt_randrot() {
 
 # Create the sprocket-holes pattern
 # init_filt_film($1 = capture_width, $2 = capture_height)
-init_filt_film() { # FIXME: Useless while filter_vidcap runs filters in a subshell
+init_filt_film() {
 	trace $@
 	[[ -z $FILMSTRIP ]] || return 0
 	local w=$1 h=$2
@@ -2864,11 +2864,11 @@ probe_video() {
 
 	# This time a resize filter is applied to the player to produce smaller
 	# output
-	if [[ $decoder -eq $DEC_MPLAYER ]]; then
+	if [[ $DECODER -eq $DEC_MPLAYER ]]; then
 		if ! mplayer_probe "$f" "$ts"; then
 			ret=1
 		fi
-	elif [[ $decoder -eq $DEC_FFMPEG ]]; then
+	elif [[ $DECODER -eq $DEC_FFMPEG ]]; then
 		if ! ffmpeg_probe "$f" "$ts" ; then
 			ret=1
 		fi
@@ -3005,9 +3005,9 @@ translate_ffmpeg_vcodec_id() {
 		camtasia)   mpid="tscc" ;;
 		vp6|vp6a|vp6f) mpid="VP60" ;;
 		vp8) mpid="VP80" ;;
-		# FIXME List of codec id's I translate but haven't test:
-		# svq3, rv40, theora, camtasia, vp6*
-		# MPlayer uses uppercase while FFmpeg uses lowercase
+		# TODO List of codec id's I translate but haven't tested:
+		#+ svq3, rv40, theora, camtasia, vp6*
+		# MPlayer uses uppercase whereas FFmpeg uses lowercase
 		rv10|rv20|rv30|rv40|svq1|svq3|wmv1|wmv2|wmv3) mpid=$(echo $vcid | tr '[a-z]' '[A-Z]') ;;
 		# FFmpeg doesn't print FourCC's so there's some codecs that can't be told apart
 		msmpeg4)    mpid="vcs_divx" ;; # DIV3 = DIV4 = MP43
@@ -3140,11 +3140,11 @@ check_avail_tools() {
 
 pick_tools() {
 	# User *wants* a certain decoder
-	if [[ $USR_preferred_capturer ]]; then
-		if echo "${CAPTURERS_AVAIL[@]}" | grep -qi "$preferred_capturer" ; then
-			CAPTURER=$(tolower $preferred_capturer)
+	if [[ $USR_PREFERRED_CAPTURER ]]; then
+		if echo "${CAPTURERS_AVAIL[@]}" | grep -qi "$PREFERRED_CAPTURER" ; then
+			CAPTURER=$(tolower $PREFERRED_CAPTURER)
 		else
-			error "User selected capturing tool ($preferred_capturer) is not available"
+			error "User selected capturing tool ($PREFERRED_CAPTURER) is not available"
 			return $EX_UNAVAILABLE
 		fi
 	fi
@@ -3163,10 +3163,10 @@ pick_tools() {
 				break;
 			fi
 		done
-		if [[ $USR_preferred_capturer && $CAPTURER ]]; then
+		if [[ $USR_PREFERRED_CAPTURER && $CAPTURER ]]; then
 			# User choose one, disregard it
-			assert '[[ $USR_preferred_capturer != $CAPTURER ]]'
-			warn "$(tolower $USR_preferred_capturer) can't capture in DVD mode, switching to $CAPTURER"
+			assert '[[ $USR_PREFERRED_CAPTURER != $CAPTURER ]]'
+			warn "$(tolower $USR_PREFERRED_CAPTURER) can't capture in DVD mode, switching to $CAPTURER"
 		elif [[ -z $CAPTURER ]]; then
 			# No user-selected but none available with DVD support
 			error "No available capturer has DVD support"
@@ -3176,9 +3176,9 @@ pick_tools() {
 
 	if [[ $CAPTURER == 'mplayer' ]]; then
 		CAPTURER_HAS_MS=0
-		decoder=$DEC_MPLAYER
+		DECODER=$DEC_MPLAYER
 	elif [[ $CAPTURER == 'ffmpeg' ]]; then
-		decoder=$DEC_FFMPEG
+		DECODER=$DEC_FFMPEG
 	fi
 }
 
@@ -3249,7 +3249,7 @@ classic_identify() {
 			delta=$QUIRKS_LEN_THRESHOLD # Ensure it's considered inconsistent
 		fi
 		# If they differ too much, enter safe mode. If one reports 0, they'll differ...
-		# FIXME: If $decoder reports 0, can it seek??
+		# FIXME: If $DECODER reports 0, can it seek??
 		if fptest "$delta" -ge $QUIRKS_LEN_THRESHOLD ; then
 			warn "Found inconsistency in reported length. Safe measuring enabled."
 			QUIRKS=1
@@ -3305,7 +3305,7 @@ classic_identify() {
 				local offby=$(pretty_stamp $QUIRKS_MAX_REWIND)
 				warn "  Capturing won't work, video is at least $offby shorter than reported."
 				local dname='ffmpeg'
-				[[ $decoder -eq $DEC_MPLAYER ]] && dname='mplayer'
+				[[ $DECODER -eq $DEC_MPLAYER ]] && dname='mplayer'
 				warn "   Does $dname support ${VID[$VCODEC]}?."
 				warn "   Try re-running with$reqs$reqp."
 			fi
@@ -3433,12 +3433,12 @@ coherence_check() {
 		EXTENDED_FACTOR=0
 	fi
 
-	if [[ ( $decoder -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
+	if [[ ( $DECODER -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
 		inf "No mplayer available. Using ffmpeg only."
-		decoder=$DEC_FFMPEG
-	elif [[ ( $decoder -eq $DEC_FFMPEG ) && ( -z $FFMPEG_BIN ) ]]; then
+		DECODER=$DEC_FFMPEG
+	elif [[ ( $DECODER -eq $DEC_FFMPEG ) && ( -z $FFMPEG_BIN ) ]]; then
 		inf "No ffmpeg available. Using mplayer only."
-		decoder=$DEC_MPLAYER
+		DECODER=$DEC_MPLAYER
 	fi
 
 	local filter=
@@ -3676,7 +3676,7 @@ process() {
 	local output=$(new_temp_file '-preview.png')
 
 	# If the temporal vidcaps for mplayer already exist, abort
-	if [[ $decoder -eq $DEC_MPLAYER ]]; then
+	if [[ $DECODER -eq $DEC_MPLAYER ]]; then
 		for f_ in 1 2 3 4 5; do
 			if [[ -f "0000000${f_}.png" ]]; then
 				error "File 0000000${f_}.png exists and would be overwritten, move it out before running."
@@ -4204,9 +4204,9 @@ show_help() {
 	local showlong=$1
 	local mpchosen= ffchosen= longhelp= funkyex=
 	[[ -z $MPLAYER_BIN ]] && mpchosen=' [Not available]'
-	[[ $MPLAYER_BIN && ( $decoder == $DEC_MPLAYER ) ]] && mpchosen=' [Selected]'
+	[[ $MPLAYER_BIN && ( $DECODER == $DEC_MPLAYER ) ]] && mpchosen=' [Selected]'
 	[[ -z $FFMPEG_BIN ]] && ffchosen=', Not available'
-	[[ $FFMPEG_BIN && ( $decoder == $DEC_FFMPEG ) ]] && ffchosen=', Selected'
+	[[ $FFMPEG_BIN && ( $DECODER == $DEC_FFMPEG ) ]] && ffchosen=', Selected'
 	# This portion of help is only shown when in full help mode (--fullhelp)
 	[[ $showlong ]] && longhelp=\
 "  --anonymous           Disable the 'Preview created by' line in the footer.
@@ -4605,10 +4605,10 @@ while true ; do
 			;;
 		-h|--help) show_help ; exit $EX_OK ;;
 		--fullhelp) show_help 'full' ; exit $EX_OK ;;
-		-F|--ffmpeg) decoder=$DEC_FFMPEG ;  USR_decoder=$decoder ;
-					preferred_capturer=ffmpeg ; USR_preferred_capturer=ffmpeg ;;
-		-M|--mplayer) decoder=$DEC_MPLAYER ; USR_decoder=$decoder ;
-					preferred_capturer=mplayer ; USR_preferred_capturer=mplayer ;;
+		-F|--ffmpeg) DECODER=$DEC_FFMPEG ;  USR_DECODER=$DECODER ;
+					PREFERRED_CAPTURER=ffmpeg ; USR_PREFERRED_CAPTURER=ffmpeg ;;
+		-M|--mplayer) DECODER=$DEC_MPLAYER ; USR_DECODER=$DECODER ;
+					PREFERRED_CAPTURER=mplayer ; USR_PREFERRED_CAPTURER=mplayer ;;
 		-H|--height)
 			check_constraint 'height' "$2" "$1" || die
 			HEIGHT="$2"
@@ -4907,7 +4907,7 @@ while true ; do
 				exit $EX_UNAVAILABLE
 			fi
 			DVD_MODE=1
-			decoder=$DEC_MPLAYER
+			DECODER=$DEC_MPLAYER
 			ASPECT_RATIO=-2 # Special value: Auto detect only if ffmpeg couldn't
 			;;
 		-q|--quiet)
@@ -4949,13 +4949,13 @@ while true ; do
 					FFMPEG_BIN=''
 					warn "FFmpeg disabled"
 					assert '[[ $MPLAYER_BIN ]]'
-					decoder=$DEC_MPLAYER
+					DECODER=$DEC_MPLAYER
 					;;
 				disable_mplayer)
 					MPLAYER_BIN=''
 					warn "Mplayer disabled"
 					assert '[[ $FFMPEG_BIN ]]'
-					decoder=$DEC_FFMPEG
+					DECODER=$DEC_FFMPEG
 					;;
 				debug)
 					warn "[U] debug"
@@ -5013,8 +5013,8 @@ while true ; do
 			;;
 		-D) # Repeat to just test consistency
 			if [[ $DEBUGGED -gt 0 ]]; then
-				[[ $decoder -eq $DEC_MPLAYER ]] && d='mplayer'
-				[[ $decoder -eq $DEC_FFMPEG ]] && d='ffmpeg'
+				[[ $DECODER -eq $DEC_MPLAYER ]] && d='mplayer'
+				[[ $DECODER -eq $DEC_FFMPEG ]] && d='ffmpeg'
 				infplain '[ svn $Rev$ ]'
 				# Even when empty, POSIXLY_CORRECT has an effect, check if it's
 				# set ([[BIS]])
@@ -5043,7 +5043,7 @@ while true ; do
 					Decoder:            $d
 					Capturers (av.):    [ ${CAPTURERS_AVAIL[*]} ]
 					Identif. (av.):     [ ${IDENTIFIERS_AVAIL[*]} ]
-					Pref. capturer:     $preferred_capturer
+					Pref. capturer:     $PREFERRED_CAPTURER
 					Safe step:          $QUIRKS_LEN_STEP
 					POSIXLY_CORRECT:    $pc
 					=== Versions ===
