@@ -2261,7 +2261,7 @@ randomize_look() {
 	local nfonts=$(convert -list font | grep '^\s*Font:' | wc -l)
 	randfont() {
 		lineno=$(( $(rand) % $nfonts ))
-		convert -list font | grep -o 'Font:.*' | sed -n "${lineno}{p;q;}" | cut -d' ' -f2
+		convert -list font | sed -n -e '/Font: ./!d' -e 's/^.*Font: //' -e "${lineno}{p;q}"
 	}
 
 	BG_HEADING=$(randcolour)
@@ -4120,12 +4120,11 @@ internal_integrity_test() {
 	)
 	
 	for t in "${TESTS[@]}" ; do
-		# Note the use of ! as separator, this is because # and / are used in
-		# many of the inputs
-		comm=$(sed 's!.* #!!g' <<<$t)
+		comm=${t/#*#/} # 's/.*#//'
+		t=${t/%#*/}    # 's/#.*//'
 		# Expected value
-		val=$(grep -o "[^ ]* #$comm\$"<<<$t | cut -d' ' -f1)
-		op=$(sed "s! $val #$comm\$!!g" <<<$t)
+		val=$(awk '{print $NF}' <<<$t)
+		op=$(sed "s! $val *\$!!" <<<$t) # Don't use delimiter '/', passed in some $val
 		[[ -n $comm ]] || comm=unnamed
 		ret=$($op) || true
 
