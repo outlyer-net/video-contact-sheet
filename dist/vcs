@@ -449,9 +449,6 @@ IDENTIFIER=''
 # If 1, the selected CAPTURER understands the use of milliseconds
 CAPTURER_HAS_MS=0
 
-MPLAYER_BIN=
-FFMPEG_BIN=
-
 # This variable is used in functions to avoid running them in a subshell, i.e.
 # instead of
 #   ret=$(myfunc)
