@@ -125,12 +125,10 @@ export LANG=C
 #
 # The variables that can be overriden are below the block of constants ahead.
 
-# Default values, use INTERVAL, NUMCAPS and COLUMNS to override
+# Default value for INTERVAL, setting interval to 0 also re-sets it to this value
 declare -ri DEFAULT_INTERVAL=300
-declare -ri DEFAULT_NUMCAPS=16
-declare -ri DEFAULT_COLUMNS=2
 
-# see $decoder
+# see $DECODER
 declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 # See $TIMECODE_FROM
 declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
@@ -247,12 +245,12 @@ declare STDOUT=/dev/null STDERR=/dev/null
 # Height of the thumbnails, by default use same as input
 declare HEIGHT='100%'
 declare INTERVAL=$DEFAULT_INTERVAL	# Interval of captures (~length/$NUMCAPS)
-declare -i NUMCAPS=$DEFAULT_NUMCAPS	# Number of captures (~length/$INTERVAL)
+declare -i NUMCAPS=16				# Number of captures (~length/$INTERVAL)
 # This is the padding added to each capture.
 # Beware when changing this since extended set's alignment might break.
 # When shadows are enabled this is ignored since they already add padding.
 declare -i PADDING=2
-declare -i COLUMNS=$DEFAULT_COLUMNS       # Number of output columns
+declare -i COLUMNS=2				# Number of output columns
 # This amount of time is *not* captured from the end of the video
 declare END_OFFSET=$DEFAULT_END_OFFSET
 # When set to 1 the signature won't contain the "Preview created by..." line
@@ -289,7 +287,7 @@ declare -a VID=( )
 
 # These variables will hold the output of tput, used
 # to colourise feedback
-declare prefix_err= prefix_inf= prefix_warn= prefix_dbg= suffix_fback=
+declare PREFIX_ERR= PREFIX_INF= PREFIX_WARN= PREFIX_DBG= SUFFIX_FBACK=
 
 # Workarounds:
 # Argument order in FFmpeg is important -ss before or after -i will make
@@ -1687,11 +1685,11 @@ exithdlr() {
 # error($1 = text)
 error() {
 	if [[ $VERBOSITY -ge $V_ERROR ]]; then
-		[[ $SIMPLE_FEEDBACK -eq 0 ]] && echo -n "$prefix_err"
+		[[ $SIMPLE_FEEDBACK -eq 0 ]] && echo -n "$PREFIX_ERR"
 		# sgr0 is always used, this way if
 		# a) something prints inbetween messages it isn't affected
 		# b) if SIMPLE_FEEDBACK is overridden colour stops after the override
-		echo "$1$suffix_fback"
+		echo "$1$SUFFIX_FBACK"
 	fi >&2
 	# It is important to redirect both tput and echo to stderr. Otherwise
 	# n=$(something) wouldn't be coloured
@@ -1701,8 +1699,8 @@ error() {
 # warning($1 = text)
 warn() {
 	if [[ $VERBOSITY -ge $V_WARN ]]; then
-		[[ $SIMPLE_FEEDBACK -eq 0 ]] && echo -n "$prefix_warn"
-		echo "$1$suffix_fback"
+		[[ $SIMPLE_FEEDBACK -eq 0 ]] && echo -n "$PREFIX_WARN"
+		echo "$1$SUFFIX_FBACK"
 	fi >&2
 }
 #
@@ -1710,8 +1708,8 @@ warn() {
 # inf($1 = text)
 inf() {
 	if [[ $VERBOSITY -ge $V_INFO ]]; then
-		[[ $SIMPLE_FEEDBACK -eq 0 ]] &&  echo -n "$prefix_inf"
-		echo "$1$suffix_fback"
+		[[ $SIMPLE_FEEDBACK -eq 0 ]] &&  echo -n "$PREFIX_INF"
+		echo "$1$SUFFIX_FBACK"
 	fi >&2
 }
 
@@ -1755,7 +1753,7 @@ trace() {
 			return 0
 		fi
 	fi
-	echo "${prefix_dbg}[TRACE]: $func ${*}${suffix_fback}" >&2
+	echo "${PREFIX_DBG}[TRACE]: $func ${*}${SUFFIX_FBACK}" >&2
 }
 
 #
@@ -1807,11 +1805,11 @@ has_filter() {
 #
 # Enables prefixes in console output (instead of colour)
 set_feedback_prefixes() {
-	prefix_err='[E] '
-	prefix_inf='[i] '
-	prefix_warn='[w] '
-	prefix_dbg=''
-	suffix_fback=
+	PREFIX_ERR='[E] '
+	PREFIX_INF='[i] '
+	PREFIX_WARN='[w] '
+	PREFIX_DBG=''
+	SUFFIX_FBACK=
 }
 
 #
@@ -1826,11 +1824,11 @@ init_feedback() {
 	if type -pf tput >/dev/null ; then
 		# Is it able to set colours?
 		if tput bold && tput setaf 0 && tput sgr0 ; then
-			prefix_err=$(tput bold; tput setaf 1)
-			prefix_warn=$(tput bold; tput setaf 3)
-			prefix_inf=$(tput bold; tput setaf 2)
-			prefix_dbg=$(tput bold; tput setaf 4)
-			suffix_fback=$(tput sgr0)
+			PREFIX_ERR=$(tput bold; tput setaf 1)
+			PREFIX_WARN=$(tput bold; tput setaf 3)
+			PREFIX_INF=$(tput bold; tput setaf 2)
+			PREFIX_DBG=$(tput bold; tput setaf 4)
+			SUFFIX_FBACK=$(tput sgr0)
 			HAS_COLORS="yes"
 		fi >/dev/null
 	fi
@@ -1841,11 +1839,11 @@ init_feedback() {
 		# Alternatively: $ perl -e 'print "\e[31m\e[1m"'
 		# echo -e is not portable but echo $'' is bash-specific so it should be fine...
 		# except when ANSI escape codes aren't supported of course
-		prefix_err=$(echo $'\033[1m\033[31m')
-		prefix_warn=$(echo $'\033[1m\033[33m')
-		prefix_inf=$(echo $'\033[1m\033[32m')
-		prefix_dbg=$(echo $'\033[1m\033[34m')
-		suffix_fback=$(echo $'\033[0m')
+		PREFIX_ERR=$(echo $'\033[1m\033[31m')
+		PREFIX_WARN=$(echo $'\033[1m\033[33m')
+		PREFIX_INF=$(echo $'\033[1m\033[32m')
+		PREFIX_DBG=$(echo $'\033[1m\033[34m')
+		SUFFIX_FBACK=$(echo $'\033[0m')
 		HAS_COLORS="yes"
 	fi
 
