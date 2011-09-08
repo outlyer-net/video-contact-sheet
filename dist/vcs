@@ -1591,8 +1591,7 @@ test_programs() {
 	# Versions tested:
 	# * Fedora 9: IM 6.4.0
 	local ver
-	ver=$(convert -version | head -n1  | grep -o 'ImageMagick[[:space:]]*[^ ]*' |\
-		  cut -f 2 -d' ')
+	ver=$(convert -version | sed -n -e '1s/.*ImageMagick \([0-9][^ ]*\) .*$/\1/p;q')
 	if [[ $ver ]]; then
 		local verx=${ver//-/.}.0 # Extra .0 in case rev doesn't exist
 		local major=$(cut -d'.' -f1 <<<"$verx")
@@ -2050,8 +2049,8 @@ ffmpeg_identify() {
 	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
 	FFMPEG_CACHE=$("$FFMPEG_BIN" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
 	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
-	vs=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Video:' | head -1)
-	as=$(grep Stream <<<"$FFMPEG_CACHE" | grep 'Audio:' | head -1)
+	vs=$(sed -n -e '/Stream/!d' -e '/Video:/p' <<<"$FFMPEG_CACHE")
+	as=$(sed -n -e '/Stream/!d' -e '/Audio:/p' <<<"$FFMPEG_CACHE")
 	obs=$(grep Seems <<<"$FFMPEG_CACHE")
 	# Stream #0.0: Video: mpeg4, yuv420p, 624x352 [PAR 1:1 DAR 39:22], 23.98 tbr, 23.98 tbn, 24k tbc
 	# New and old versions of ffmpeg changed their output considerably, e.g.:
@@ -2075,16 +2074,16 @@ ffmpeg_identify() {
 	# Stream #0.0[0x1e0]: Video: mpeg2video, yuv420p, 720x576 [PAR 64:45 DAR 16:9], 9800 kb/s, 23.53 fps, 25 tbr, 90k tbn, 50 tbc
 	# **Also seen**: (DVB TS to DX50 in MKV), note the DAR mess, the second one is the correct one
 	# Stream #0.0: Video: mpeg4, yuv420p, 640x326 [PAR 1:1 DAR 320:163], PAR 231:193 DAR 73920:31459, 25 fps, 25 tbr, 1k tbn, 25 tbc
-	vsid=$(grep -o '#0.[0-9]' <<<"$vs" | cut -d'.' -f2) # Video Stream ID
-	fi[$VCODEC]=$(egrep -o 'Video: [^,]*' <<<"$vs" | cut -d' ' -f2-)
+	vsid=$(sed -n -e 's/^.*#0\.\([0-9]\).*$/\1/p' <<<"$vs") # Video Stream ID
+	fi[$VCODEC]=$(sed -n -e 's/^.*Video: \([^,]*\).*$/\1/p' <<<"$vs")
 	# ffmpeg's codec might contain spaces in some cases, i.e. iv4 in mov (see mplayer's bestiary)
 	#+unless this turns out to be common I won't be handling it specially
 	# Note unidentified audio codecs will be printed in hexadecimal
-	fi[$ACODEC]=$(egrep -o 'Audio: [^,]*' <<<"$as" | cut -d' ' -f2)
+	fi[$ACODEC]=$(sed -n -e 's/^.*Audio: \([^,]*\).*$/\1/p' <<<"$as")
 	fi[$VDEC]=''
 	# The comma is required for cases where the stream id is printed (in hex)
-	fi[$W]=$(egrep -o ', [0-9]*x[0-9]*' <<<"$vs" | sed 's/^, //' | cut -dx -f1)
-	fi[$H]=$(egrep -o ', [0-9]*x[0-9]*' <<<"$vs" | cut -dx -f2)
+	fi[$W]=$(sed -n -e 's/^.*, \([0-9]*\)x[0-9].*$/\1/p' <<<"$vs")
+	fi[$H]=$(sed -n -e 's/^.*, [0-9]*x\([0-9]*\).*$/\1/p' <<<"$vs")
 	# Newer CHANS and some older...
 	fi[$CHANS]=$(egrep -o '[0-9]* channels' <<<"$as" | cut -d' ' -f1)
 	# ...fallback for older
