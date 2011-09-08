@@ -332,8 +332,8 @@ declare CSHEET_DELEGATE=csheet_montage
 # Format <timestamp>:<filename>[NL]<timestamp>:<filename>...
 declare CAPTURES=
 
-# Gravity of the timestamp (will be override-able in the future)
-declare grav_timestamp=SouthEast
+# Gravity of the timestamp
+declare GRAV_TIMESTAMP=SouthEast
 
 # Sets which function is used to obtain random numbers valid values are
 # bashrand and filerand.
@@ -2640,7 +2640,7 @@ filt_apply_stamp() {
 	# The last -gravity None is used to "forget" the previous gravity (otherwise it would
 	# affect stuff like the polaroid frames)
 	RESULT=" \( -box '$BG_TSTAMPS' -fill '$FG_TSTAMPS' -stroke none -pointsize '$pts' "
-	RESULT+="    -gravity '$grav_timestamp' -font '$FONT_TSTAMPS' -strokewidth 3 -annotate +5+5 "
+	RESULT+="    -gravity '$GRAV_TIMESTAMP' -font '$FONT_TSTAMPS' -strokewidth 3 -annotate +5+5 "
 	RESULT+="    ' $timestamp ' \) -flatten -gravity None "
 }
 
@@ -4822,7 +4822,7 @@ while true ; do
 					CSHEET_DELEGATE='csheet_overlap'
 					# XXX: The newer version has a lot less flexibility with these many
 					# hardcoded values...
-					grav_timestamp=South
+					GRAV_TIMESTAMP=South
 					FG_TSTAMPS=Black
 					BG_TSTAMPS=Transparent
 					PTS_TSTAMPS=$(( $PTS_TSTAMPS * 3 / 2 ))
@@ -4832,12 +4832,12 @@ while true ; do
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_photoframe' 'filt_randrot' )
 					CSHEET_DELEGATE='csheet_overlap'
 					# The timestamp must change location to be visible most of the time
-					grav_timestamp=NorthWest
+					GRAV_TIMESTAMP=NorthWest
 					;;
 				o|overlap) # Random overlap mode
 					inf "Overlap mode enabled."
 					CSHEET_DELEGATE='csheet_overlap'
-					grav_timestamp=NorthWest
+					GRAV_TIMESTAMP=NorthWest
 					;;
 				r|rotate) # Random rotation
 					inf "Random rotation of captures enabled."
@@ -4850,7 +4850,7 @@ while true ; do
 				L|polaroidframe) # White polaroid frame
 					inf "Polaroid frame mode enabled."
 					FILTERS_IND=( "${FILTERS_IND[@]}" 'filt_polaroid ')
-					grav_timestamp=South
+					GRAV_TIMESTAMP=South
 					FG_TSTAMPS=Black
 					BG_TSTAMPS=Transparent
 					PTS_TSTAMPS=$(( $PTS_TSTAMPS * 3 / 2 ))
