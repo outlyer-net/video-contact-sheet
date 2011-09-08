@@ -503,8 +503,6 @@ INTERNAL_NO_TRACE=0 # When 1, tracing is disabled (used by -DD)
 #     x  -> Special, variable with a set of possible values
 # Note during the switch to the new system most variables will remain unchanged
 # Also, the new system is case insensitive to variable names
-# TODO: Allow 'y', 'n' in booleans
-# TODO: Remove extra coherence_check()'s once constraints are implemented
 declare -ra OVERRIDE_MAP=(
 	"USER:USERNAME::"
 	"EXTENDED_FACTOR:=:=:f"
