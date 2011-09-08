@@ -5,7 +5,7 @@
 <!ENTITY rArr   "&#8658;">
 <!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
 ]>
-<!-- $Date: 2011-08-29 05:14:31 +0200 (dl, 29 ago 2011) $ -->
+<!-- $Date: 2011-09-08 04:58:56 +0200 (dj, 08 set 2011) $ -->
 <variablelist id="settings" lang="en-GB">
     <varlistentry>
         <term id="term-all">All settings</term>
@@ -26,6 +26,7 @@
                 <xref linkend="term-bg_sign" />,
                 <xref linkend="term-bg_title" />,
                 <xref linkend="term-bg_tstamps" />,
+                <xref linkend="term-capturer" />,
                 <xref linkend="term-columns" />,
                 <xref linkend="term-debug" />,
                 <xref linkend="term-decoder" />,
@@ -131,6 +132,24 @@
         </listitem>
     </varlistentry>
     <varlistentry>
+        <term id="term-capturer"><literal>capturer</literal></term><!-- since 1.13 -->
+        <listitem>
+            <para>Controls which capturer to use.</para>
+            <para>Symbolic values: <literal><symbol>ffmpeg</symbol></literal> &rArr; FFmpeg,
+                <literal><symbol>mplayer</symbol></literal> &rArr; MPlayer</para>
+            <para>Default: <literal><symbol>ffmpeg</symbol></literal></para>
+            <para>Related command-line options:
+                <option>-F</option>, <option>--ffmpeg</option> and
+                <option>-M</option>, <option>--mplayer</option>
+            </para>
+            <warning>
+                <para>DVD mode sets the capturer to MPlayer disregarding the value of
+                    this setting.</para>
+            </warning>
+            <para role="aside">Since version 1.13</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
         <term id="term-columns"><literal>columns</literal></term>
         <listitem>
             <para>Number of columns</para>
@@ -148,6 +167,11 @@
     <varlistentry>
         <term id="term-decoder"><literal>decoder</literal></term>
         <listitem>
+            <warning>
+                <para>This setting is <emphasis role="strong">deprecated</emphasis>, use
+                    <xref linkend="term-capturer" /> instead. Notice <xref linkend="term-capturer" />
+                    has a different syntax.</para>
+            </warning>
             <para>Controls which capturer to use.</para>
             <para>Symbolic values: <literal><symbol>$DEC_FFMPEG</symbol></literal> &rArr; FFmpeg,
                 <literal><symbol>$DEC_MPLAYER</symbol></literal> &rArr; MPlayer</para>

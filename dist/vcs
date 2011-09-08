@@ -182,8 +182,9 @@ declare USERNAME=$(id -un)
 declare -i TIMECODE_FROM=$TC_INTERVAL
 # New in 1.13. Replaces the old 'decoder' symbolic option.
 # The value is *not* the name of the executable, but a supported capturer,
-#+right now 'ffmpeg' or 'mplayer'. Equivalent configuration setting: 'capturer'
-declare PREFERRED_CAPTURER=ffmpeg
+#+right now 'ffmpeg' or 'mplayer'.
+# When none is defined, the first available element in CAPTURERS is used.
+declare CAPTURER=
 # Options used in imagemagick, these options set the final aspect
 # of the contact sheet
 declare FORMAT=png     # ImageMagick decides the type from the extension
@@ -354,7 +355,7 @@ declare -a OUTPUT_FILES=( )
 #+also, ffmpeg allows better seeking: ffmpeg allows exact second.fraction
 #+seeking while mplayer apparently only seeks to nearest keyframe
 # Starting with 1.13 this value can no longer be overridden directly,
-#+setting 'decoder' actually changes PREFERRED_CAPTURER. DECODER is still used
+#+setting 'decoder' actually changes CAPTURER. DECODER is still used
 #+internally.
 declare -i DECODER=$DEC_FFMPEG
 
@@ -445,9 +446,6 @@ IDENTIFIERS=( classic ffmpeg mplayer )
 CAPTURERS_AVAIL=( )
 # Like CAPTURERS_AVAIL, for IDENTIFIERS
 IDENTIFIERS_AVAIL=( )
-# Set to the first available element in CAPTURERS, unless the user explicitly
-#+picks a different one
-CAPTURER=''
 # Same for IDENTIFIERS
 IDENTIFIER=''
 # If 1, the selected CAPTURER understands the use of milliseconds
@@ -578,8 +576,7 @@ declare -ra OVERRIDE_MAP=(
 	"TIMECODE_FROM:=:=:T"
 	"VERBOSITY:=:=:V"
 	"SIMPLE_FEEDBACK:=:=:b"
-	"PREFERRED_CAPTURER:=:=:x"
-	"CAPTURER:PREFERRED_CAPTURER:=:x"
+	"CAPTURER:=:=:x" # Setting this modifies DECODER and CAPTURER_HAS_MS, from pick_tools()
 
 	"HEIGHT:=:=:h"
 	"PADDING:=:=:n"
@@ -2239,18 +2236,18 @@ set_capturer() {
 
 	if [[ $1 = mplayer ]]; then
 		DECODER=$DEC_MPLAYER
-		PREFERRED_CAPTURER=mplayer
+		CAPTURER=mplayer
 		CAPTURER_HAS_MS=0
 	elif [[ $1 = ffmpeg ]]; then
 		DECODER=$DEC_FFMPEG
-		PREFERRED_CAPTURER=ffmpeg
+		CAPTURER=ffmpeg
 		CAPTURER_HAS_MS=1
 	else
 		assert false
 	fi
 	if [[ $up -eq 1 ]]; then
 		USR_DECODER=$DECODER
-		USR_PREFERRED_CAPTURER=$PREFERRED_CAPTURER
+		USR_CAPTURER=$CAPTURER
 	fi
 }
 
@@ -3212,11 +3209,9 @@ check_avail_tools() {
 pick_tools() {
 	trace $@
 	# User *wants* a certain decoder
-	if [[ $USR_PREFERRED_CAPTURER ]]; then
-		if echo "${CAPTURERS_AVAIL[@]}" | grep -qi "$PREFERRED_CAPTURER" ; then
-			CAPTURER=$(tolower $PREFERRED_CAPTURER)
-		else
-			error "User selected capturing tool ($PREFERRED_CAPTURER) is not available"
+	if [[ $USR_CAPTURER ]]; then
+		if ! grep -qi "$CAPTURER" <<<"${CAPTURERS_AVAIL[@]}" ; then
+			error "User selected capturing tool ($CAPTURER) is not available"
 			return $EX_UNAVAILABLE
 		fi
 	fi
@@ -3235,24 +3230,21 @@ pick_tools() {
 				break;
 			fi
 		done
-		if [[ $USR_PREFERRED_CAPTURER && $CAPTURER ]]; then
-			# User choose one, disregard it
-			assert '[[ $USR_PREFERRED_CAPTURER != $CAPTURER ]]'
-			warn "$(tolower $USR_PREFERRED_CAPTURER) can't capture in DVD mode, switching to $CAPTURER"
-		elif [[ -z $CAPTURER ]]; then
-			# No user-selected but none available with DVD support
+		if [[ -z $CAPTURER ]]; then
+			# None available with DVD support
 			error "No available capturer has DVD support"
 			return $EX_UNAVAILABLE
 		fi
+		if [[ $USR_CAPTURER != $CAPTURER ]]; then
+			# User choose one, we can't use
+			warn "$(tolower $USR_CAPTURER) can't capture in DVD mode, switching to $CAPTURER"
+		fi
 	fi
 
-	if [[ $CAPTURER == 'mplayer' ]]; then
-		CAPTURER_HAS_MS=0
-		DECODER=$DEC_MPLAYER
-	elif [[ $CAPTURER == 'ffmpeg' ]]; then
-		CAPTURER_HAS_MS=1
-		DECODER=$DEC_FFMPEG
-	fi
+	# Propagate to the related settings
+	local actual=$CAPTURER
+	[[ -z $USR_CAPTURER ]] || set_capturer $USR_CAPTURER 1 # Preferred
+	set_capturer $actual 0 # Actual
 }
 
 ### }}}
@@ -4978,7 +4970,6 @@ while true ; do
 				exit $EX_UNAVAILABLE
 			fi
 			DVD_MODE=1
-			set_capturer mplayer 0
 			ASPECT_RATIO=-2 # Special value: Auto detect only if ffmpeg couldn't
 			;;
 		-q|--quiet)
@@ -5086,15 +5077,14 @@ while true ; do
 			;;
 		-D) # Repeat to just test consistency
 			if [[ $DEBUGGED -gt 0 ]]; then
-				[[ $DECODER -eq $DEC_MPLAYER ]] && d='mplayer'
-				[[ $DECODER -eq $DEC_FFMPEG ]] && d='ffmpeg'
+				pick_tools # Simulate a normal run
 				infplain '[ svn $Rev$ ]'
 				# Even when empty, POSIXLY_CORRECT has an effect, check if it's
 				# set ([[BIS]])
 				if [[ -n ${POSIXLY_CORRECT+x} ]]; then
 					pc="'${POSIXLY_CORRECT}'"
 				else
-					pc='not set'
+					pc='{not set}'
 				fi
 				# AWK and sed version can't be checked in all variants
 				awkv=$(awk --version 2>/dev/null | head -1) || true
@@ -5105,6 +5095,12 @@ while true ; do
 				if [[ -n $sedv ]]; then
 					sedv="${NL}sed:                $sedv"
 				fi
+				usrcap=
+				if [[ -n $USR_CAPTURER ]]; then
+					usrcap=$USR_CAPTURER
+				else
+					usrcap='{default}'
+				fi
 				cat >&2 <<-EOD
 					=== Setup ===
 					GETOPT:             $GETOPT
@@ -5112,13 +5108,13 @@ while true ; do
 					FFMPEG:             $FFMPEG_BIN
 					AWK:                $(realpathr $(type -pf awk))
 					sed:                $(realpathr $(type -pf sed))
-					Filterchain:        [ ${FILTERS_IND[*]} ]
-					Decoder:            $d
+					POSIXLY_CORRECT:    $pc
 					Capturers (av.):    [ ${CAPTURERS_AVAIL[*]} ]
 					Identif. (av.):     [ ${IDENTIFIERS_AVAIL[*]} ]
-					Pref. capturer:     $PREFERRED_CAPTURER
+					Capturer:           $CAPTURER
+					Chosen capturer:    $usrcap
+					Filterchain:        [ ${FILTERS_IND[*]} ]
 					Safe step:          $QUIRKS_LEN_STEP
-					POSIXLY_CORRECT:    $pc
 					=== Versions ===
 					Bash:               $BASH_VERSION
 					Getopt:             $($GETOPT --version)$awkv$sedv
