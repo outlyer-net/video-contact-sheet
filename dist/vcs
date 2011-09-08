@@ -1761,6 +1761,27 @@ trace() {
 	echo "${prefix_dbg}[TRACE]: $func ${*}${suffix_fback}" >&2
 }
 
+#
+# Print the call stack / execution frames
+# callstack([$1 = first frame]=0)
+callstack() {
+	[[ $DEBUG -eq 1 ]] || return 0
+	local frame=$1 c= fn=
+	[[ -n $frame ]] || frame=0
+	echo "Callstack:"
+	while : ; do
+		c=$(caller $frame) || break
+		c=${c% *}
+		fn=${c#* }
+		# Only the last one, main, won't be a function
+		if [[ 'function' = $(type -t $fn) ]]; then
+			fn="${fn}()"
+		fi
+		echo "    ${fn}:${c% *}"
+		(( ++frame ))
+	done
+}
+
 # Print an error message and exit
 # die([$1 = message [, $2 = exit_code]])
 #  If no message is provided, use $ERROR_MSG
@@ -1864,12 +1885,7 @@ assert() {
 		local cal=$(caller 1)
 		[[ $level ]] && error "  Stack trace:"
 		local level=2
-		while [[ $cal ]]; do
-			cal=${cal% *}
-			error "      ${cal#* }:${cal% *}"
-			cal=$(caller $level)
-			(( level++ ))
-		done
+		error "$(callstack 1 | sed 's/^/    /')"
 		exit $EX_SOFTWARE
 	}
 }
@@ -2214,6 +2230,13 @@ classic_test_avail() {
 set_capturer() {
 	trace $@
 	local up=$2
+	[[ -n $up ]] || up=1
+
+	if [[ $up -eq 1 ]] && ! grep -q "$1" <<<"${CAPTURERS_AVAIL[*]}" ; then
+		error "Tried to set '$1' as capturer, but not available"
+		return 1
+	fi
+
 	if [[ $1 = mplayer ]]; then
 		DECODER=$DEC_MPLAYER
 		PREFERRED_CAPTURER=mplayer
@@ -2225,7 +2248,7 @@ set_capturer() {
 	else
 		assert false
 	fi
-	if [[ ( -z $up ) || ( $up -eq 1 ) ]]; then
+	if [[ $up -eq 1 ]]; then
 		USR_DECODER=$DECODER
 		USR_PREFERRED_CAPTURER=$PREFERRED_CAPTURER
 	fi
@@ -3187,6 +3210,7 @@ check_avail_tools() {
 }
 
 pick_tools() {
+	trace $@
 	# User *wants* a certain decoder
 	if [[ $USR_PREFERRED_CAPTURER ]]; then
 		if echo "${CAPTURERS_AVAIL[@]}" | grep -qi "$PREFERRED_CAPTURER" ; then
@@ -4994,12 +5018,14 @@ while true ; do
 				# Ignore one of the players
 				disable_ffmpeg)
 					FFMPEG_BIN=''
+					CAPTURERS_AVAIL=( $(sed 's/ffmpeg//'<<<"${CAPTURERS_AVAIL[*]}") )
 					warn "FFmpeg disabled"
 					assert '[[ $MPLAYER_BIN ]]'
 					set_capturer mplayer
 					;;
 				disable_mplayer)
 					MPLAYER_BIN=''
+					CAPTURERS_AVAIL=( $(sed 's/mplayer//'<<<"${CAPTURERS_AVAIL[*]}") )
 					warn "Mplayer disabled"
 					assert '[[ $FFMPEG_BIN ]]'
 					set_capturer ffmpeg
