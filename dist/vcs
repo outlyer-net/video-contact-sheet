@@ -75,6 +75,7 @@ export LANG=C
 #       1.13              1.14             auto-loading ./vcs.conf (lesser version of profiles)
 #                                             -C :pwd will stay
 #   --------------------------------------------------------------------------------------------
+#          ?               ?+1             decoder. Replaced by capturer, the syntax changes
 #          ?               ?+1             --funky       -> --profile
 # * Variables cleanup:
 #   Variables will use a more uniform scheme, with prefixes where appropriate:
@@ -179,11 +180,6 @@ declare SIGNATURE="Preview created by"
 declare USERNAME=$(id -un)
 # Which of the two methods should be used to guess the number of thumbnails
 declare -i TIMECODE_FROM=$TC_INTERVAL
-# Which of the two vidcappers should be used (see -F, -M)
-# mplayer seems to fail for mpeg or WMV9 files, at least on my system
-# also, ffmpeg allows better seeking: ffmpeg allows exact second.fraction
-# seeking while mplayer apparently only seeks to nearest keyframe
-declare -i DECODER=$DEC_FFMPEG # Deprecated
 # New in 1.13. Replaces the old 'decoder' symbolic option.
 # The value is *not* the name of the executable, but a supported capturer,
 #+right now 'ffmpeg' or 'mplayer'. Equivalent configuration setting: 'capturer'
@@ -292,7 +288,7 @@ declare -a VID=( )
 
 # These variables will hold the output of tput, used
 # to colourise feedback
-declare prefix_err= prefix_inf= prefix_warn= suffix_fback=
+declare prefix_err= prefix_inf= prefix_warn= prefix_dbg= suffix_fback=
 
 # Workarounds:
 # Argument order in FFmpeg is important -ss before or after -i will make
@@ -352,6 +348,15 @@ declare -i FILEIDX=0
 # Names for output files, each index is a file name, an empty index will use
 # the input file and append an extension to it
 declare -a OUTPUT_FILES=( )
+
+# Which of the two vidcappers should be used (see -F, -M)
+#+mplayer seems to fail for mpeg or WMV9 files, at least on my system
+#+also, ffmpeg allows better seeking: ffmpeg allows exact second.fraction
+#+seeking while mplayer apparently only seeks to nearest keyframe
+# Starting with 1.13 this value can no longer be overridden directly,
+#+setting 'decoder' actually changes PREFERRED_CAPTURER. DECODER is still used
+#+internally.
+declare -i DECODER=$DEC_FFMPEG
 
 # Mplayer and FFmpeg binaries. Will be detected.
 # Don't set manually, if you need to override set the path temporarily, e.g.:
@@ -568,8 +573,8 @@ declare -ra OVERRIDE_MAP=(
 
 	# TODO: These variables are evaluated to constants, would be better to
 	#       use some symbolic system (e.g. decoder=f instead of decoder=$DEC_FFMPEG)
-	"DECODER:=:=:D"
-	#"capture_mode:TIMECODE_FROM:alias:T"
+	"DECODER:=:meta:D" # To be deprecated
+	#"CAPTURE_MODE:TIMECODE_FROM:alias:T"
 	"TIMECODE_FROM:=:=:T"
 	"VERBOSITY:=:=:V"
 	"SIMPLE_FEEDBACK:=:=:b"
@@ -857,7 +862,7 @@ parse_override() {
 	if [[ $flags && ( $flags != '=' ) && ( $flags != 'alias' ) ]]; then
 		local ERE='^deprecated='
 		if [[ $flags =~ $ERE ]]; then
-			local new=$(echo "$flags" | sed 's/^deprecated=//')
+			local new=$(echo "$flags" | sed 's/^deprecated=//' | tr '[A-Z]' '[a-z]')
 			buffered warn "Setting '$varname' will be removed in the future,$NL please use '$new' instead."
 		else
 			case "$flags" in
@@ -946,6 +951,16 @@ apply_meta_override() {
 			for prof in ${2//,/ } ; do # ${2//,/ } = sed 's/,/ /g'
 				load_profile $prof
 			done
+		;;
+		decoder)
+			buffered inf "decoder => capturer"
+			if [[ $2 -eq $DEC_FFMPEG ]]; then
+				parse_override 'CAPTURER=ffmpeg'
+			elif [[ $2 -eq $DEC_MPLAYER ]]; then
+				parse_override 'CAPTURER=mplayer'
+			else
+				assert false
+			fi
 		;;
 	esac
 }
@@ -1214,6 +1229,12 @@ is_executable() {
 	type -pf "$@" >/dev/null 2>&1
 }
 
+# Checks if a variable has been defined (even to empty values).
+# isset($1 = variable name)
+isset() {
+	[[ -n ${!1+x} ]]
+}
+
 # Wrapper around $RANDOM, not called directly, wrapped again in rand().
 # See rand() for an explanation.
 bashrand() {
@@ -1422,10 +1443,12 @@ line_height() {
 # pretty_stamp($1 = seconds)
 pretty_stamp() {
 	assert "is_float '$1'"
+	assert 'isset CAPTURER_HAS_MS'
 	# Fully implemented in AWK to discard bc.
+
 	# As a bonus now it's much faster and compact
 	awk "BEGIN {
-		t=$1 ; NOTMS=($DEC_MPLAYER==$DECODER);
+		t=$1 ; NOTMS=!$CAPTURER_HAS_MS;
 		MS=(t - int(t));
 		h=int(t / 3600);
 		t=(t % 3600);
@@ -1735,7 +1758,7 @@ trace() {
 			return 0
 		fi
 	fi
-	echo "[TRACE]: $func $*" >&2
+	echo "${prefix_dbg}[TRACE]: $func ${*}${suffix_fback}" >&2
 }
 
 # Print an error message and exit
@@ -1769,6 +1792,7 @@ set_feedback_prefixes() {
 	prefix_err='[E] '
 	prefix_inf='[i] '
 	prefix_warn='[w] '
+	prefix_dbg=''
 	suffix_fback=
 }
 
@@ -1787,6 +1811,7 @@ init_feedback() {
 			prefix_err=$(tput bold; tput setaf 1)
 			prefix_warn=$(tput bold; tput setaf 3)
 			prefix_inf=$(tput bold; tput setaf 2)
+			prefix_dbg=$(tput bold; tput setaf 4)
 			suffix_fback=$(tput sgr0)
 			HAS_COLORS="yes"
 		fi >/dev/null
@@ -1801,6 +1826,7 @@ init_feedback() {
 		prefix_err=$(echo $'\033[1m\033[31m')
 		prefix_warn=$(echo $'\033[1m\033[33m')
 		prefix_inf=$(echo $'\033[1m\033[32m')
+		prefix_dbg=$(echo $'\033[1m\033[34m')
 		suffix_fback=$(echo $'\033[0m')
 		HAS_COLORS="yes"
 	fi
@@ -2182,6 +2208,29 @@ classic_test_avail() {
 
 # }}}} # Classic identification
 
+# Sets the tool to use as a capturer
+# Possible tool names: ffmpeg, mplayer
+# set_capturer($1 = tool, [$2 = user picked]=1)
+set_capturer() {
+	trace $@
+	local up=$2
+	if [[ $1 = mplayer ]]; then
+		DECODER=$DEC_MPLAYER
+		PREFERRED_CAPTURER=mplayer
+		CAPTURER_HAS_MS=0
+	elif [[ $1 = ffmpeg ]]; then
+		DECODER=$DEC_FFMPEG
+		PREFERRED_CAPTURER=ffmpeg
+		CAPTURER_HAS_MS=1
+	else
+		assert false
+	fi
+	if [[ ( -z $up ) || ( $up -eq 1 ) ]]; then
+		USR_DECODER=$DECODER
+		USR_PREFERRED_CAPTURER=$PREFERRED_CAPTURER
+	fi
+}
+
 # Creates a new temporary directory
 # create_temp_dir()
 create_temp_dir() {
@@ -2487,7 +2536,6 @@ capture_and_evade() {
 capture_impl() {
 	trace $@
 	local f=$1 stamp=$2 ofile=$3
-	# globals: $DECODER
 
 	# Avoid recapturing if timestamp is already captured.
 	# The extended set includes the standard set so when using the extended mode
@@ -2495,7 +2543,7 @@ capture_impl() {
 	#+have ms precission
 	local key=
 	# Normalise key values' decimals
-	if [[ $DECODER -eq $DEC_MPLAYER ]]; then
+	if [[ $CAPTURER_HAS_MS -eq 0 ]]; then
 		key=$(awkex "int($stamp)")
 	else
 		key=$(awkex $stamp)
@@ -3178,6 +3226,7 @@ pick_tools() {
 		CAPTURER_HAS_MS=0
 		DECODER=$DEC_MPLAYER
 	elif [[ $CAPTURER == 'ffmpeg' ]]; then
+		CAPTURER_HAS_MS=1
 		DECODER=$DEC_FFMPEG
 	fi
 }
@@ -3434,11 +3483,11 @@ coherence_check() {
 	fi
 
 	if [[ ( $DECODER -eq $DEC_MPLAYER ) && ( -z $MPLAYER_BIN ) ]]; then
-		inf "No mplayer available. Using ffmpeg only."
-		DECODER=$DEC_FFMPEG
+		inf "Mplayer not available."
+		set_capturer ffmpeg 0
 	elif [[ ( $DECODER -eq $DEC_FFMPEG ) && ( -z $FFMPEG_BIN ) ]]; then
-		inf "No ffmpeg available. Using mplayer only."
-		DECODER=$DEC_MPLAYER
+		inf "FFmpeg not available."
+		set_capturer mplayer 0
 	fi
 
 	local filter=
@@ -4605,10 +4654,8 @@ while true ; do
 			;;
 		-h|--help) show_help ; exit $EX_OK ;;
 		--fullhelp) show_help 'full' ; exit $EX_OK ;;
-		-F|--ffmpeg) DECODER=$DEC_FFMPEG ;  USR_DECODER=$DECODER ;
-					PREFERRED_CAPTURER=ffmpeg ; USR_PREFERRED_CAPTURER=ffmpeg ;;
-		-M|--mplayer) DECODER=$DEC_MPLAYER ; USR_DECODER=$DECODER ;
-					PREFERRED_CAPTURER=mplayer ; USR_PREFERRED_CAPTURER=mplayer ;;
+		-F|--ffmpeg) set_capturer ffmpeg ;;
+		-M|--mplayer) set_capturer mplayer ;;
 		-H|--height)
 			check_constraint 'height' "$2" "$1" || die
 			HEIGHT="$2"
@@ -4907,7 +4954,7 @@ while true ; do
 				exit $EX_UNAVAILABLE
 			fi
 			DVD_MODE=1
-			DECODER=$DEC_MPLAYER
+			set_capturer mplayer 0
 			ASPECT_RATIO=-2 # Special value: Auto detect only if ffmpeg couldn't
 			;;
 		-q|--quiet)
@@ -4949,13 +4996,13 @@ while true ; do
 					FFMPEG_BIN=''
 					warn "FFmpeg disabled"
 					assert '[[ $MPLAYER_BIN ]]'
-					DECODER=$DEC_MPLAYER
+					set_capturer mplayer
 					;;
 				disable_mplayer)
 					MPLAYER_BIN=''
 					warn "Mplayer disabled"
 					assert '[[ $FFMPEG_BIN ]]'
-					DECODER=$DEC_FFMPEG
+					set_capturer ffmpeg
 					;;
 				debug)
 					warn "[U] debug"
