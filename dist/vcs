@@ -2049,8 +2049,8 @@ ffmpeg_identify() {
 	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
 	FFMPEG_CACHE=$("$FFMPEG_BIN" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
 	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
-	vs=$(sed -n -e '/Stream/!d' -e '/Video:/p' <<<"$FFMPEG_CACHE")
-	as=$(sed -n -e '/Stream/!d' -e '/Audio:/p' <<<"$FFMPEG_CACHE")
+	vs=$(sed -n -e '/Stream/!d' -e '/Video:/!d' -e '/Video:/p;q' <<<"$FFMPEG_CACHE")
+	as=$(sed -n -e '/Stream/!d' -e '/Audio:/!d' -e '/Audio:/p;q' <<<"$FFMPEG_CACHE")
 	obs=$(grep Seems <<<"$FFMPEG_CACHE")
 	# Stream #0.0: Video: mpeg4, yuv420p, 624x352 [PAR 1:1 DAR 39:22], 23.98 tbr, 23.98 tbn, 24k tbc
 	# New and old versions of ffmpeg changed their output considerably, e.g.:
