@@ -2085,10 +2085,10 @@ ffmpeg_identify() {
 	fi[$W]=$(sed -n -e 's/^.*, \([0-9]*\)x[0-9].*$/\1/p' <<<"$vs")
 	fi[$H]=$(sed -n -e 's/^.*, [0-9]*x\([0-9]*\).*$/\1/p' <<<"$vs")
 	# Newer CHANS and some older...
-	fi[$CHANS]=$(egrep -o '[0-9]* channels' <<<"$as" | cut -d' ' -f1)
+	fi[$CHANS]=$(sed -n -e 's/.*\([0-9][0-9]*\) channels.*/\1/p' <<<"$as")
 	# ...fallback for older
 	if [[ -z ${fi[$CHANS]} ]]; then
-		local chans=$(egrep -o 'Hz, [^,]*' <<<"$as"   | cut -d' ' -f2)
+		local chans=$(sed -n -e 's/.*Hz, \([^, ][^, ]*\).*$/\1/p' <<<"$as")
 		case $chans in
 			mono) fi[$CHANS]=1 ;;
 			stereo) fi[$CHANS]=2 ;;
@@ -2127,15 +2127,17 @@ ffmpeg_identify() {
 		fi[$FPS]=$(keepdecimals "${fi[$FPS]}" 3)
 		fi[$FPS]=${fi[$FPS]/%0} # Strip 0$
 	}
-	fi[$LEN]=$(egrep -o 'Duration: [^,]*' <<<"$FFMPEG_CACHE" | cut -d' ' -f2)
+	fi[$LEN]=$(sed -n -e '/Duration: /!d' \
+						-e 's/.*Duration: \([^,][^,]*\).*/\1/p;q' <<<"$FFMPEG_CACHE")
 	if [[ ${fi[$LEN]} == 'N/A' ]]; then # It might be unable to detect
 		fi[$LEN]=""
 	fi
 	fi[$LEN]=$( get_interval $(echo "${fi[$LEN]}" | sed -e 's/:/h/' -e 's/:/m/') )
 	# Aspect ratio in FFmpeg is only provided in newer ffmpeg
 	# It might be calculated for files without one (which is ok anyway)
-	# TODO: Replace tail -1 with some better option (see the double DAR example above)
-	fi[$ASPECT]=$(egrep -o 'DAR [0-9]*:[0-9]*'<<<"$FFMPEG_CACHE" | tail -1 | cut -d' ' -f2 | sed 's#:#/#')
+	# Must only match the last DAR (see the double DAR example above)
+	fi[$ASPECT]=$(sed -n -e '/DAR [0-9]/!d' \
+							-e 's#.*DAR \([0-9]*\):\([0-9]*\).*#\1/\2#p;q' <<<"$FFMPEG_CACHE")
 	# Due to calling ffmpeg on a single VOB when in DVD Device mode, the length will be partial
 	[[ $DVD_MODE -eq 0 ]] || fi[$LEN]=''
 	fi[$VCNAME]=$(get_vcodec_name $(translate_ffmpeg_vcodec_id "${fi[$VCODEC]}"))
