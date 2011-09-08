@@ -4130,7 +4130,7 @@ internal_integrity_test() {
 
 		if [[ $ret != "$val" ]] && fptest "$ret" -ne "$val" ; then
 			error "Failed test ($comm): '$op $val'. Got result '$ret'."
-			(( retval++ ,1 )) # The ,1 ensures '((...))' doesn't fail
+			(( ++retval ))
 		else
 			inf "Passed test ($comm): '$op $val'."
 		fi
