@@ -89,7 +89,7 @@ export LANG=C
 # * Optimisations:
 #   - Reduce the number of forks/subshells
 # * Portability notes
-#   - 'sed -r' is not portable, works in GNU, XXX FreeBSD equivalent -E?
+#   - 'sed -r' is not portable, works in GNU, FreeBSD equivalent -E
 #   - 'grep -o' is not portable, works in GNU and FreeBSD
 #      Alternatives:
 #      > One match per line:
