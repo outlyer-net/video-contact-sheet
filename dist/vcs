@@ -766,7 +766,7 @@ check_constraint() {
 		P) checkfn=is_profile_list ; domain='comma-separated profile names' ;;
 		x)
 			case "$p" in
-				preferred_capturer|capturer)
+				capturer)
 					checkfn=is_known_capturer
 					domain='mplayer or ffmpeg'
 				;;
