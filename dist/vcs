@@ -710,8 +710,8 @@ load_profile() {
 			exit 0
 			;;
 		*)
-			ERROR_MSG="Profiles starting with ':' are reserved.$NL"\
-" Use ':list' to list available profiles."
+			ERROR_MSG="Profiles starting with ':' are reserved.$NL"
+			ERROR_MSG+=" Use ':list' to list available profiles."
 			ERROR_CODE=$EX_USAGE
 			return $ERROR_CODE
 		esac
@@ -931,7 +931,7 @@ apply_meta_override() {
 			parse_override "BG_TITLE=$2"
 			parse_override "BG_TSTAMPS=$2"
 		;;
-		profiles) # profiles=[,]prof1[,prof2,...], no spaces (TODO: Yet?)
+		profiles) # profiles=[,]prof1[,prof2,...], no spaces
 			local profiles=${2//,/ } # === sed 's/,/ /g'
 			local ERE='^[[:space:]]*$'
 			if [[ $profiles =~ $ERE ]]; then
@@ -957,7 +957,7 @@ apply_meta_override() {
 
 # Do an override from the command line
 # cmdline_override($1 = override assignment)
-#+e.g. cmdline_override 'decoder=$DEC_FFMPEG'
+#+e.g. cmdline_override 'verbosity=$V_ALL'
 cmdline_override() {
 	trace $@
 	parse_override "$1"
@@ -1094,11 +1094,12 @@ ceilmultiply() {
 
 # Basic mathematic stuff
 # min($1 = operand1, $2 = operand2)
+# max($1 = operand1, $2 = operand2)
+# abs($1 = number)
 min() { awk "BEGIN { if (($1) < ($2)) print ($1) ; else print ($2) }" ; }
 max() { awk "BEGIN { if (($1) > ($2)) print ($1) ; else print ($2) }" ; }
 abs() { awk "BEGIN { if (($1) < (0)) print (($1) * -1) ; else print ($1) }" ; }
 
-# Round to a multiple
 # Rounds a number ($1) to a multiple of ($2)
 # rtomult($1 = number, $2 = divisor)
 rtomult() {
@@ -1110,7 +1111,7 @@ rtomult() {
 	echo $n
 }
 
-# numeric test eqivalent for floating point
+# Numeric test eqivalent for floating point
 # fptest($1 = op1, $2 = operator, $3 = op2)
 # special operator: '~' uses fsimeq()
 fptest() {
@@ -1144,7 +1145,7 @@ fsimeq() {
 # Keep a number of decimals *rounded*
 # keepdecimals($1 = num, $2 = number of decimals)
 keepdecimals() {
-	local N="$1" D="$2"
+	local N=$1 D=$2
 	awk "BEGIN { printf \"%.${D}f\", (($N)+0) }"
 }
 
@@ -1267,7 +1268,7 @@ rand() {
 # produces a numeric value from a string
 hash_string() {
 	local HASH_LIMIT=65536
-	local v="$1"
+	local v=$1
 	local -i hv=15031
 	local c=
 	if [[ $v ]]; then
