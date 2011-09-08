@@ -8,6 +8,8 @@
       loading profiles from other profiles
     * Change also title colours in 'black' and 'white' profiles
     * Codec identification for Fraps captures [#179]
+    * New setting 'capturer' deprecates 'decoder'. Uses actual names (ffmpeg and
+       mplayer) instead of variables ($DEC_FFMPEG and $DEC_MPLAYER)
     * BUGFIXES:
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
@@ -32,6 +34,7 @@
       - Refer to configuration variables as "settings"
       - Print informational messages for each funky mode
       - Pretty-print timestamps when doing safe-length measuring [#177]
+      - Colourised tracing
     * OTHER:
       - Help rewordings and clarification
       - Help fixes:
