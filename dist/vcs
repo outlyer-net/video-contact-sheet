@@ -91,10 +91,13 @@ export LANG=C
 # * Portability notes
 #   - 'sed -r' is not portable, works in GNU, XXX FreeBSD equivalent -E?
 #   - 'grep -o' is not portable, works in GNU and FreeBSD
-#      Alternative:
-#      sed -n -e 's/\(SEARCH\)/\1\\
-#              /gp' | sed -e '/^[[:space:]]*$/d' -e 's/.*\(SEARCH\).*/\1/'
-#      possibly + -e '/^$/d' and -e '/SEARCH/!d'
+#      Alternatives:
+#      > One match per line:
+#        $ sed -n -e 's/.*\(SEARCH\).*/\1/gp
+#      > Multiple matches per line: (like grep -o)
+#        $ sed -n -e 's/\(SEARCH\)/\1\
+#        /gp' | sed -e 's/.*\(SEARCH\).*/\1/' -e '/SEARCH/!d'
+#      The p flag ONLY prints IF a substition succeeded
 #   - 'expr' is not a builtin, 'expr match' is not understood in, at least, FreeBSD
 #   - 'egrep' is deprecated in SUS v2, 'grep -E' replaces it [[x2]]
 # * UNIX filter equivalencies
