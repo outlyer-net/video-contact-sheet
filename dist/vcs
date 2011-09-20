@@ -47,6 +47,7 @@ export LC_NUMERIC=C
 # All output from tools is either removed or parsed.
 # Standardise on the C locale.
 export LANG=C
+export LC_COLLATE=C # Ensure collation (e.g. tr a-z A-Z) works as expected
 
 # Fail soon if this version of bash is too old for the syntax, don't expose bash to the newer
 # syntax
@@ -796,7 +797,7 @@ parse_override() {
 		return
 	fi
 	local varname=$(echo "${o/=*}" | sed 's/[[:space:]]//g') # Trim var name
-	local lcvarname=$(echo "$varname" | tr '[A-Z]' '[a-z]')
+	local lcvarname=$(echo "$varname" | tr A-Z a-z)
 	local mapping=$(echo "${OVERRIDE_MAP[*]}" | stonl | egrep -i "^$lcvarname:")
 
 	[[ $mapping ]] || return 0
@@ -831,7 +832,7 @@ parse_override() {
 		tokenmap=$(echo "$tokenmap" | cut -d':' -f2)
 		if [[ -z $tokenmap ]]; then
 			# No need to map, but change to uppercase for it to eval correctly
-			tokenmap=$(tr '[a-z]' '[A-Z]' <<<"$token")
+			tokenmap=$(tr a-z A-Z <<<"$token")
 		fi
 		# Replace all occurences of $token with its mapping
 		varval=$(echo "$varval" | sed 's/\$'$token'/$'$tokenmap'/g')
@@ -852,7 +853,7 @@ parse_override() {
 	if [[ $flags && ( $flags != '=' ) && ( $flags != 'alias' ) ]]; then
 		local ERE='^deprecated='
 		if [[ $flags =~ $ERE ]]; then
-			local new=$(echo "$flags" | sed 's/^deprecated=//' | tr '[A-Z]' '[a-z]')
+			local new=$(echo "$flags" | sed 's/^deprecated=//' | tr A-Z a-z)
 			buffered warn "Setting '$varname' will be removed in the future,$NL please use '$new' instead."
 		else
 			case "$flags" in
@@ -1074,7 +1075,7 @@ is_profile_list() {
 
 # Makes a string lowercase
 # tolower($1 = string)
-tolower() { tr '[A-Z]' '[a-z]' <<<"$1" ; }
+tolower() { tr '[:upper:]' '[:lower:]' <<<"$1" ; }
 
 # Rounded product
 # multiplies parameters and prints the result, rounded to the closest int
@@ -3071,7 +3072,7 @@ translate_ffmpeg_vcodec_id() {
 		# TODO List of codec id's I translate but haven't tested:
 		#+ svq3, rv40, theora, camtasia, vp6*
 		# MPlayer uses uppercase whereas FFmpeg uses lowercase
-		rv10|rv20|rv30|rv40|svq1|svq3|wmv1|wmv2|wmv3) mpid=$(echo $vcid | tr '[a-z]' '[A-Z]') ;;
+		rv10|rv20|rv30|rv40|svq1|svq3|wmv1|wmv2|wmv3) mpid=$(echo $vcid | tr a-z A-Z) ;;
 		# FFmpeg doesn't print FourCC's so there's some codecs that can't be told apart
 		msmpeg4)    mpid="vcs_divx" ;; # DIV3 = DIV4 = MP43
 		# XVID = DIVX = DX50 = FMP4 = ... = mpeg4
@@ -4439,7 +4440,7 @@ EOF
 # Print a configuration file generated from the currently active settings
 # generate_config($1 = <config|profile>)
 generate_config() {
-	local n=$(echo $1 | tr '[a-z]' '[A-Z]') f= t= x=
+	local n=$(echo $1 | tr a-z A-Z) f= t= x=
 	cat <<-EOM
 	# --- $n STARTS HERE ---
 	# This is a sample configuration file for VCS generated automatically
