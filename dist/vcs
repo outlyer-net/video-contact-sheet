@@ -893,7 +893,7 @@ parse_override() {
 	# Escape single quotes, since it will be single-quoted:
 	varval=${varval//\'/\'\\\'\'} # <<'>> => <<'\''>>
 	evcode="USR_$ivar='$varval'"
-	if [[ $curvarval == $varval ]]; then
+	if [[ $curvarval == "$varval" ]]; then
 		retflag='='
 	else
 		evcode="$ivar='$varval'; $evcode"
@@ -1767,7 +1767,7 @@ callstack() {
 		c=${c% *}
 		fn=${c#* }
 		# Only the last one, main, won't be a function
-		if [[ 'function' = $(type -t $fn) ]]; then
+		if [[ $(type -t $fn) == 'function' ]]; then
 			fn="${fn}()"
 		fi
 		echo "    ${fn}:${c% *}"
@@ -1794,7 +1794,7 @@ die() {
 has_filter() {
 	local filter= ref=$1
 	for filter in ${FILTERS_IND[@]} ; do
-		[[ $filter == $ref ]] || continue
+		[[ $filter == "$ref" ]] || continue
 		return 0
 	done
 	return 1
@@ -2001,7 +2001,7 @@ mplayer_capture() {
 		   -frames 5 -ss "$ts" $4 "$f" >"$STDOUT" 2>"$STDERR"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
-		[[ $cap = $o ]] || mvq "$cap" "$o"
+		[[ $cap == "$o" ]] || mvq "$cap" "$o"
 	}
 }
 
@@ -2024,7 +2024,7 @@ mplayer_dvd_capture() {
 		   $4 "dvd://$DVD_TITLE" >"$STDOUT" 2>"$STDERR"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
-		[[ $cap = $o ]] || mvq "$cap" "$o"
+		[[ $cap == "$o" ]] || mvq "$cap" "$o"
 	}
 }
 
@@ -3331,7 +3331,7 @@ classic_identify() {
 	[[ ${VID[$W]} -gt 0 ]] && [[ ${VID[$H]} -gt 0 ]] || return $RET_NODIM
 
 	# FPS at least with two decimals
-	if [[ $(awkex "int(${VID[$FPS]})") ==  ${VID[$FPS]} ]]; then
+	if [[ $(awkex "int(${VID[$FPS]})") ==  "${VID[$FPS]}" ]]; then
 		VID[$FPS]="${VID[$FPS]}.00"
 	fi
 
@@ -3798,7 +3798,7 @@ process() {
 		tfile=$(new_temp_file "-cap-$(pad 6 $n).png")
 
 		capture "$f" "$tfile" $stamp || return $?
-		if [[ $RESULT != $stamp ]]; then
+		if [[ $RESULT != "$stamp" ]]; then
 			stamp=$RESULT
 			pretty=$(pretty_stamp $RESULT)
 		fi
@@ -3971,7 +3971,7 @@ process() {
 	#+which character is used it's always the same height.
 	local lineheight=$(line_height "$FONT_HEADING" "$PTS_META")
 	# Since filename can be set in a different font check it too
-	if [[ $fn_font != $FONT_HEADING ]]; then
+	if [[ $fn_font != "$FONT_HEADING" ]]; then
 		local fnlineheight=$(line_height "$fn_font" "$PTS_META")
 		[[ $fnlineheight -le $lineheight ]] || lineheight=$fnlineheight
 		unset fnlineheight
@@ -4566,7 +4566,7 @@ while true ; do
 		-U|--fullname)
 			# -U accepts an optional argument, 0, to make an anonymous signature
 			# --fullname accepts no argument
-			if [[ $1 = '-U' ]]; then # -U always provides an argument
+			if [[ $1 == '-U' ]]; then # -U always provides an argument
 				if [[ -n $2 ]]; then # With argument, special handling
 					if [[ $2 != '0' ]]; then
 						error "Use '-U0' to make an anonymous contact sheet or '-u \"My Name\"'"
@@ -4885,7 +4885,7 @@ while true ; do
 			;;
 		-C|--config)
 			if [[ $2 =~ ^: ]]; then
-				if [[ $2 = ':pwd' ]]; then
+				if [[ $2 == ':pwd' ]]; then
 					cfg=./vcs.conf
 				else
 					error "Configuration names starting with ':' are reserved."
@@ -5195,6 +5195,7 @@ for arg do process "$arg" ; done
 #          quoting the ERE poses a problem (newer bash will interpret as plain string, older
 #          as ERE), storing the ERE in a variable or writing it unquoted solves this problem
 # * bash4: |& (inherited from csh?) pipes both stdout and stderr
+# * [[ A == $B ]] : $B should be quoted usually, otherwise it will be scanned as a regex
 # * performance: bash loops are often slower than awk or perl
 # * performance: grep + cut proved faster than an equivalent sed -r s// replacement
 # }}} # Bash syntax notes
