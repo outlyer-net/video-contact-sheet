@@ -164,6 +164,11 @@ declare -ri CTX_HL=1 CTX_STD=2 CTX_EXT=3
 declare -r NL=$'\012' # Newline
 #declare -r TAB=$'\011' # Tab
 
+# New in 1.13
+# Offsets to try when trying to avoid blank frames
+# See capture() and capture_and_evade()
+declare -a EVASION_ALTERNATIVES=( -5 +5 -10 +10 -30 +30 )
+
 # }}} # End of constants
 
 # {{{ # Override-able variables
@@ -2486,11 +2491,12 @@ guess_aspect() {
 	echo $ar
 }
 
-EVASION_ALTERNATIVES="+5 -5 +10 -10 +30 -30" # FIXME: Re-order
+# FIXME: Re-order captures when moved
 # Capture a frame
 # Sets $RESULT to the timestamp actually used
 # capture($1 = filename, $2 = output file, $3 = second, [$4 = disable blank frame evasion])
 capture() {
+	trace $@
 	local f=$1 out=$2 stamp=$3 prevent_evasion=$4
 	local alternatives= alt= delta=
 	if [[ $prevent_evasion != '1' ]]; then
