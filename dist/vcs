@@ -101,6 +101,7 @@ export LC_COLLATE=C # Ensure collation (e.g. tr a-z A-Z) works as expected
 #        /gp' | sed -e 's/.*\(SEARCH\).*/\1/' -e '/SEARCH/!d'
 #      The p flag ONLY prints IF a substition succeeded
 #   - 'expr' is not a builtin, 'expr match' is not understood in, at least, FreeBSD
+#     expr operations should have equivalent bash string manipulation expressions
 #   - 'egrep' is deprecated in SUS v2, 'grep -E' replaces it [[x2]]
 # * UNIX filter equivalencies
 #   - cut -d: -f1 === awk -F: '{print $1}' === awk '{BEGIN FS=":"}; {print $1}'
@@ -1160,7 +1161,7 @@ keepdecimals_lower() {
 
 # Evaluate in AWK. Intended for arithmetic operations.
 #+Keep decimals. I.e. 5 = 5.000000...
-# awkex($1 = expression)
+# awkexf($1 = expression)
 awkexf() {
 	# By default awk prints in compact form (scientific notation and/or up to 6 digits/decimals),
 	# printf is used to avoid this, TODO: Is there any direct way?
