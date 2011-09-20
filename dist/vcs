@@ -226,7 +226,7 @@ declare -r DEFAULT_END_OFFSET="5.5%"
 declare EXTENDED_FACTOR=0
 # Verbosity level so far from the command line can only be muted (see -q)
 # it can be overridden, though
-declare -i VERBOSITY=$V_ALL
+declare -i VERBOSITY=$V_INFO
 # Set to 1 to disable colours in console output
 declare -i SIMPLE_FEEDBACK=0
 # See coherence_check for more details
@@ -1716,6 +1716,15 @@ inf() {
 		echo "$1$SUFFIX_FBACK"
 	fi >&2
 }
+#
+# Print a debugging message
+# notice($1 = text)
+notice() {
+	if [[ $VERBOSITY -gt $V_INFO ]]; then
+		[[ $SIMPLE_FEEDBACK -eq 0 ]] && echo -n "$PREFIX_DBG"
+		echo "$1$SUFFIX_FBACK"
+	fi >&2
+}
 
 #
 # Same as inf but with no colour ever.
@@ -1757,7 +1766,7 @@ trace() {
 			return 0
 		fi
 	fi
-	echo "${PREFIX_DBG}[TRACE]: $func ${*}${SUFFIX_FBACK}" >&2
+	notice "[TRACE]: $func ${*}"
 }
 
 #
@@ -2559,11 +2568,14 @@ capture_and_evade() {
 capture_impl() {
 	trace $@
 	local f=$1 stamp=$2 ofile=$3
+	RESULT=''
 
 	# Avoid recapturing if timestamp is already captured.
 	# The extended set includes the standard set so when using the extended mode
 	#+this will avoid some captures, specially with mplayer, since it doesn't
 	#+have ms precission
+	# FIXME: This often won't work with ffmpeg since there might be a slight
+	#        difference in ms.
 	local key=
 	# Normalise key values' decimals
 	if [[ $CAPTURER_HAS_MS -eq 0 ]]; then
@@ -2573,18 +2585,18 @@ capture_impl() {
 	fi
 	local cached=$(grep "^$key:" <<<"$CAPTURES")
 	if [[ $cached ]]; then
+		notice "Skipped capture at $(pretty_stamp $key)"
 		cp "${cached#*:}" "$ofile" # TODO: Is 'cp -s' safe?
-		return $?
-	fi
+	else
+		local capfn=${CAPTURER}_capture
+		if [[ $DVD_MODE -eq 1 ]]; then
+			capfn=${CAPTURER}_dvd_capture
+		fi
 
-	local capfn=${CAPTURER}_capture
-	if [[ $DVD_MODE -eq 1 ]]; then
-		capfn=${CAPTURER}_dvd_capture
+		$capfn "$f" "$stamp" "$ofile" || {
+			return $EX_SOFTWARE
+		}
 	fi
-
-	$capfn "$f" "$stamp" "$ofile" || {
-		return $EX_SOFTWARE
-	}
 
 	RESULT="$key:$ofile"
 }
@@ -5125,6 +5137,7 @@ EOD
 				exit
 			fi
 			DEBUG=1
+			VERBOSITY=$V_ALL
 			inf "Testing internal consistency..."
 			tmp=$INTERNAL_NO_TRACE
 			INTERNAL_NO_TRACE=1 # Avoid any tracing during the test

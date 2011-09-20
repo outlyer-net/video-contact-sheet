@@ -10,6 +10,7 @@
     * Codec identification for Fraps captures [#179]
     * New setting 'capturer' deprecates 'decoder'. Uses actual names (ffmpeg and
        mplayer) instead of variables ($DEC_FFMPEG and $DEC_MPLAYER)
+    * Changed default verbosity level to INFO (same output as before)
     * BUGFIXES:
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
@@ -23,6 +24,7 @@
          > Wrong parsing of floats and positions/percentages on
            FreeBSD's bash 4.0.10 (FreeBSD only)
          > Unsupported 'expr match' replaced by awk
+      - Fix error when avoiding repeated captures
     * Scheduled code cleanup:
       - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
         shoehorned and safe_rename_pattern
