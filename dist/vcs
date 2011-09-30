@@ -1328,7 +1328,7 @@ get_interval() {
 	# eval it even if it's numeric to strip leading zeroes. Note the quoting
 	if is_number "$1" ; then awkexf "\"$1\"" ; return 0 ; fi
 
-	local s=$(tolower "$1") t r n
+	local s=$(tolower "$1") r
 
 	# Only allowed characters
 	local ERE='^[0-9smhSMH.]+$'
@@ -1338,16 +1338,6 @@ get_interval() {
 	# ([.] required for bash 3.1 + bash 3.2 compat)
 	[[ ! $s =~ [.][.] ]] || return $EX_USAGE
 
-	# Newer parsing code: replaces units by a product
-	# and feeds the resulting string to awk for evaluation
-	# Note leading zeroes will lead awk to believe they are octal numbers
-	#  as a quick and dirty fix I'm just wrapping them in quotes, forcing awk
-	#  to re-evaluate them, which appears to be enough to make them decimal.
-	#  This is the only place where leading zeroes have no meaning.
-
-	# Split into lines of time + unit:
-	t=
-	local NEWCODETEST=
 	# Newer(-er) parsing code: replaces units by a product
 	# and feeds the resulting string to awk for evaluation
 	# Note leading zeroes will lead awk to believe they are octal numbers
@@ -1363,7 +1353,7 @@ get_interval() {
 	#   6: replace s with an addition
 	#   7: add a '+' between consecutive quoted values
 	#   8: remove last empty addition
-	NEWCODETEST=$(echo "$s" | sed \
+	local exp=$(echo "$s" | sed \
 							-e 's/\([hms]\)/\1 /g' -e 's/\./ ./g' \
 							-e 's/^/ /' \
 							-e 's/ \([0-9.][0-9.]*\)/ "\1"/g' \
@@ -1373,34 +1363,10 @@ get_interval() {
 							-e 's/"[[:space:]]*"/" + "/g' \
 							-e 's/+ *$//' \
 							)
-	for item in $(echo "$s" | grep -o '[0-9]*[hms]') ;do
-		n="\"$(echo $item | grep -o '[0-9]*')\"" # Number, quoted
-		t=$t$n$(echo $item | grep -o '[hms]') # + Number + Unit
-	done
-	# Split all ms or s.ms
-	for item in $(echo "$s" | grep -o '[0-9]*\.[0-9]*') ;do
-		t="${t}\"$item\" + "
-	done
-	# Seconds without unit. They must be preceded by h, m or s at this point
-	local secs=$(echo $s | egrep -o '.?[0-9]*$')
-	# When preceded by '.', they're ms
-	local ERE='\.'
-	[[ $secs && ( $secs =~ $ERE ) ]] && secs=
-	# Quote and addition. Note BSD grep/egrep wants the anchor ($) or won't match
-	[[ $secs ]] && secs=" \"$(egrep -o '[0-9]*$'<<<"$secs")\" + "
-	t=${t//h/ * 3600 + }
-	t=${t//m/ * 60 + }
-	t=${t//s/ + }
-	t="$t$secs"
-	t=${t/% + /} # Strip empty addition
-	r=$(awkexf "$t" 2>/dev/null)
-
-	local NEWR=$(awkexf "$NEWCODETEST" 2>/dev/null) || true
-echo "$r =? $NEWR" >&2
-	assert "[[ '$NEWR' == '$r' ]]"
+	r=$(awkexf "$exp" 2>/dev/null)
 
 	# Negative and empty intervals
-	assert "[[ '$r' && '$t' ]]"
+	assert "[[ '$r' ]]"
 	assert "fptest $r -gt 0"
 
 	echo $r
