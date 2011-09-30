@@ -2136,7 +2136,7 @@ ffmpeg_identify() {
 	# 23.976 became 24 so no fix for this one
 	if [[ -z ${fi[$FPS]} ]]; then
 		# No k suffix here, 1000 is 1000
-		fi[$FPS]=$(egrep -o '[0-9]*\.?[0-9]* fps' <<<"$vs" | cut -d' ' -f1)
+		fi[$FPS]=$(sed 's/.*, \([0-9]*\.[0-9]*\) fps.*/\1/' <<<"$vs")
 	fi
 	# Be consistent with mplayer's output: at least two decimals
 	[[ ${fi[$FPS]} ]] && {
