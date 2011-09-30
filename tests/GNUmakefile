@@ -10,7 +10,7 @@ TEST_MAKER=src/make_test.bash
 get_interval_reqs = $(addprefix inc/, \
 						$(addsuffix .func.bash,get_interval trace error \
 								is_number tolower assert awkexf fptest \
-								fsimeq) \
+								fsimeq notice) \
 				 		$(addsuffix .inc.bash,constants) \
 					)
 
