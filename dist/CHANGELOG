@@ -1,8 +1,6 @@
 1.13:
     * Complete manual pages
     * Added 'anonymous' to the list of settings
-    * Make "dynamic" settings case-insensitive, i.e.
-       bg_heading=$bg_contact can also be written bg_heading=$BG_CONTACT
     * Remove meaningless decimals when generating config files
     * New setting: 'profiles', allows loading profiles automatically and also
       loading profiles from other profiles
@@ -12,6 +10,8 @@
        mplayer) instead of variables ($DEC_FFMPEG and $DEC_MPLAYER)
     * Changed default verbosity level to INFO (same output as before)
     * BUGFIXES:
+      - Make "dynamic" settings case-insensitive, i.e.
+         bg_heading=$bg_contact can also be written bg_heading=$BG_CONTACT
       - Correct extended-set resizing
       - Constraint checking of settings failed silently
         for alias-only names
