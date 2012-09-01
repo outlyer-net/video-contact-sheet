@@ -61,22 +61,6 @@ export LC_COLLATE=C # Ensure collation (e.g. tr a-z A-Z) works as expected
 	fi
 }
 
-# Portability quick-tests
-#awk_() {
-##	gawk "$@"
-#	mawk "$@"
-##	busybox awk "$@"
-#}
-#sed_() {
-#	busybox sed "$@"
-#}
-#grep_() {
-#	busybox grep "$@"
-#}
-#awk() { awk_ "$@"; }
-#sed() { sed_ "$@"; }
-#grep() { grep_ "$@"; }
-
 # {{{ # TO-DO
 # * [[x1]] Find out why the order of ffmpeg arguments breaks some files.
 # * Change default DVD_TITLE to 0
@@ -136,9 +120,10 @@ export LC_COLLATE=C # Ensure collation (e.g. tr a-z A-Z) works as expected
 #	user=myname		# Sign all compositions as myname
 #	bg_heading=gray	# Make the heading gray
 #
-# There is a total of three configuration files than are loaded if the exist:
+# There is a total of four configuration files than are loaded if the exist:
 # * /etc/vcs.conf: System wide conf, least precedence
 # * ~/.vcs.conf: Per-user conf, second least precedence
+# * ~/.vcs/vcs.conf: Per-user conf, alternate location for more complex configs
 # * ./vcs.conf: Per-dir config, most precedence (deprecated)
 #
 # The variables that can be overriden are below the block of constants ahead.
@@ -409,6 +394,10 @@ declare -i multiple_input_files=0
 declare -i INTERNAL_WS_C=0 # -Ws count
 declare -i INTERNAL_WP_C=0 # -Wp count
 declare -i INTERNAL_MAXREWIND_REACHED=0 # More -Ws in the command-line won't help
+# Loaded profiles.
+# Not an array to ease seeking, each name is followed by an space:
+#  Format: "profile1[SP]profile2[SP]"...
+declare INTERNAL_L_PROFILES=
 
 declare -r UNDFLAG_DISPLAY_COMMAND=eog  # Command to run with -Z display
 
@@ -743,6 +732,7 @@ load_profile() {
 	for prof in "${PATHS[@]}" ; do
 		prof="$prof$p.conf"
 		[[ -f $prof ]] || continue
+		INTERNAL_L_PROFILES+="$p "
 		load_config_file "$prof" 'Profile'
 		return 0
 	done
@@ -962,6 +952,7 @@ apply_meta_override() {
 			fi
 			local prof=
 			for prof in ${2//,/ } ; do # ${2//,/ } = sed 's/,/ /g'
+				grep -q -v "$prof " <<<"$INTERNAL_L_PROFILES" || continue
 				load_profile $prof
 			done
 		;;
