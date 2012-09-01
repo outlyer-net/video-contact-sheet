@@ -46,6 +46,7 @@
       - Added new example profiles (black-mosaic and black-compact-chain), the
         latter demonstrating how a profile can load other profiles
       - List also builtin profiles with --profile :list
+      - Each profile can no longer be loaded more than once
     * UNDOCUMENTED/DEBUG:
       - Undocumented options:
          - Don't fail on unknown sub-options
