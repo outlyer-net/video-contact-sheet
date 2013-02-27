@@ -953,7 +953,7 @@ apply_meta_override() {
 			local prof=
 			for prof in ${2//,/ } ; do # ${2//,/ } = sed 's/,/ /g'
 				grep -q -v "$prof " <<<"$INTERNAL_L_PROFILES" || continue
-				load_profile $prof
+				load_profile $prof || die
 			done
 		;;
 		decoder)
@@ -1652,6 +1652,8 @@ exithdlr() {
 		7<&-	# Close FD 7
 	fi
 	cleanup
+	# XXX: In one of my computers a terminal reset is required
+	#tset
 }
 
 # Feedback handling, these functions are use to print messages respecting

@@ -1,4 +1,4 @@
-1.13:
+1.13 (2013-02-27):
     * Complete manual pages
     * Added 'anonymous' to the list of settings
     * Remove meaningless decimals when generating config files
@@ -62,6 +62,8 @@
       - Bugfix: Don't accept --shoehorn (was deprecated and unhandled)
       - Set LANG to C
       - Added simeq() and '~' fptest operator
+      - New (4th iteration) interval parsing code, single sed command,
+        more strict checking of PRE
 
 1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
