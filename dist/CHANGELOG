@@ -47,6 +47,7 @@
         latter demonstrating how a profile can load other profiles
       - List also builtin profiles with --profile :list
       - Each profile can no longer be loaded more than once
+      - Restore terminal through stty
     * UNDOCUMENTED/DEBUG:
       - Undocumented options:
          - Don't fail on unknown sub-options

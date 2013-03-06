@@ -6,8 +6,6 @@
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
 # Copyright (C) 2007, 2008, 2009, 2010, 2011, 2012, 2013 Toni Corvera
-#   with patches from Phil Grundig and suggestions/corrections from
-#   many others (see homepage)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -33,6 +31,8 @@
 
 declare -r VERSION="1.13"
 declare -r RELEASE=0
+declare -ri PRERELEASE=2
+[ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
 
@@ -136,7 +136,7 @@ declare -ri DEC_MPLAYER=1 DEC_FFMPEG=3
 # See $TIMECODE_FROM
 declare -ri TC_INTERVAL=4 TC_NUMCAPS=8
 # These can't be overriden, modify this line if you feel the need
-declare -r PROGRAM_SIGNATURE="Video Contact Sheet *NIX ${VERSION} <http://p.outlyer.net/vcs/>"
+declare -r PROGRAM_SIGNATURE="Video Contact Sheet *NIX ${VERSION}${SUBVERSION} <http://p.outlyer.net/vcs/>"
 # Filename pattern for safe renaming (appending numbers until finding a name
 #+not in use).
 # Since 1.13 no longer configurable. Don't mess with it too much.
@@ -169,6 +169,9 @@ declare -r NL=$'\012' # Newline
 # Offsets to try when trying to avoid blank frames
 # See capture() and capture_and_evade()
 declare -a EVASION_ALTERNATIVES=( -5 +5 -10 +10 -30 +30 )
+
+# Save the terminal settings to later restore them (in exithdlr)
+declare -r STTY=$(stty -g)
 
 # }}} # End of constants
 
@@ -1632,7 +1635,7 @@ choose_getopt() {
 	return 0
 }
 
-# Remove any temporal files
+# Remove any temporary files
 # Does nothing if none has been created so far
 # cleanup()
 cleanup() {
@@ -1654,6 +1657,7 @@ exithdlr() {
 	cleanup
 	# XXX: In one of my computers a terminal reset is required
 	#tset
+	stty "$STTY"
 }
 
 # Feedback handling, these functions are use to print messages respecting
@@ -1671,7 +1675,7 @@ error() {
 		echo "$1$SUFFIX_FBACK"
 	fi >&2
 	# It is important to redirect both tput and echo to stderr. Otherwise
-	# n=$(something) wouldn't be coloured
+	# n=$(something) wouldn't be colourised
 }
 #
 # Print a non-fatal error or warning
@@ -4249,7 +4253,7 @@ internal_integrity_test() {
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
 	# Don't colourise this
-	infplain "Video Contact Sheet *NIX v${VERSION}, (c) 2007-2013 Toni Corvera"
+	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2013 Toni Corvera"
 }
 
 # Prints the list of options to stdout
@@ -5105,6 +5109,7 @@ while true ; do
 					Chosen capturer:    $usrcap
 					Filterchain:        [ ${FILTERS_IND[*]} ]
 					Safe step:          $QUIRKS_LEN_STEP
+					Blank evasion:      $prevent_evasion
 					=== Versions ===
 					Bash:               $BASH_VERSION
 					Getopt:             $($GETOPT --version)$awkv$sedv
