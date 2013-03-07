@@ -20,6 +20,7 @@ inc/constants.inc.bash: $(VCS)
 	mkdir -p inc/
 	echo 'declare -r RELEASE=0' > $@
 	echo 'declare DEBUG=1' >> $@
+	echo 'INTERNAL_TRACE_FILTER=TRACE_NOTHING' >>$@
 	echo '$(shell grep -m1 'VERSION=' "$(VCS)")' >> $@
 	sed -n '/{{{ # Constants/,/}}}/p' "$(VCS)" >> $@
 

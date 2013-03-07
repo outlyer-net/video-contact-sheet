@@ -21,12 +21,26 @@ function unittest {
 	args=$(cut -d' ' -f2- <<<"$a" | sed 's/:.*$//' | sed 's/ *$//')
 	expected=$(cut -d' ' -f2- <<<"$a" | sed 's/.*://')
 	echo "$fn($args) -> $expected" >&2
-	ret=$($fn $args)
-	RET=$[ $RET + $?]
-	if [[ $ret != $expected ]] && ! fptest "$ret" ~ "$expected" ; then
-		echo -n "${R}FAILED	=> $ret != '$expected'"
+	res=$($fn $args)
+	ret=$?
+	passed=
+	if [[ $expected == '><' ]]; then # Expected to fail
+		if [[ $ret != 0 ]]; then
+			passed=1
+		else
+			passed=0
+		fi
+	elif [[ $res != $expected ]] && ( [[ $res ]] && ! fptest "$res" ~ "$expected" ) ; then
+		passed=0
 	else
-		echo -n "${G}PASSED => $ret ~= $expected"
+		passed=1
+	fi
+
+	if [[ $passed -ne 1 ]]; then
+		echo -n "${R}FAILED	=> $res != '$expected'"
+		let 'RET++'
+	else
+		echo -n "${G}PASSED => $res ~= $expected"
 	fi
 	echo $CLR
 }

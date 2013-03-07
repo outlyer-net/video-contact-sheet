@@ -166,6 +166,10 @@ declare -r NL=$'\012' # Newline
 #declare -r TAB=$'\011' # Tab
 
 # New in 1.13
+# Set to 1 to disable blank frame evasion
+declare -i DISABLE_EVASION=0
+# Threshold to consider a frame blank (see capture_and_evade)
+declare -i BLANK_THRESHOLD=10
 # Offsets to try when trying to avoid blank frames
 # See capture() and capture_and_evade()
 declare -a EVASION_ALTERNATIVES=( -5 +5 -10 +10 -30 +30 )
@@ -2409,12 +2413,20 @@ compute_timecodes() {
 		error "Internal error"
 		return $EX_SOFTWARE
 	fi
-	# Keep three decimals, round to lower to avoid exceeding the video length
-	inc=$(keepdecimals_lower $inc 3)
+	if [[ $CAPTURER_HAS_MS -eq 0 ]]; then
+		inc=$(keepdecimals_lower $inc 0)
+	else
+		# Keep three decimals, round to lower to avoid exceeding the video length
+		inc=$(keepdecimals_lower $inc 3)
+	fi
 
 	if fptest $inc -gt ${VID[$LEN]}; then
-		error "Interval is longer than video length, skipping $f"
+		error "Capture interval is longer than video length, skipping '$f'"
 		return $EX_USAGE
+	fi
+	if fptest $inc -eq 0; then
+		error "Capture interval is too low, skipping '$f'"
+		return $EX_UNAVAILABLE
 	fi
 
 	local stamp=$st
@@ -2520,9 +2532,8 @@ capture_and_evade() {
 			error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
 			return $EX_SOFTWARE
 		fi
-		# **XXX: EXPERIMENTAL: Blank frame evasion test
+		# **XXX: EXPERIMENTAL: Blank frame evasion, initial test implementation
 		local blank_val=$(convert "$ofile" -colorspace Gray -format '%[fx:image.mean*100]' info:)
-		local BLANK_THRESHOLD=10
 		local upper=$(( 100 - $BLANK_THRESHOLD ))
 		if fptest $blank_val -lt $BLANK_THRESHOLD || fptest $blank_val -gt $upper ; then
 			local msg="  Blank (enough) frame detected."
@@ -2543,11 +2554,13 @@ capture_and_evade() {
 
 # Capture a frame, intermediate-level implementation, use capture() instead.
 # Sets $RESULT to '$timestamp:$output'
+# Sets $CAPTURED_FROM_CACHE to 1 if it was already captured
 # capture_impl($1 = filename, $2 = second, $3 = output file)
 capture_impl() {
 	trace $@
 	local f=$1 stamp=$2 ofile=$3
 	RESULT=''
+	CAPTURED_FROM_CACHE=0
 
 	# Avoid recapturing if timestamp is already captured.
 	# The extended set includes the standard set so when using the extended mode
@@ -2562,10 +2575,11 @@ capture_impl() {
 	else
 		key=$(awkex $stamp)
 	fi
-	local cached=$(grep "^$key:" <<<"$CAPTURES")
+	local cached=$(grep "^$key:" <<<"$CAPTURES" | head -1)
 	if [[ $cached ]]; then
 		notice "Skipped capture at $(pretty_stamp $key)"
 		cp "${cached#*:}" "$ofile" # TODO: Is 'cp -s' safe?
+		CAPTURED_FROM_CACHE=1
 	else
 		local capfn=${CAPTURER}_capture
 		if [[ $DVD_MODE -eq 1 ]]; then
@@ -3762,7 +3776,8 @@ process() {
 			hlcapfile=$(new_temp_file "-hl-$(pad 6 $n).png")
 
 			capture "$f" "$hlcapfile" $stamp '1' || return $?
-			filter_vidcap "$hlcapfile" $pretty $vidcap_width $vidcap_height $CTX_HL $n || {
+			[[ $CAPTURED_FROM_CACHE -eq 1 ]] ||\
+			 filter_vidcap "$hlcapfile" $pretty $vidcap_width $vidcap_height $CTX_HL $n || {
 				local r=$?
 				error "Failed to apply transformations to the capture."
 				return $r
@@ -3795,12 +3810,13 @@ process() {
 		# identified by capture number, padded to 6 characters
 		tfile=$(new_temp_file "-cap-$(pad 6 $n).png")
 
-		capture "$f" "$tfile" $stamp || return $?
+		capture "$f" "$tfile" $stamp $DISABLE_EVASION || return $?
 		if [[ $RESULT != "$stamp" ]]; then
 			stamp=$RESULT
 			pretty=$(pretty_stamp $RESULT)
 		fi
-		filter_vidcap "$tfile" $pretty $vidcap_width $vidcap_height $CTX_STD $n || return $?
+		[[ $CAPTURED_FROM_CACHE -eq 1 ]] ||\
+		 filter_vidcap "$tfile" $pretty $vidcap_width $vidcap_height $CTX_STD $n || return $?
 
 		capfiles=( "${capfiles[@]}" "$tfile" )
 		(( n++ ))
@@ -3841,8 +3857,9 @@ process() {
 			pretty=$(pretty_stamp $stamp)
 			capfile=$(new_temp_file "-excap-$(pad 6 $n).png")
 			inf "Generating capture from extended set: ${n}/${#TIMECODES[*]} ($pretty)..."
-			capture "$f" "$capfile" $stamp || return $?
-			filter_vidcap "$capfile" $pretty $w $h $CTX_EXT $n || return $?
+			capture "$f" "$capfile" $stamp $DISABLE_EVASION || return $?
+			[[ $CAPTURED_FROM_CACHE -eq 1 ]] ||\
+			 filter_vidcap "$capfile" $pretty $w $h $CTX_EXT $n || return $?
 
 			capfiles=( "${capfiles[@]}" "$capfile" )
 			(( n++ ))
@@ -5095,6 +5112,10 @@ while true ; do
 				else
 					usrcap='{default}'
 				fi
+				evasion="Enabled (${EVASION_ALTERNATIVES[*]})"
+				if [[ $DISABLE_EVASION -eq 1 ]]; then
+					evasion='Disabled'
+				fi
 				cat >&2 <<-EOD
 					=== Setup ===
 					GETOPT:             $GETOPT
@@ -5109,7 +5130,7 @@ while true ; do
 					Chosen capturer:    $usrcap
 					Filterchain:        [ ${FILTERS_IND[*]} ]
 					Safe step:          $QUIRKS_LEN_STEP
-					Blank evasion:      $prevent_evasion
+					Blank evasion:      $evasion
 					=== Versions ===
 					Bash:               $BASH_VERSION
 					Getopt:             $($GETOPT --version)$awkv$sedv

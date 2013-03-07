@@ -1,15 +1,41 @@
 # $Id$
 # Format:
 #   test input [input ...] : expected_result
-#
+# >< as expected result means the operation will fail
+
+####################
+#################### get_interval() tests
+####################
 
 get_interval 1h			: 3600
 get_interval 1h1m		: 3660
 get_interval 1h1m1		: 3661
 get_interval 1h1m1s		: 3661
+get_interval 100		: 100
+
+# Leading 0's
+get_interval 010		: 10
+get_interval 01h0m01m01s	: 3661
+
+# Case insensitive
+get_interval 1H1M1S1s	: 3662
+
+# Reverse order of mangnitudes
+get_interval 1s1m1h		: 3661
 
 get_interval 1.22		: 1.22
 get_interval 1s.22		: 1.22
 get_interval .11.11.11	: 0.33
 get_interval 1s.11.11	: 1.22
+
+# Rejected inputs
+get_interval s			: ><
+get_interval .11s		: ><
+get_interval 1ss		: ><
+
+# Repeated units
+get_interval 1s1s1s1s	: 4
+get_interval 1m1m1m1m	: 240
+get_interval 1h1h1h1h	: 14400
+
 

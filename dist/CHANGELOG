@@ -1,4 +1,4 @@
-1.13 (2013-02-27):
+1.13 (2013-03-07):
     * Complete manual pages
     * Added 'anonymous' to the list of settings
     * Remove meaningless decimals when generating config files
@@ -13,10 +13,9 @@
       - Make "dynamic" settings case-insensitive, i.e.
          bg_heading=$bg_contact can also be written bg_heading=$BG_CONTACT
       - Correct extended-set resizing
-      - Constraint checking of settings failed silently
-        for alias-only names
-      - Code typo: Produced error message when extended mode was
-        narrower than contact sheet
+      - Constraint checking of settings failed silently for alias-only names
+      - Code typo: Produced error message when extended mode was narrower than
+        contact sheet
       - Only warned about command-line GETOPT override when using uppercase
         setting name
       - Fixes for FreeBSD compatibility (regressions introduced in 1.12.3,
@@ -25,6 +24,8 @@
            FreeBSD's bash 4.0.10 (FreeBSD only)
          > Unsupported 'expr match' replaced by awk
       - Fix error when avoiding repeated captures
+      - Don't filter cached captures more than once [#199]
+      - Skip files where interval gets rounded to zero [#195]
     * Scheduled code cleanup:
       - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
         shoehorned and safe_rename_pattern
@@ -47,7 +48,7 @@
         latter demonstrating how a profile can load other profiles
       - List also builtin profiles with --profile :list
       - Each profile can no longer be loaded more than once
-      - Restore terminal through stty
+      - Restore terminal through stty [#198]
     * UNDOCUMENTED/DEBUG:
       - Undocumented options:
          - Don't fail on unknown sub-options

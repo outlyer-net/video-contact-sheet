@@ -21,5 +21,10 @@ echo 'while read line ; do'
 echo '	unittest $line'
 echo 'done <<< "$(sed "/^[[:space:]]*#/d" "'$testsfile'" | grep "^'${TESTNAME}' ")"'
 
-
+echo 'if [[ $RET -eq 0 ]]; then'
+echo '	echo -n "${G}All tests passed"'
+echo 'else'
+echo '	echo -n "${R}Some tests failed"'
+echo 'fi'
+echo 'echo $CLR'
 
