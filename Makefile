@@ -1,43 +1,77 @@
-#!/usr/bin/make -f
+#
 # $Id$
+#
 
-srcdir=pkg
-VER=$(shell grep VERSION $(srcdir)/vcs | head -n1 | sed 's/\#.*//' | sed -r 's/.*"(.*)".*/\1/g')
+srcdir=dist
+#VER=$(shell grep VERSION= $(srcdir)/vcs | sed 's/.*"\([^"]*\)".*/\1/')
+VER=$(shell sed -n '/VERSION=/s/.*"\([^"]*\)".*/\1/p' $(srcdir)/vcs | head -n1)
 
 all:
-	@echo "Use $(MAKE) dist"
+	@echo "-------------------------------------------------------------------------------"
+	@echo " Use: "
+	@echo "  $$ $(MAKE) dist        # to create the actual v$(VER) distribution files"
+	@echo "  $$ $(MAKE) manpages    # to create only the manpages (in $(srcdir)/docs)"
+	@echo "  $$ $(MAKE) docs        # to create all documentation formats (in $(srcdir)/docs)"
+	@echo
+	@echo "  $$ $(MAKE) lint        # to validate documentation sources"
+	@echo "  $$ $(MAKE) clean       # to clean generated files"
+	@echo "  $$ $(MAKE) distclean   # to clean generated and distribution files"
+	@echo "  $$ $(MAKE) uploadclean # to clean non-distribution files"
+	@echo "------------------------------------------------------------------------------"
 
-pkg/vcs.1: manpage.xml
-	xmlto -o pkg man $<
+docs: lint
+	$(MAKE) -C $(srcdir)/docs all
+
+manpages: lint
+	$(MAKE) -C $(srcdir)/docs vcs.1 vcs.conf.5
+
+lint:
+	$(MAKE) -C $(srcdir)/docs lint
 
 tgz: vcs-$(VER).tar.gz
 
-vcs-$(VER).tar.gz:
-	cp -rvpP pkg/ vcs-$(VER)
-	cd vcs-$(VER) && make dist
-	tar zcvf vcs-$(VER).tar.gz --exclude '.svn' --exclude '*.swp' --exclude '*.swo' vcs-$(VER)
-	$(RM) -r vcs-$(VER)
+vcs-$(VER).tar.gz: $(srcdir)/vcs-$(VER).tar.gz
+	mv $< $@
+
+$(srcdir)/vcs-$(VER).tar.gz:
+	make -C $(srcdir) distclean `basename $@`
 
 check-no-svn:
-	#@if [ -d .svn ]; then echo "Don't release from SVN working copy" ; false ; fi
+	@if [ -d .svn ]; then \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo "**     Don't release from SVN working copy     **" ; \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo ; \
+	fi
 
 check-rel:
 	@if head -n50 vcs | grep -q 'RELEASE=0' ; then \
-		echo 'RELEASE is set to 0!' ; false ; fi
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo '**           RELEASE is set to 0!              **' ; \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo ; \
+	fi
 
 dist: check-rel check-no-svn \
-		pkg/vcs.1 \
 		vcs-$(VER).tar.gz \
 		PKGBUILD-$(VER) \
-		vcs-$(VER).gz vcs-$(VER).bz2 vcs-$(VER).bash \
+		$(addprefix vcs-$(VER), .gz .bz2 .bash) \
 		CHANGELOG.gz CHANGELOG \
 		rpm deb
 
+# This shouldn't be re-built
+devel_tools/mansrc/settings.man.inc.xml:
+	cd `dirname $@` && $(MAKE)
+
 PKGBUILD-$(VER): vcs-$(VER).tar.gz
-	cd pkg && ln -s ../vcs-$(VER).tar.gz ./
-	cd pkg && make PKGBUILD
-	$(RM) pkg/vcs-$(VER).tar.gz
-	mv pkg/PKGBUILD $@
+	cd $(srcdir) && ln -s ../vcs-$(VER).tar.gz ./
+	make -C $(srcdir) PKGBUILD
+	$(RM) $(srcdir)/vcs-$(VER).tar.gz
+	mv $(srcdir)/PKGBUILD $@
 
 vcs-$(VER).gz: $(srcdir)/vcs
 	gzip -c9 < vcs > $@
@@ -54,12 +88,17 @@ CHANGELOG.gz: $(srcdir)/CHANGELOG
 CHANGELOG: $(srcdir)/CHANGELOG
 	cp $< $@
 
-distclean:
-	$(RM) -ri vcs Makefile *.changes pkg
+distclean: clean
+	$(RM) PKGBUILD-$(VER) vcs-$(VER).tar.gz $(addprefix vcs-$(VER), .gz .bz2 .bash) \
+			CHANGELOG.gz CHANGELOG *.deb *.rpm
+
+# That's the old distclean
+uploadclean:
+	$(RM) -ri vcs Makefile *.changes dist
 
 deb:
-	cd pkg && debuild -us -uc -b && debclean
-	$(RM) vcs_*.changes vcs_*.build
+	cd dist && debuild -k0x5812006E -us -uc && debclean
+	#$(RM) vcs_*.changes vcs_*.build
 
 rpm: vcs-$(VER).tar.gz
 	rpmbuild --clean -tb vcs-$(VER).tar.gz
@@ -68,5 +107,8 @@ rpm: vcs-$(VER).tar.gz
 
 clean:
 	-$(RM) vcs[-_]$(VER)* CHANGELOG*
+	make -C $(srcdir)/docs clean
 
-.PHONY: dist
+.PHONY: all docs manpages lint clean dist distclean uploadclean \
+		check-no-svn check-rel \
+		deb rpm tgz

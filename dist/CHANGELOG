@@ -1,3 +1,72 @@
+1.13 (2013-03-08):
+    * Complete manual pages
+    * Added 'anonymous' to the list of settings
+    * Remove meaningless decimals when generating config files
+    * New setting: 'profiles', allows loading profiles automatically and also
+      loading profiles from other profiles
+    * Change also title colours in 'black' and 'white' profiles
+    * Codec identification for Fraps captures [#179]
+    * New setting 'capturer' deprecates 'decoder'. Uses actual names (ffmpeg and
+       mplayer) instead of variables ($DEC_FFMPEG and $DEC_MPLAYER)
+    * Changed default verbosity level to INFO (same output as before)
+    * BUGFIXES:
+      - Make "dynamic" settings case-insensitive, i.e.
+         bg_heading=$bg_contact can also be written bg_heading=$BG_CONTACT
+      - Correct extended-set resizing
+      - Constraint checking of settings failed silently for alias-only names
+      - Code typo: Produced error message when extended mode was narrower than
+        contact sheet
+      - Only warned about command-line GETOPT override when using uppercase
+        setting name
+      - Fixes for FreeBSD compatibility (regressions introduced in 1.12.3,
+        [#189]):
+         > Wrong parsing of floats and positions/percentages on
+           FreeBSD's bash 4.0.10 (FreeBSD only)
+         > Unsupported 'expr match' replaced by awk
+      - Fix error when avoiding repeated captures
+      - Don't filter cached captures more than once [#199]
+      - Skip files where interval gets rounded to zero [#195]
+    * Scheduled code cleanup:
+      - Removal of deprecated configuration options: DEFAULT_END_OFFSET,
+        shoehorned and safe_rename_pattern
+      - Removal of deprecated option '--undocumented shoehorn'
+      - Deprecation of '--end_offset' ('--end-offset' should be used instead)
+    * COSMETIC:
+      - Add '(h.264)' to ffmpeg video codec id when appropriate
+      - Correct "Capturing in range..." message
+      - Refer to configuration variables as "settings"
+      - Print informational messages for each funky mode
+      - Pretty-print timestamps when doing safe-length measuring [#177]
+      - Colourised tracing
+    * OTHER:
+      - Help rewordings and clarification
+      - Help fixes:
+         - Old DVD mode description was still displayed
+         - Incorrectly had `--jpeg 2' instead of `--jpeg2' or `--jpeg=2'
+      - Added new distribution profile: compact
+      - Added new example profiles (black-mosaic and black-compact-chain), the
+        latter demonstrating how a profile can load other profiles
+      - List also builtin profiles with --profile :list
+      - Each profile can no longer be loaded more than once
+      - Restore terminal through stty [#198]
+    * UNDOCUMENTED/DEBUG:
+      - Undocumented options:
+         - Don't fail on unknown sub-options
+         - New sub-options: trace, display and discard
+         - Debugging facility: --undocumented trace=funcname
+         - Display $POSIXLY_CORRECT and sed's path in 'vcs -DD' output
+         - Display awk and sed versions, if possible, in 'vcs -DD' output
+    * INTERNAL:
+      - Check ImageMagick through convert instead of identify
+      - Don't run filters in subshells
+      - Fix some typos
+      - Bugfix: Actually use passed timestamp in filt_apply_timestamp()
+      - Bugfix: Don't accept --shoehorn (was deprecated and unhandled)
+      - Set LANG to C
+      - Added simeq() and '~' fptest operator
+      - New (4th iteration) interval parsing code, single sed command,
+        more strict checking of PRE
+
 1.12.3 (2011-07-17):
    * BUGFIX: Actually handle --ffmpeg and --mplayer [#169]
    * BUGFIX: Correct parsing of -U [#187]
@@ -39,7 +108,7 @@
    * DVD mode cleanup:
      - Command-line switched to match "normal" files:
        Before:
-       $ vcs --dvd /dev/dvd 0   or $ vcs -dvd /dev/dvd 1
+       $ vcs --dvd /dev/dvd 0   or $ vcs --dvd /dev/dvd 1
        Equivalents now:
        $ vcs --dvd /dev/dvd     or $ vcs --dvd --dvd-title 1 /dev/dvd
    * New end-offset behaviour:

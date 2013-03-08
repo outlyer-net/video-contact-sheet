@@ -1,0 +1,36 @@
+/*$Rev: 2317 $*/
+body {
+	font-size-adjust:/*0.58*/0.5;
+	font-size:12pt;
+	background-color:#333;
+	color:#eee;
+}
+a:link, a:active { color: #5692c4; }
+a:visited { color: #76b2e4; }
+a:hover { color: #ff6347; /*Tomato;*/ }
+.errorcode { font-family:monospace; }
+.warning, .note, .tip {
+	margin-bottom:1ex;
+	color:#333;
+}
+.note a:link, .note a:active, .note a:visited,
+.tip a:link, .tip a:active, .tip a:visited {
+	color:navy;
+}
+.note a:hover, .tip a:hover { color: #800; }
+.warning {
+	border:2px dashed #ffa500;
+	background: #fc4 url("/usr/share/icons/gnome/48x48/status/dialog-warning.png") no-repeat 4px 12px;
+	padding:0 1em 0 52px;
+}
+.note, .tip {
+	border:2px dashed navy;
+	background: #69f url("/usr/share/icons/gnome/48x48/status/dialog-information.png") no-repeat 4px 12px;
+	padding:0 1em 0 52px;
+}
+.programlisting {
+	background:#555;
+	padding:1ex;
+	width:100ex;
+	border:1px solid #222;
+}

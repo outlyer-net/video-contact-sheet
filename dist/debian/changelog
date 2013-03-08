@@ -1,3 +1,10 @@
+vcs (1.13-pon.1) experimental; urgency=low
+
+  * New version.
+  * debian/changelog: Changed to shorter suffix
+
+ -- Toni Corvera <outlyer@gmail.com>  Wed, 27 Feb 2013 16:57:12 +0100
+
 vcs (1.12.3-upstream.1) experimental; urgency=low
 
   * New version.
