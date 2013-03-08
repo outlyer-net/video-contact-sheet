@@ -4,7 +4,7 @@
 
 srcdir=dist
 #VER=$(shell grep VERSION= $(srcdir)/vcs | sed 's/.*"\([^"]*\)".*/\1/')
-VER=$(shell sed -n '/VERSION=/s/.*"\([^"]*\)".*/\1/p' $(srcdir)/vcs)
+VER=$(shell sed -n '/VERSION=/s/.*"\([^"]*\)".*/\1/p' $(srcdir)/vcs | head -n1)
 
 all:
 	@echo "-------------------------------------------------------------------------------"
