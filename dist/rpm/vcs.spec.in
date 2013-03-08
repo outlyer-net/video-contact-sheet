@@ -103,6 +103,9 @@ make DESTDIR=%buildroot prefix=%{prefix} install
 %doc examples/vcs.conf.example
 
 %changelog
+* Fri Mar 08 2013 - outlyer (at) gmail (dot) com
+- Install 'compact' profile
+
 * Sun Aug 28 2011 - outlyer (at) gmail (dot) com
 - Install additional manpage for configuration file
 

@@ -94,10 +94,10 @@ distclean: clean
 
 # That's the old distclean
 uploadclean:
-	$(RM) -ri vcs Makefile *.changes pkg
+	$(RM) -ri vcs Makefile *.changes dist
 
 deb:
-	cd pkg && debuild -k0x5812006E -us -uc && debclean
+	cd dist && debuild -k0x5812006E -us -uc && debclean
 	#$(RM) vcs_*.changes vcs_*.build
 
 rpm: vcs-$(VER).tar.gz
