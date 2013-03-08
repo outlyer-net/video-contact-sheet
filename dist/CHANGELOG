@@ -1,4 +1,4 @@
-1.13 (2013-03-07):
+1.13 (2013-03-08):
     * Complete manual pages
     * Added 'anonymous' to the list of settings
     * Remove meaningless decimals when generating config files
