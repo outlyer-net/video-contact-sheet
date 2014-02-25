@@ -1,3 +1,9 @@
+1.13.1 (2014-02-25):
+    * BUGFIX: Fixed uncommon bug with unwrapped grep string [#217]
+              Submitted by Eris Belew
+    * OTHER: Adapt PKGBUILD to new guidelines [#219]
+              Submitted by Eris Belew
+
 1.13 (2013-03-08):
     * Complete manual pages
     * Added 'anonymous' to the list of settings
