@@ -1,14 +1,13 @@
 #
 # $Rev$
 #
-# Maintainer (Upstream): Toni Corvera <outlyer@gmail.com>
-#
 # Build with '$ makepkg' on the same directory as this file
 #
 
+# Maintainer: Toni Corvera (Upstream) <outlyer@gmail.com>
 pkgname=vcs
 pkgver=@VERSION@
-pkgrel=1.upstream
+pkgrel=1
 pkgdesc="tool to create contact sheets (previews) from videos"
 arch=('any')
 url="http://p.outlyer.net/vcs/"
@@ -25,9 +24,13 @@ sha1sums=(@SHA1@)
 # Debian & Arch didn't agree on this on my first try (???)
 sha256sums=(@SHA256@)
 
-build() {
+prepare() {
   cd $srcdir/$pkgname-$pkgver
   make prepackage
+}
+
+package() {
+  cd $srcdir/$pkgname-$pkgver
   make install DESTDIR=${pkgdir} prefix=/usr
   install -D $srcdir/$pkgname-$pkgver/examples/vcs.conf.example \
     ${pkgdir}/usr/share/doc/$pkgname/vcs.conf.example

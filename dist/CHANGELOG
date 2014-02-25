@@ -1,3 +1,6 @@
+1.13.1 (2014):
+    * Adapt PKGBUILD to new guidelines
+
 1.13 (2013-03-08):
     * Complete manual pages
     * Added 'anonymous' to the list of settings
