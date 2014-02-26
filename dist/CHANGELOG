@@ -1,4 +1,4 @@
-1.13.1 (2014-02-25):
+1.13.1 (2014-02-26):
     * BUGFIX: Fixed uncommon bug with unwrapped grep string [#217]
               Submitted by Eris Belew
     * OTHER: Adapt PKGBUILD to new guidelines [#219]
