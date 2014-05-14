@@ -1,3 +1,7 @@
+1.13.2 (?):
+    * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]
+              Reported by Miya
+
 1.13.1 (2014-02-26):
     * BUGFIX: Fixed uncommon bug with unwrapped grep string [#217]
               Submitted by Eris Belew

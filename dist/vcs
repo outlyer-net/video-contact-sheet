@@ -29,9 +29,9 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.13.1"
-declare -r RELEASE=1
-declare -ri PRERELEASE=1
+declare -r VERSION="1.13.2"
+declare -r RELEASE=0
+declare -ri PRERELEASE=2
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
@@ -1913,7 +1913,7 @@ mplayer_test_avail() {
 # the actual values. See identify_video()
 # mplayer_identify($1 = file)
 mplayer_identify() {
-	trace $FUNCNAME $@
+	trace $@
 	assert '[[ $MPLAYER_BIN ]]'
 	local f="$1"
 	local mi=( )
@@ -2006,7 +2006,7 @@ mplayer_capture() {
 # Capture a frame with mplayer
 # mplayer_dvd_capture($1 = inputfile, $2 = timestamp, $3 = output)
 mplayer_dvd_capture() {
-	trace $FUNCNAME $@
+	trace $@
 	# Note mplayer CAN'T set the output filename, newer mplayer can set output
 	#+dir though.
 	local f="$1"
@@ -2063,7 +2063,7 @@ ffmpeg_test_avail() {
 # the actual values. See identify_video()
 # mplayer_identify($1 = file)
 ffmpeg_identify() {
-	trace $FUNCNAME $@
+	trace $@
 	assert '[[ $FFMPEG_BIN ]]'
 	local f="$1"
 	# DVD Devices *MUST* be mounted for the identifying process to even start
@@ -2434,6 +2434,12 @@ compute_timecodes() {
 	local bound=$(awkexf "$end - $eo")
 	local last=
 	while fptest $stamp -le "$bound"; do
+		# Due to rounding (i.e. with mplayer), the loop might need an extra run
+		# to reach the end of the video.
+		# Ensure it doesn't if the user requested a specific number of captures
+		if [[ ( $tcfrom -eq $TC_NUMCAPS ) && ( ${#LTC[@]} -gt $tcnumcaps ) ]]; then
+			break
+		fi
 		assert fptest $stamp -ge 0
 		LTC=( "${LTC[@]}" "$stamp" )
 		last=$stamp
@@ -3265,7 +3271,7 @@ pick_tools() {
 #   4: Failed to detect width or height
 # classic_identify($1 = file)
 classic_identify() {
-	trace $FUNCNAME $@
+	trace $@
 	local RET_NOLEN=3 RET_NODIM=4
 
 	assert '[[ $MPLAYER_BIN && $FFMPEG_BIN ]]'
