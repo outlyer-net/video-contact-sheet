@@ -1,3 +1,9 @@
+vcs (1.13.2-pon.1) UNRELEASED; urgency=medium
+
+  * New version
+
+ -- Toni Corvera <outlyer@gmail.com>  Fri, 16 May 2014 17:09:00 +0200
+
 vcs (1.13.1-pon.1) experimental; urgency=low
 
   * New version

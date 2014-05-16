@@ -31,7 +31,7 @@
 
 declare -r VERSION="1.13.2"
 declare -r RELEASE=0
-declare -ri PRERELEASE=2
+declare -ri PRERELEASE=3
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
@@ -1507,7 +1507,7 @@ safe_rename() {
 
 		(( n++ ));
 	done
-	assert "[[ -n '$to' ]]"
+	assert "[[ -n '${to//\'/\'\\\'\'}' ]]" # [[ -n '$to' ]] + escape single quotes
 
 	mvq "$from" "$to"
 	echo "$to"
