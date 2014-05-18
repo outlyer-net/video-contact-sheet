@@ -30,7 +30,7 @@
 
 
 declare -r VERSION="1.13.2"
-declare -r RELEASE=0
+declare -r RELEASE=1
 declare -ri PRERELEASE=3
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
