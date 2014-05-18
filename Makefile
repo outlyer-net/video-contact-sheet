@@ -96,7 +96,8 @@ distclean: clean
 uploadclean:
 	$(RM) -ri vcs Makefile *.changes dist
 
-deb:
+deb: vcs-$(VER).tar.gz
+	ln -sf vcs-$(VER).tar.gz vcs_$(VER).orig.tar.gz
 	cd dist && debuild -k0x5812006E -us -uc && debclean
 	#$(RM) vcs_*.changes vcs_*.build
 
