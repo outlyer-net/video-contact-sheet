@@ -1,3 +1,10 @@
+1.13.2 (2014-05-18):
+    * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]
+              Reported by Miya
+    * OTHER: (BUGFIX in prereleases)
+              Fixed error when processing files with quotes in the file name
+              [#226]
+
 1.13.1 (2014-02-26):
     * BUGFIX: Fixed uncommon bug with unwrapped grep string [#217]
               Submitted by Eris Belew
