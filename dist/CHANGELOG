@@ -1,4 +1,4 @@
-1.13.2 (?):
+1.13.2 (2014-05-18):
     * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]
               Reported by Miya
     * OTHER: (BUGFIX in prereleases)
