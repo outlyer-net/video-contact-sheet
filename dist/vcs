@@ -3065,6 +3065,7 @@ get_vcodec_name() {
 		# Synthetic, used for ffmpeg translations
 		vcs_divx) vcodec="DivX ;-)" ;;
 		vcs_hevc) vcodec="HEVC" ;; # Not yet supported by MPlayer
+		vcs_vp9) vcodec="VP9" ;; # Detected as rawyuy2 by MPlayer
 		*) # If not recognized fall back to FourCC
 			vcodec="$vcid"
 			;;
@@ -3096,6 +3097,7 @@ translate_ffmpeg_vcodec_id() {
 		camtasia)   mpid="tscc" ;;
 		vp6|vp6a|vp6f) mpid="VP60" ;;
 		vp8) mpid="VP80" ;;
+		vp9) mpid="vcs_vp9" ;; # Not supported by MPlayer?
 		# TODO List of codec id's I translate but haven't tested:
 		#+ svq3, rv40, theora, camtasia, vp6*
 		# MPlayer uses uppercase whereas FFmpeg uses lowercase
@@ -3373,6 +3375,12 @@ classic_identify() {
 	# FPS at least with two decimals
 	if [[ $(awkex "int(${VID[$FPS]})") ==  "${VID[$FPS]}" ]]; then
 		VID[$FPS]="${VID[$FPS]}.00"
+	fi
+	# MPlayer tends to identify as raw video if it doesn't support the codec
+	# fall back to FFmpeg in such case
+	if [[ ${MPLAYER_ID[$VCODEC]} = "0x00000000" ]]; then
+		VID[$VCODEC]=${FFMPEG_ID[$VCODEC]}
+		VID[$VCNAME]=${FFMPEG_ID[$VCNAME]}
 	fi
 
 	local mfps="${MPLAYER_ID[$FPS]}"
