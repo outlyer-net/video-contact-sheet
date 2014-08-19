@@ -1,5 +1,8 @@
 1.13.3 (?):
+    * BUGFIX: Fix handling of failed captures
     * BUGFIX: Cleaned output for identification of unsupported file types
+    * OTHER: Print warning about possible lack of support if no frame could be
+             captured
 
 1.13.2 (2014-05-18):
     * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]

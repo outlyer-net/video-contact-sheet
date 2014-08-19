@@ -2514,7 +2514,11 @@ capture() {
 			fi
 		done
 	fi
-	capture_and_evade "$1" "$2" "$3" ${alternatives[*]}
+	RESULT=
+	capture_and_evade "$1" "$2" "$3" ${alternatives[*]} || {
+		# Failed capture
+		return $?
+	}
 	# Correct the timestamp in case it had to be adjusted
 	local nstamp=$(echo "$CAPTURES" | tail -2 | head -1 | cut -d':' -f1)
 	if fptest "int($stamp)" -ne "int($nstamp)" ; then
@@ -2536,7 +2540,7 @@ capture_and_evade() {
 		tscand=$1
 		shift
 		if ! capture_impl "$f" "$tscand" "$ofile" ; then
-			error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)"
+			error "Failed to capture frame at $(pretty_stamp $stamp) (${stamp}s)."
 			return $EX_SOFTWARE
 		fi
 		# **XXX: EXPERIMENTAL: Blank frame evasion, initial test implementation
@@ -2592,7 +2596,6 @@ capture_impl() {
 		if [[ $DVD_MODE -eq 1 ]]; then
 			capfn=${CAPTURER}_dvd_capture
 		fi
-
 		$capfn "$f" "$stamp" "$ofile" || {
 			return $EX_SOFTWARE
 		}
@@ -3822,7 +3825,15 @@ process() {
 		# identified by capture number, padded to 6 characters
 		tfile=$(new_temp_file "-cap-$(pad 6 $n).png")
 
-		capture "$f" "$tfile" $stamp $DISABLE_EVASION || return $?
+		capture "$f" "$tfile" $stamp $DISABLE_EVASION || {
+			exitcode=$?
+			[[ ${#capfiles[@]} -gt 0 ]] || {
+				# No successful capture, unsupported format?
+				# TODO: Adapt to capturer in use
+				warn "No successful capture, possible unsupported format."
+			}
+			return $exitcode
+		}
 		if [[ $RESULT != "$stamp" ]]; then
 			stamp=$RESULT
 			pretty=$(pretty_stamp $RESULT)
