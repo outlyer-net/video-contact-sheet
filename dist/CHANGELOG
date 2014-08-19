@@ -1,5 +1,7 @@
 1.13.3 (?):
+    * Added codec ID for h.265
     * BUGFIX: Fix handling of failed captures
+    * BUGFIX: Fix handling of failed identification
     * BUGFIX: Cleaned output for identification of unsupported file types
     * OTHER: Print warning about possible lack of support if no frame could be
              captured

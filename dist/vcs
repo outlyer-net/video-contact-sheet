@@ -3064,6 +3064,7 @@ get_vcodec_name() {
 		mp4v|MP4V) vcodec="MPEG-4" ;;
 		# Synthetic, used for ffmpeg translations
 		vcs_divx) vcodec="DivX ;-)" ;;
+		vcs_hevc) vcodec="HEVC" ;; # Not yet supported by MPlayer
 		*) # If not recognized fall back to FourCC
 			vcodec="$vcid"
 			;;
@@ -3084,6 +3085,10 @@ translate_ffmpeg_vcodec_id() {
 		mpeg2video) mpid="0x10000002" ;;
 		rawvideo)   mpid="0x00000000" ;; # can't distinguish from I420
 		h264)       mpid="avc1" ;;
+		# Seen:
+		# "hevc (Main) (HEVC / 0x43564548)" in MPEG2-TS
+		# "hevc" in h.265 ES
+		hevc|hevc\ *)       mpid="vcs_hevc" ;; # Not supported by MPlayer as of this writing
 		mjpeg)      mpid="MJPG" ;;
 		msmpeg4v1)  mpid="MPG4" ;;
 		msmpeg4v2)  mpid="MP42" ;;
@@ -3316,6 +3321,13 @@ classic_identify() {
 	# There's a huge inconsistency with some files, both mplayer vs ffmpeg
 	# and same application on different OSes
 	local fflen=${fid[$LEN]} mplen=${MPLAYER_ID[$LEN]} # Shorthands
+	# If the decoder can't seek there's no point in continuing
+	if [[ ( ( $DECODER -eq $DEC_FFMPEG ) && ( -z $fflen ) ) ||
+		  ( ( $DECODER -eq $DEC_MPLAYER ) && ( -z $mplen ) ) ]];
+	then
+		warn "$CAPTURER didn't report a length, seeking won't be possible."
+		return $RET_NOLEN
+	fi
 	[[ -z $fflen ]] && fflen=0
 	[[ -z $mplen ]] && mplen=0
 	# If both report 0, there's no good value...
@@ -3388,9 +3400,7 @@ classic_identify() {
 				assert 'fptest "$QUIRKS_MAX_REWIND" -gt 0'
 				local offby=$(pretty_stamp $QUIRKS_MAX_REWIND)
 				warn "  Capturing won't work, video is at least $offby shorter than reported."
-				local dname='ffmpeg'
-				[[ $DECODER -eq $DEC_MPLAYER ]] && dname='mplayer'
-				warn "   Does $dname support ${VID[$VCODEC]}?."
+				warn "   Does $CAPTURER support ${VID[$VCODEC]}?."
 				warn "   Try re-running with$reqs$reqp."
 			fi
 			return 1
@@ -3413,7 +3423,9 @@ classic_identify() {
 # identify_video($1 = file)
 identify_video() {
 	${IDENTIFIER}_identify "$1"
+	local ret=$?
 	VID=( "${RESULT[@]}" )
+	return $ret
 }
 
 dump_idinfo() {
