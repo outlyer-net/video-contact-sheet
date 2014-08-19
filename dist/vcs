@@ -29,9 +29,9 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 
-declare -r VERSION="1.13.2"
-declare -r RELEASE=1
-declare -ri PRERELEASE=3
+declare -r VERSION="1.13.3"
+declare -r RELEASE=0
+declare -ri PRERELEASE=1
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
@@ -1966,6 +1966,7 @@ mplayer_identify() {
 	fi
 
 	# Warn if a known pitfall is found
+	# NOTE: These messages are supressed if called from classic_identify
 	# See above for 1000 fps
 	[[ ${mi[$FPS]} == '1000.00' ]] && \
 		warn "Possible inaccuracy in FPS detection." && \
@@ -3310,9 +3311,10 @@ classic_identify() {
 	[[ ${fid[$CHANS]} ]] && VID[$CHANS]=${fid[$CHANS]}
 	[[ ${fid[$ASPECT]} ]] && VID[$ASPECT]=${fid[$ASPECT]}
 	# There's a huge inconsistency with some files, both mplayer vs ffmpeg
-	# same application on different OSes
+	# and same application on different OSes
 	local fflen=${fid[$LEN]} mplen=${MPLAYER_ID[$LEN]} # Shorthands
 	[[ -z $fflen ]] && fflen=0
+	[[ -z $mplen ]] && mplen=0
 	# If both report 0, there's no good value...
 	fptest "$fflen" -eq 0 && fptest "$mplen" -eq 0 && return $RET_NOLEN
 
@@ -3415,9 +3417,11 @@ dump_idinfo() {
 	trace $@
 	[[ $MPLAYER_BIN ]] && echo "Mplayer: $MPLAYER_BIN"
 	[[ $FFMPEG_BIN  ]] && echo "FFmpeg:  $FFMPEG_BIN"
+	local mpplen=
+	[[ -z "${MPLAYER_ID[${LEN}]}" ]] || mpplen=$(pretty_stamp ${MPLAYER_ID[$LEN]})
 	[[ $MPLAYER_BIN ]] && cat <<-EODUMP
 	=========== Mplayer Identification ===========
-	Length: $(pretty_stamp ${MPLAYER_ID[$LEN]})
+	Length: $mpplen
 	Video
 	    Codec: ${MPLAYER_ID[$VCODEC]} (${MPLAYER_ID[$VCNAME]})
 	    Dimensions: ${MPLAYER_ID[$W]}x${MPLAYER_ID[$H]}
@@ -3453,9 +3457,11 @@ EODUMP
 		xar=$(keepdecimals "${VID[$ASPECT]}" 4)
 		[[ $xar ]] && xar=" ($xar)"
 	fi
+	local clen=
+	[[ -z ${VID[$LEN]} ]] || clen=$(pretty_stamp ${VID[$LEN]})
 	cat <<-EODUMP
 	=========== Combined Identification ===========
-	Length: $(pretty_stamp ${VID[$LEN]})
+	Length: $clen
 	Video
 	    Codec: ${VID[$VCODEC]} (${VID[$VCNAME]})
 	    Dimensions: ${VID[$W]}x${VID[$H]}
