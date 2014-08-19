@@ -3354,7 +3354,12 @@ classic_identify() {
 
 	# Ensure sanity of the most important values
 	is_float "${VID[$LEN]}" || return $RET_NOLEN
-	is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
+	is_number "${VID[$W]}" && is_number "${VID[$H]}" || {
+		# Fall back to ffmpeg's dimensions
+		VID[$W]=${FFMPEG_ID[$W]}
+		VID[$H]=${FFMPEG_ID[$H]}
+		is_number "${VID[$W]}" && is_number "${VID[$H]}" || return $RET_NODIM
+	}
 	# Mplayer can identify video as 0x0
 	if [[ ${VID[$W]} -eq 0 ]]; then
 		VID[$W]=${FFMPEG_ID[$W]}
