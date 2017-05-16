@@ -4318,7 +4318,7 @@ internal_integrity_test() {
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
 	# Don't colourise this
-	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2014 Toni Corvera"
+	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2017 Toni Corvera"
 }
 
 # Prints the list of options to stdout
