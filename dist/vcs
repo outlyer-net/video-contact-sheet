@@ -4111,7 +4111,7 @@ process() {
 			-append \
 			\( \
 				-size ${headwidth}x${headheight} \
-				-gravity East -fill "$FG_HEADING" -annotate +0-1 "$meta2" \
+				-gravity NorthEast -fill "$FG_HEADING" -annotate +0-1 "$meta2" \
 			\) \
 			-bordercolor "$BG_HEADING" -border 9 \
 		\) \
