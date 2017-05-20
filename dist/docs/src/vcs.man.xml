@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
 $Id$
@@ -55,7 +55,49 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
   <!ENTITY package   "vcs">
   <!ENTITY emdash    "&#x2014;">
   <!ENTITY xrefinterval 'See the accepted syntax at <xref linkend="interval_format" />.'>
-]>
+
+  <!-- for vcs.conf(5) -->
+  <!ENTITY title     "Video Contact Sheet *NIX">
+  <!ENTITY confpackage   "vcs.conf">
+  <!ENTITY confsection   "5">
+  <!ENTITY equiv  "&#8801;">
+  <!ENTITY rArr   "&#8658;">
+  <!ENTITY vcsmanpage "<citerefentry><refentrytitle>vcs</refentrytitle><manvolnum>1</manvolnum></citerefentry>">
+
+<!--
+XInclude trickery
+
+This voodoo is only required for the file to validate, it can be used
+by e.g. xsltproc without all of this
+
+Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
+-->
+<!-- Define the xi:include and xi:fallback elements -->
+<!ELEMENT xi:include (xi:fallback?) >
+<!ATTLIST xi:include
+    xmlns:xi   CDATA       #FIXED    "http://www.w3.org/2001/XInclude"
+    href       CDATA       #IMPLIED
+    parse      (xml|text)  "xml"
+    xpointer   CDATA       #IMPLIED
+    encoding   CDATA       #IMPLIED 
+    accept     CDATA       #IMPLIED
+    accept-language CDATA  #IMPLIED >
+<!ELEMENT xi:fallback ANY>
+<!ATTLIST xi:fallback
+    xmlns:xi   CDATA   #FIXED   "http://www.w3.org/2001/XInclude" >
+<!--
+ Add xi:include to the list of possible children of <refsect1>
+ See http://www.oasis-open.org/docbook/xml/4.5/dbhierx.mod for the DTD
+ module that defines which elements are allowed inside which.
+ Can't allow xi:include in arbitrary places inside <refentry>
+-->
+<!ENTITY % local.refcomponent.mix "| xi:include">
+]><!-- END OF DOCTYPE -->
+<reference><!-- Group of refentry's -->
+    <!-- This is required by reference to validate with e.g. xmlto.
+         NOTE This appears to override the title set below. -->
+    <title>&title;</title>
+<!-- START OF man(1) -->
 <refentry lang="en-GB">
   <refentryinfo>
     <title>&title;</title>
@@ -150,7 +192,7 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
       </arg>
     </cmdsynopsis>
   </refsynopsisdiv>
-  <refsect1 id="description">
+  <refsect1>
       <title>DESCRIPTION</title>
       <para><command>&package;</command> creates a preview
         image from videos in a contact sheet-like format (i.e. captures from
@@ -835,7 +877,7 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
         might uncover bugs and produce incompatibilities unknown to the author.
     </para>
   </refsect1>
-  <refsect1 id="see_also">
+  <refsect1>
     <title>SEE ALSO</title>
     <!-- In alpabetical order. -->
     <para><citerefentry>
@@ -853,4 +895,172 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
       </citerefentry></para>
   </refsect1>
 </refentry>
+<!-- END OF vcs(1) -->
+
+<!-- START OF vcs.conf(5) -->
+<refentry lang="en-GB">
+    <refentryinfo>
+        <title>&title;</title>
+        <productname>&confpackage;</productname>
+        <author>
+            <firstname>&firstname;</firstname>
+            <surname>&surname;</surname>
+            <contrib />
+            <address>
+                <email>&email;</email>
+                <otheraddr>
+                    <ulink url="http://corvera.eu./" />
+                </otheraddr>
+            </address>
+        </author>
+        <copyright>
+            <year>2007-2017</year>
+            <holder>&fullname;</holder>
+        </copyright>
+        <legalnotice>
+            <para>Permission is granted to copy, distribute and/or modify this
+            document under the terms of the GNU Lesser General Public License,
+            Version 2 or (at your option) any later version published by
+            the Free Software Foundation.</para>
+        </legalnotice>
+        <releaseinfo>$Rev$</releaseinfo>
+        <!--<date>$Date$</date>-->
+        <date>Last revision: 2011-08-29</date>
+    </refentryinfo>
+    <refmeta>
+        <refentrytitle>&confpackage;</refentrytitle>
+        <manvolnum>&confsection;</manvolnum>
+    </refmeta>
+    <refnamediv>
+        <refname>&confpackage;</refname>
+        <refpurpose>vcs configuration file</refpurpose>
+    </refnamediv>
+    <refsect1>
+        <title>DESCRIPTION</title>
+        <para>This manual page describes the format and available settings
+            in configuration and profile files for
+            <citerefentry>
+                <refentrytitle>vcs</refentrytitle>
+                <manvolnum>1</manvolnum>
+            </citerefentry>
+        </para>
+        <para>There's two types of files that follow this syntax:
+            <link linkend="configfiles">configuration files</link>
+            (see <xref linkend="configfiles"/>)
+            and <link linkend="profiles">profiles</link>
+            (see <xref linkend="profiles"/>). They'll be called collectively
+            <emphasis>settings files</emphasis> in this manual page.</para>
+        <para>Configuration files are meant to be loaded by default, intended to
+            set user's preferred options, while
+            profiles are meant to be loaded on-demand, intended to allow
+            different parallel sets of settings.</para>
+    </refsect1><!--/DESCRIPTION-->
+    <refsect1 id="syntax">
+        <title>SYNTAX</title>
+        <para>Settings files contain a series of
+            <replaceable>SETTING</replaceable>=<replaceable>VALUE</replaceable>
+            assignments.
+        </para>
+        <para>Comments can be included by preceding `<literal>#</literal>' to them.</para>
+        <refsect2 id="metainfo">
+            <title>META-INFORMATION</title>
+            <para>Meta-information fields can be contained in comments.
+                They are written as '<literal>vcs:<replaceable>FIELDNAME</replaceable>:</literal>'.</para>
+            <para>Currently supported meta-information fields:</para>
+            <variablelist>
+                <varlistentry>
+                    <term><literal>vcs:conf:</literal></term>
+                    <listitem><para>Marks a file as following this format.</para>
+                        <para>Files without this field will be rejected.
+                            <footnote>
+                                <!-- Note: \[char46] is a escaped dot for groff.
+                                Otherwise this paragraph's output will start a line
+                                with a dot, which makes groff/man interpret it as an
+                                inexistent macro,
+                                i.e. the filename won't render at all
+                                Reference: http://stackoverflow.com/questions/11469341/
+                                -->
+                                <para><filename>\[char46]/vcs.conf</filename> won't be rejected if this
+                                    field is missing, though it's preferable to include it
+                                    to be ease moving the file to a different location or
+                                    turning it into a profile.</para>
+                            </footnote>
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><literal>vcs:desc:</literal> <replaceable>DESCRIPTION</replaceable></term>
+                    <listitem><para>Describes this particular file's purpose,
+                            it is shown e.g. when listing available profiles.
+                        </para>
+                        <para>It is currently ignored for configuration files.</para>
+                    </listitem>
+                </varlistentry>
+            </variablelist>
+        </refsect2><!--/META-INFORMATION-->
+        <refsect2 id="syntax-example">
+            <title>SYNTAX EXAMPLE</title>
+            <programlisting># vcs:conf:
+# vcs:desc:  White-on-black
+bg_all=black # Black background
+fg_all=white # White foreground</programlisting>
+        </refsect2><!--/SYNTAX EXAMPLE-->
+    </refsect1><!--/SYNTAX-->
+    <refsect1 id="configfiles">
+        <title>CONFIGURATION FILES</title>
+        <para>There's three configuration files loaded by default if present, in order:</para>
+        <itemizedlist>
+            <listitem><para><filename>/etc/vcs.conf</filename></para></listitem>
+            <listitem><para><filename><envar>${HOME}</envar>/.vcs.conf</filename></para></listitem>
+            <listitem><para><filename><envar>${HOME}</envar>/vcs/vcs.conf</filename></para></listitem>
+        </itemizedlist>
+        <para>Every file in this list overrides the previous when it
+            re-defines a setting.</para>
+        <para>Configuration files can be loaded manually off of any path by using the
+            <option>--config <replaceable>FILENAME</replaceable></option> option.</para>
+    </refsect1><!--/CONFIGURATION FILES-->
+    <refsect1 id="profiles">
+        <title>PROFILE FILES</title>
+        <para>No profile is loaded by default.</para>
+        <para>Profiles are searched in three possible locations, in order:</para>
+        <itemizedlist id="profile-paths">
+            <listitem><para><filename class="directory"><envar>${HOME}</envar>/.vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename class="directory">/usr/local/share/vcs/profiles/</filename></para></listitem>
+            <listitem><para><filename class="directory">/usr/share/vcs/profiles/</filename></para></listitem>
+        </itemizedlist>
+        <para>Only the first profile for each name will be considered.
+            Profiles with the same name will be hidden.</para>
+        <para><literal>$ <command>vcs --profile :list</command></literal></para>
+        <para>can be used to get a list of available profiles.</para>
+        <para>Profiles can only be loaded from the <link linkend="profile-paths">listed
+                paths</link>.</para>
+    </refsect1><!--/PROFILE FILES-->
+    <refsect1>
+        <title>SETTINGS</title>
+        <para>This list details the available settings. Settings are listed in
+            alphabetical order.</para>
+        <para>A list of available settings, grouped by categories, is also kept
+            online at <ulink url="http://p.outlyer.net/dox/vcs:conf_files" /></para>
+        <xi:include
+            xmlns:xi="http://www.w3.org/2001/XInclude"
+            href="./settings.man.inc.xml" />
+    </refsect1>
+    <refsect1>
+        <title>SEE ALSO</title>
+        <para>
+            <citerefentry>
+                <refentrytitle>vcs</refentrytitle>
+                <manvolnum>1</manvolnum>
+            </citerefentry>,
+            <citerefentry>
+                <refentrytitle>id</refentrytitle>
+                <manvolnum>1</manvolnum>
+            </citerefentry>
+        </para>
+    </refsect1><!--/SEE ALSO-->
+</refentry>
+<!-- END OF vcs.conf(5) -->
+
+</reference>
 <!-- vim:set ts=4 et: -->
+

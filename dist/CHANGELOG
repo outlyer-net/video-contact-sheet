@@ -10,7 +10,8 @@
              captured
     * OTHER: Don't trust MPlayer's detection of raw video, use FFmpeg's
              detection in such case
-    * OTHER: Fix incorrect rendering of Note #1 in vcs.conf's manpage.
+    * OTHER: Fix incorrect rendering of Note #1 in vcs.conf's manpage
+    * OTHER: Clean up generation and conversion of manpages
 
 1.13.2 (2014-05-18):
     * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]
