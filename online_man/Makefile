@@ -4,12 +4,9 @@
 
 docsdir=../dist/docs
 
-all: man.vcs.html man.vcs.conf.html
+all: man.vcs.html
 
-man.vcs.html: $(docsdir)/vcs.man.xhtml
-	cp $< $@
-
-man.vcs.conf.html: $(docsdir)/vcs.conf.man.xhtml
+man.vcs.html: $(docsdir)/vcs.man.html
 	cp $< $@
 
 $(docsdir)/%:
@@ -18,3 +15,4 @@ $(docsdir)/%:
 clean:
 	$(RM) man.vcs.html man.vcs.conf.html
 
+.PHONY: all clean
