@@ -120,7 +120,14 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
                     <listitem><para>Marks a file as following this format.</para>
                         <para>Files without this field will be rejected.
                             <footnote>
-                                <para><filename>./vcs.conf</filename> won't be rejected if this
+                                <!-- Note: \[char46] is a escaped dot for groff.
+                                Otherwise this paragraph's output will start a line
+                                with a dot, which makes groff/man interpret it as an
+                                inexistent macro,
+                                i.e. the filename won't render at all
+                                Reference: http://stackoverflow.com/questions/11469341/
+                                -->
+                                <para><filename>\[char46]/vcs.conf</filename> won't be rejected if this
                                     field is missing, though it's preferable to include it
                                     to be ease moving the file to a different location or
                                     turning it into a profile.</para>
