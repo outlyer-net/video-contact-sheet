@@ -11,8 +11,10 @@ Useful Docbook References:
     <http://www.ibiblio.org/godoy/sgml/docbook/howto/writing-docbook.html#WRITING-DOCBOOK-COMMANDS>
 - DocBook Guide for Authors of Geant4 User Manuals - Tag Mapping Table - (X)HTML vs. DocBook
     <http://geant4.web.cern.ch/geant4/workAreaUserDocKA/AuthorsInstruction/IntroDocBook.html#TagMap>
-- DocBook 5: The Definitive Guide (includes list of elements)
-    <http://docbook.org/tdg51/en/html/docbook.html>
+- DocBook 5.1: The Definitive Guide (includes list of elements)
+    <http://tdg.docbook.org/tdg/5.1/>
+- ": refentry - A reference page (originally a UNIX man-style reference page).
+    <http://tdg.docbook.org/tdg/5.1/refentry.html>
 
 Generation of man page:
 
@@ -29,9 +31,9 @@ Will generate vcs.1.
 
 View with:
 
-$ nroff -man vcs.1 | less
+$ nroff -man ./vcs.1 | less
 or
-$ man vcs.1
+$ man ./vcs.1
 
 Validation: xmllint -''-noout -''-valid manpage.xml
 
@@ -44,8 +46,11 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
   <!ENTITY email     "outlyer@gmail.com">
   <!ENTITY section   "1">
   <!-- TITLE should be something like "User commands" or similar (see
-       http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
-  <!ENTITY title     "Video Contact Sheet *NIX User Manual">
+       http://www.tldp.org/HOWTO/Man-Page/q2.html).
+
+       "Video Contact Sheet *NIX User Manual" is too long and
+       "Manual" is cropped off -->
+  <!ENTITY title     "Video Contact Sheet *NIX">
   <!ENTITY ucpackage "VCS">
   <!ENTITY package   "vcs">
   <!ENTITY emdash    "&#x2014;">
@@ -68,7 +73,7 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
       </address>
     </author>
     <copyright>
-      <year>2007-2011</year>
+      <year>2007-2017</year>
       <holder>&fullname;</holder>
     </copyright>
     <legalnotice>
@@ -79,6 +84,7 @@ Spellcheck: aspell -l en-GB -H check FILENAME.xml
     </legalnotice>
     <releaseinfo>$Rev$</releaseinfo>
     <!--<date>$Date$</date>-->
+    <date>Last revision: 2011-08-29</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>&ucpackage;</refentrytitle>

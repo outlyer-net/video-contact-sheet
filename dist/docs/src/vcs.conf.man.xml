@@ -9,7 +9,8 @@ See vcs.man.xml for comments on docbook+man handling.
 <!ENTITY surname   "Corvera">
 <!ENTITY fullname  "&firstname; &surname;">
 <!ENTITY email     "outlyer@gmail.com">
-<!ENTITY title     "vcs User Manual">
+<!-- Was: ENTITY title     "vcs User Manual" -->
+<!ENTITY title     "Video Contact Sheet *NIX">
 <!ENTITY package   "vcs.conf">
 <!ENTITY section   "5">
 <!ENTITY emdash    "&#x2014;">
@@ -62,7 +63,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             </address>
         </author>
         <copyright>
-            <year>2007-2011</year>
+            <year>2007-2017</year>
             <holder>&fullname;</holder>
         </copyright>
         <legalnotice>
@@ -73,6 +74,7 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
         </legalnotice>
         <releaseinfo>$Rev$</releaseinfo>
         <!--<date>$Date$</date>-->
+        <date>Last revision: 2011-08-29</date>
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
