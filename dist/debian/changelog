@@ -2,6 +2,9 @@ vcs (1.13.3-pon.1) experimental; urgency=medium
 
   * New version
   * debian/control: Added xsltproc to Build-Depends
+  * debian/compat: Bumped compatibility level to 9 (jessie)
+  * debian/control: Bumped build-dependancy on debhelper to >= 9
+                    (compatibility level 9)
 
  -- Toni Corvera <outlyer@gmail.com>  Sat, 20 May 2017 00:04:51 +0200
 
