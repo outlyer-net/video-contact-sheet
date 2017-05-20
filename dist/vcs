@@ -3064,8 +3064,9 @@ get_vcodec_name() {
 		mp4v|MP4V) vcodec="MPEG-4" ;;
 		# Synthetic, used for ffmpeg translations
 		vcs_divx) vcodec="DivX ;-)" ;;
-		vcs_hevc) vcodec="HEVC" ;; # Not yet supported by MPlayer
-		vcs_vp9) vcodec="VP9" ;; # Detected as rawyuy2 by MPlayer
+		# Allow both the synthetic (for older mplayer) and builtin (for newer mplayer) codec ids
+		vcs_hevc|HEVC) vcodec="HEVC" ;;
+		vcs_vp9|VP90) vcodec="VP9" ;; # VP9 was detected as rawyuy2 by older MPlayer
 		*) # If not recognized fall back to FourCC
 			vcodec="$vcid"
 			;;
@@ -3086,10 +3087,6 @@ translate_ffmpeg_vcodec_id() {
 		mpeg2video) mpid="0x10000002" ;;
 		rawvideo)   mpid="0x00000000" ;; # can't distinguish from I420
 		h264)       mpid="avc1" ;;
-		# Seen:
-		# "hevc (Main) (HEVC / 0x43564548)" in MPEG2-TS
-		# "hevc" in h.265 ES
-		hevc|hevc\ *)       mpid="vcs_hevc" ;; # Not supported by MPlayer as of this writing
 		mjpeg)      mpid="MJPG" ;;
 		msmpeg4v1)  mpid="MPG4" ;;
 		msmpeg4v2)  mpid="MP42" ;;
@@ -3097,7 +3094,13 @@ translate_ffmpeg_vcodec_id() {
 		camtasia)   mpid="tscc" ;;
 		vp6|vp6a|vp6f) mpid="VP60" ;;
 		vp8) mpid="VP80" ;;
-		vp9) mpid="vcs_vp9" ;; # Not supported by MPlayer?
+		# HEVC and VP9 weren't supported by older versions MPlayer
+		#   Seen:
+		#    "hevc (Main) (HEVC / 0x43564548)" in MPEG2-TS
+		#    "hevc" in h.265 ES
+		# TODO: Enforce a minimum version of mplayer
+		hevc|hevc\ *) mpid="vcs_hevc" ;;
+		vp9)          mpid="vcs_vp9" ;;
 		# TODO List of codec id's I translate but haven't tested:
 		#+ svq3, rv40, theora, camtasia, vp6*
 		# MPlayer uses uppercase whereas FFmpeg uses lowercase
