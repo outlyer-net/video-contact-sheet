@@ -20,6 +20,9 @@ INTERMEDIATE=$(addprefix $(srcdir)/, \
 ifeq ($(shell uname),FreeBSD)
 DOCBOOK_XSL:=/usr/local/share/xsl/docbook
 endif
+# Used to be "jade".
+# On Debian Sid openjade and jadetex (for pdfjadetex) are required
+JADE:=openjade
 DOCBOOK_XSL?=/usr/share/xml/docbook/stylesheet/docbook-xsl
 # Common part of command to convert docbook to man
 DOCBOOK_TO_MAN=xsltproc -o $(distdir)/ -nonet \
@@ -59,7 +62,7 @@ $(distdir)/vcs.%.xhtml: $(srcdir)/vcs.%.xml
 # The xml.dcl file MUST be included in this order, after options and before inputs
 $(srcdir)/vcs.conf.man.tex: $(srcdir)/vcs.conf.man.xml
 	cd $(srcdir) && bash flatten_settings_xml.bash > temp.xml || ( rm temp.xml && false )
-	jade -E0 -t tex \
+	"$(JADE)" -E0 -t tex \
 			-d /usr/share/sgml/docbook/stylesheet/dsssl/modular/print/docbook.dsl \
 			-o "$@" \
 			/usr/share/sgml/declaration/xml.dcl \
@@ -67,7 +70,7 @@ $(srcdir)/vcs.conf.man.tex: $(srcdir)/vcs.conf.man.xml
 	$(RM) $(srcdir)/temp.xml
 
 $(srcdir)/vcs.man.tex: $(srcdir)/vcs.man.xml
-	jade -E0 -t tex \
+	"$(JADE)" -E0 -t tex \
 		-d /usr/share/sgml/docbook/stylesheet/dsssl/modular/print/docbook.dsl \
 		-o "$@" \
 		/usr/share/sgml/declaration/xml.dcl \
