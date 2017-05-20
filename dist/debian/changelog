@@ -1,3 +1,10 @@
+vcs (1.13.3-pon.1) experimental; urgency=medium
+
+  * New version
+  * debian/control: Added xsltproc to Build-Depends
+
+ -- Toni Corvera <outlyer@gmail.com>  Sat, 20 May 2017 00:04:51 +0200
+
 vcs (1.13.2-pon.1) experimental; urgency=medium
 
   * New version
