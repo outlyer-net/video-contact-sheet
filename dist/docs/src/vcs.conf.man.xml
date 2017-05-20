@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!--
-$Id: vcs.conf.man.xml 2342 2011-09-01 13:19:47Z toni $
+$Id$
 See vcs.man.xml for comments on docbook+man handling.
 -->
 <!ENTITY firstname "Toni">
@@ -71,8 +71,8 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
             Version 2 or (at your option) any later version published by
             the Free Software Foundation.</para>
         </legalnotice>
-        <releaseinfo>$Rev: 2342 $</releaseinfo>
-        <!--<date>$Date: 2011-09-01 15:19:47 +0200 (dj, 01 set 2011) $</date>-->
+        <releaseinfo>$Rev$</releaseinfo>
+        <!--<date>$Date$</date>-->
     </refentryinfo>
     <refmeta>
         <refentrytitle>&package;</refentrytitle>
