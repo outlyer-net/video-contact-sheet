@@ -5167,6 +5167,25 @@ while true ; do
 				if [[ $DISABLE_EVASION -eq 1 ]]; then
 					evasion='Disabled'
 				fi
+				if type -paf lsb_release >/dev/null ; then
+					lsb_release=$(lsb_release -d | cut -d: -f2- | sed 's/^[[:space:]]*//')
+				fi
+				imversion=$(convert --version | head -1 | cut -d' ' -f2-)
+				if [[ -n "$MPLAYER_BIN" ]]; then
+					mpversion=$("$MPLAYER_BIN" --version 2>/dev/null || true)
+					# Older mplayer doesn't understand --version...
+					if grep "Unknown option" <<<"$mpversion" ; then
+						# ...But the last output line contains the version in my sample
+						mpversion=$(tail -1 <<<"$mpversion")
+					fi
+				fi
+				if [[ -n "$FFMPEG_BIN" ]]; then
+					# Older versions print to stderr, newer to stdout
+					ffversion=$("$FFMPEG_BIN" -version 2>&1 | head -1)
+					lavcversion=$("$FFMPEG_BIN" -version 2>&1 | grep libavcodec \
+								  | sed 's/[[:space:]][[:space:]]*/ /')
+					ffversion="$ffversion / $lavcversion"
+				fi
 				cat >&2 <<-EOD
 					=== Setup ===
 					GETOPT:             $GETOPT
@@ -5185,6 +5204,10 @@ while true ; do
 					=== Versions ===
 					Bash:               $BASH_VERSION
 					Getopt:             $($GETOPT --version)$awkv$sedv
+					MPlayer:            $mpversion
+					FFMpeg:             $ffversion
+					ImageMagick:        $imversion
+					LSB Description:    $lsb_release
 EOD
 				exit
 			fi

@@ -12,6 +12,8 @@
              detection in such case
     * OTHER: Fix incorrect rendering of Note #1 in vcs.conf's manpage
     * OTHER: Clean up generation and conversion of manpages
+    * OTHER: Added versions of MPlayer, FFMpeg, ImageMagick and LSB to debug
+             output
 
 1.13.2 (2014-05-18):
     * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]
