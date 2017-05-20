@@ -92,11 +92,13 @@ lint:
 
 xhtml: $(filter %.xhtml, $(ALL))
 
+# The first two lines of man2html are HTTP headers
+
 $(distdir)/vcs.man.html: $(distdir)/vcs.1
-	man2html -r "$<" > "$@"
+	man2html -r "$<" | sed 1,2d > "$@"
 
 $(distdir)/vcs.conf.man.html: $(distdir)/vcs.conf.5
-	man2html -r "$<" > "$@"
+	man2html -r "$<" | sed 1,2 > "$@"
 
 $(distdir)/vcs.1: $(srcdir)/vcs.man.xml
 	#xmlto -o `dirname $@`/ man $< 
