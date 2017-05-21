@@ -26,10 +26,6 @@
 %define distname redhat
 %define disttag %{dist}
 %endif
-%if %{is_mandrake}
-%define distname mandrake
-%define disttag .mdk
-%endif
 %if %{is_suse}
 %define distname suse
 %define disttag .suse
