@@ -6,9 +6,14 @@
 # originally based on mp3plot's which in turn was based on other sources
 #
 # Some useful references:
-# "Packaging for openSUSE Leap" <https://en.opensuse.org/openSUSE:How_to_contribute_to_Leap>
+# "Creating RPM Packages with Fedora"
+#    <https://fedoraproject.org/wiki/How_to_create_an_RPM_package>
+# "Packaging for openSUSE Leap"
+#    <https://en.opensuse.org/openSUSE:How_to_contribute_to_Leap>
 # "Build Service cross distribution howto"
-#     <https://en.opensuse.org/openSUSE:Build_Service_cross_distribution_howto>
+#    <https://en.opensuse.org/openSUSE:Build_Service_cross_distribution_howto>
+# "Fedora packaging guidelines"
+#    <https://fedoraproject.org/wiki/Packaging:Guidelines>
 
 %define is_suse 0%{?suse_version}
 %define is_fedora 0%{?fedora}
