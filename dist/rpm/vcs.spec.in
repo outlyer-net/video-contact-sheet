@@ -44,7 +44,7 @@ Name: vcs
 Summary: Tool to create contact sheets (previews) from videos
 Version: @VERSION@
 Release: pon1%{?disttag}
-License: LGPL
+License: LGPLv2+
 Packager: @PACKAGER@
 Group: Applications/Multimedia
 Source0: http://p.outlyer.net/%{name}/files/%{name}-%{version}.tar.gz
@@ -89,6 +89,8 @@ make examples/vcs.conf.example
 
 %install
 make DESTDIR=%buildroot prefix=%{prefix} install
+# as per rpmlint: E: wrong-script-interpreter /usr/bin/vcs /usr/bin/env bash
+sed -i '1s@.*@#!/bin/bash@' %buildroot/usr/bin/vcs
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
