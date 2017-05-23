@@ -14,6 +14,8 @@
     * OTHER: Clean up generation and conversion of manpages
     * OTHER: Added versions of MPlayer, FFMpeg, ImageMagick and LSB to debug
              output
+    * OTHER: Allow disabling coloured output altogether. [#311]
+             This is implemented by honouring $TERM, e.g. "TERM=vt100 vcs ..."
 
 1.13.2 (2014-05-18):
     * BUGFIX: Fixed number of captures exceeded by one with mplayer [#225]

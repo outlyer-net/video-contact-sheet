@@ -28,7 +28,6 @@
 #
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
-
 declare -r VERSION="1.13.3"
 declare -r RELEASE=1
 declare -ri PRERELEASE=2
@@ -1819,13 +1818,16 @@ init_feedback() {
 	# Is tput available?
 	if type -pf tput >/dev/null ; then
 		# Is it able to set colours?
-		if tput bold && tput setaf 0 && tput sgr0 ; then
+		if tput bold && [[ "-1" != "$(tput colors)" ]] && tput setaf 0 && tput sgr0; then
 			PREFIX_ERR=$(tput bold; tput setaf 1)
 			PREFIX_WARN=$(tput bold; tput setaf 3)
 			PREFIX_INF=$(tput bold; tput setaf 2)
 			PREFIX_DBG=$(tput bold; tput setaf 4)
 			SUFFIX_FBACK=$(tput sgr0)
 			HAS_COLORS="yes"
+		else
+			HAS_COLORS="no"
+			set_feedback_prefixes
 		fi >/dev/null
 	fi
 
@@ -4364,6 +4366,11 @@ show_help() {
   -Wo                   Change ffmpeg's arguments order, might work with some
                         files that fail otherwise.
   -Wc                   Disable colour in console messages.
+                        NOTE: If you have any configuration loaded before this
+                             takes effect the script might still print some
+                             colour. You can disable it completely by setting
+                             the TERM variable to a monochrome term type, e.g.:
+                             $ env TERM=vt100 vcs [options]
   Obscure options, debugging tools and workarounds:
   -R <file>
   --randomsource <file> Use the provided file as a source for \"random\" values:
