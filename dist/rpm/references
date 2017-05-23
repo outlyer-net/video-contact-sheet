@@ -1,0 +1,21 @@
+Some useful references:
+
+"Creating RPM Packages with Fedora"
+   <https://fedoraproject.org/wiki/How_to_create_an_RPM_package>
+"Packaging for openSUSE Leap"
+   <https://en.opensuse.org/openSUSE:How_to_contribute_to_Leap>
+"Build Service cross distribution howto"
+   <https://en.opensuse.org/openSUSE:Build_Service_cross_distribution_howto>
+"Fedora packaging guidelines"
+   <https://fedoraproject.org/wiki/Packaging:Guidelines>
+
+Alternative requirements:
+
+As of 2017 there's some conflicting information on boolean operators
+[1] says they are not supported in Requires
+[2] says they are supported in all fields, including requires (rpm >= 4.13)
+1: <https://fedoraproject.org/wiki/Packaging:Guidelines#Rich.2FBoolean_dependencies>
+2: <http://rpm.org/user_doc/boolean_dependencies.html>
+Fedora 25 has RPM 4.13
+openSUSE Leap 42.2 has RPM 4.11
+

@@ -4,16 +4,6 @@
 # spec file for vcs rpm
 #
 # originally based on mp3plot's which in turn was based on other sources
-#
-# Some useful references:
-# "Creating RPM Packages with Fedora"
-#    <https://fedoraproject.org/wiki/How_to_create_an_RPM_package>
-# "Packaging for openSUSE Leap"
-#    <https://en.opensuse.org/openSUSE:How_to_contribute_to_Leap>
-# "Build Service cross distribution howto"
-#    <https://en.opensuse.org/openSUSE:Build_Service_cross_distribution_howto>
-# "Fedora packaging guidelines"
-#    <https://fedoraproject.org/wiki/Packaging:Guidelines>
 
 %define is_suse 0%{?suse_version}
 %define is_fedora 0%{?fedora}
@@ -50,13 +40,6 @@ Group: Applications/Multimedia
 Source0: http://p.outlyer.net/%{name}/files/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-build
 BuildArch: noarch
-# As of 2017 there's some conflicting information on boolean operators
-# [1] says they are not supported in Requires
-# [2] says they are supported in all fields, including requires (rpm >= 4.13)
-# 1: <https://fedoraproject.org/wiki/Packaging:Guidelines#Rich.2FBoolean_dependencies>
-# 2: <http://rpm.org/user_doc/boolean_dependencies.html>
-# Fedora 25 has RPM 4.13
-# openSUSE Leap 42.2 has RPM 4.11
 #Requires: rpm >= 4.13
 #Requires: ( mplayer or ffmpeg )
 Requires: ffmpeg
