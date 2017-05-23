@@ -1446,18 +1446,19 @@ get_pretty_size() {
 	local bytes=$1
 	local size=
 
+	# Sizes are always rounded up (hence the addition 0.999999 to the fractionary part)
 	if [[ $bytes -gt $(( 1024**3 )) ]]; then
-		local gibs=$(( $bytes / 1024**3 ))
-		local mibs=$(( ( $bytes % 1024**3 ) / 1024**2 ))
-		size="${gibs}.${mibs:0:2} GiB"
+		local gibs_int=$(( $bytes / 1024**3 ))
+		local gibs_frac=$(awkex "int($bytes%(1024**3)*100/1024**3 + 0.999999)" )
+		size="$(printf '%d.%02d' $gibs_int $gibs_frac) GiB"
 	elif [[ $bytes -gt $(( 1024**2)) ]]; then
-		local mibs=$(( $bytes / 1024**2 ))
-		local kibs=$(( ( $bytes % 1024**2 ) / 1024 ))
-		size="${mibs}.${kibs:0:2} MiB"
+		local mibs_int=$(( $bytes / 1024**2 ))
+		local mibs_frac=$(awkex "int($bytes%(1024**2)*100/1024**2 + 0.999999)")
+		size="$(printf '%d.%02d' $mibs_int $mibs_frac) MiB"
 	elif [[ $bytes -gt 1024 ]]; then
-		local kibs=$(( $bytes / 1024 ))
-		bytes=$(( $bytes % 1024 ))
-		size="${kibs}.${bytes:0:2} KiB"
+		local kibs_int=$(( $bytes / 1024 ))
+		local kibs_frac=$(awkex "int($bytes%1024*100/1024 + 0.999999)")
+		size="$(printf '%d.%02d' $kibs_int $kibs_frac) KiB"
 	else
 		size="${bytes} B"
 	fi
@@ -4246,6 +4247,14 @@ internal_integrity_test() {
 		"get_interval 0400 400 #Parsing shorthand"
 		# Extended syntax
 		"get_interval 30m30m1h 7200 #Repeated minutes parsing"
+
+		# File size rounding
+		"get_pretty_size 1127428915 1.05%20GiB #Leading zeroes in file size (GiB)"
+		"get_pretty_size 1132462 1.08%20MiB #Leading zeroes in file size (MiB)"
+		"get_pretty_size 1116 1.09%20KiB #Leading zeroes in file size (KiB)"
+		"get_pretty_size 1889785610 1.76%20GiB #Pretty-printed file size (GiB)"
+		"get_pretty_size 762650296 727.32%20MiB #Pretty-printed file size (MiB)"
+		"get_pretty_size 524810 512.51%20KiB #Pretty-printed file size (KiB)"
 	)
 	
 	for t in "${TESTS[@]}" ; do
@@ -4254,11 +4263,12 @@ internal_integrity_test() {
 		# Expected value
 		val=$(awk '{print $NF}' <<<$t)
 		op=$(sed "s! $val *\$!!" <<<$t) # Don't use delimiter '/', passed in some $val
+		val=${val/\%20/ }
 		[[ -n $comm ]] || comm=unnamed
 		ret=$($op) || true
 
 		if [[ $ret != "$val" ]] && fptest "$ret" -ne "$val" ; then
-			error "Failed test ($comm): '$op $val'. Got result '$ret'."
+			error "Failed test ($comm): '$op $val'. Expected '$val'. Got '$ret'."
 			(( ++retval ))
 		else
 			inf "Passed test ($comm): '$op $val'."
