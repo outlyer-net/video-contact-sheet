@@ -125,8 +125,16 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
         the Free Software Foundation.</para>
     </legalnotice>
     <releaseinfo>$Rev$</releaseinfo>
-    <!--<date>$Date$</date>-->
-    <date>Last revision: 2011-08-29</date>
+    <date>Last revision: 2017-05-23</date><!-- Exported on: $Date$ -->
+    <revhistory>
+        <revision>
+            <date>2017-05-23</date>
+            <revremark>Added note about disabling colour output (starting with 1.13.3).</revremark>
+        </revision>
+        <revision>
+            <date>2011-08-29</date>
+        </revision>
+    </revhistory>
   </refentryinfo>
   <refmeta>
     <refentrytitle>&ucpackage;</refentrytitle>
@@ -662,8 +670,12 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
                       </listitem>
                   </varlistentry>
                   <varlistentry>
-                      <term><option>-W<replaceable>c</replaceable></option></term>
-                      <listitem><para>Disable colour in console messages.</para></listitem>
+                      <term id="option_wc"><option>-W<replaceable>c</replaceable></option></term>
+                      <listitem><para>Disable colour in console messages.</para>
+                       <xi:include
+                        xmlns:xi="http://www.w3.org/2001/XInclude"
+                        href="./plain_messages_note.man.inc.xml" />
+                      </listitem>
                   </varlistentry>
               </variablelist>
           </listitem>
@@ -803,6 +815,13 @@ Reference: http://www.sagehill.net/docbookxsl/ValidXinclude.html#XincludeDTD
                 Due to the big size of temporary files, it is recommended to use
                 a temporary directory on a fast filesystem.</para>
         </listitem>
+      </varlistentry>
+      <varlistentry>
+          <term><envar>TERM</envar></term>
+          <listitem>
+              <para>Affects the usage of colour output to console being on or off
+                  by default. See the documentation for <option><xref linkend="option_wc" /></option>.</para>
+          </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

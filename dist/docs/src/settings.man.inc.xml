@@ -412,6 +412,9 @@
             <para>Allows disabling colourised feedback to the console.</para>
             <para>Set to <literal>1</literal> to print plain, monochrome, feedback.</para>
             <para>Default: <literal>0</literal> (&equiv; don't disable colours).</para>
+            <xi:include
+                xmlns:xi="http://www.w3.org/2001/XInclude"
+                href="./plain_messages_note.man.inc.xml" />
             <para>Related command-line option: <option>-Wc</option>.</para>
         </listitem>
     </varlistentry>

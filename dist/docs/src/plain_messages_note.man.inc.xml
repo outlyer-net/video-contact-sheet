@@ -1,0 +1,16 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- This file is meant to be included, it contains the explanation
+      about handling of colourised (console) output, to be shared
+      by both the documentation of -Wc and plain_messages. -->
+<para>
+    <note>
+<para>Some colour will be printed by default until this option is handled.
+If you need to completely disable colour, e.g. to run in cron jobs, you can
+do so by setting an appropriate TERM environment variable e.g.
+</para>
+<!-- Note: literallayout allows injection of linebreaks (Docbook has no <br /> but HTML output doesn't come out too pretty-->
+<para><literal>$ <command>TERM=<replaceable>vt100</replaceable> vcs</command></literal></para>
+<para>will make the script switch to monochrome output altogether.</para>
+    </note>
+</para>
