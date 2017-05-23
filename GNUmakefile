@@ -45,6 +45,18 @@ check-no-svn:
 		echo '*************************************************' ; \
 		echo '*************************************************' ; \
 		echo ; \
+		echo -n 'Ignore? [y/N] ' ; \
+		read RESPONSE ; [ "$$RESPONSE" = 'y' ] || [ "$$RESPONSE" = 'Y' ] ; \
+	fi
+	@if ! sed -e '/$$Date/!d' dist/vcs | grep -E 'Mon|Tue|Wed|Thu|Fri|Sat|Sun' ; then \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo "**   Don't release from localised SVN export   **" ; \
+		echo '*************************************************' ; \
+		echo '*************************************************' ; \
+		echo ; \
+		echo -n "Ignore? [y/N] " ; \
+		read RESPONSE ; [ "$$RESPONSE" = 'y' ] || [ "$$RESPONSE" = 'Y' ] ; \
 	fi
 
 check-rel:
@@ -55,6 +67,7 @@ check-rel:
 		echo '*************************************************' ; \
 		echo '*************************************************' ; \
 		echo ; \
+		false ; \
 	fi
 
 dist: check-rel check-no-svn \
