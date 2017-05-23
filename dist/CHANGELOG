@@ -4,6 +4,7 @@
     * OTHER: (BUGFIX in prereleases)
               Fixed error when processing files with quotes in the file name
               [#226]
+    * OTHER: Allow disabling coloured output altogether. [#311]
 
 1.13.1 (2014-02-26):
     * BUGFIX: Fixed uncommon bug with unwrapped grep string [#217]
