@@ -1818,14 +1818,41 @@ init_feedback() {
 
 	# Is tput available?
 	if type -pf tput >/dev/null ; then
+		# First we must find the correct way to query color support.
+		# There's basically two variants of tput:
+		#   terminfo (Linux) and termcap (FreeBSD)
+		# These is an issue for portability:
+		# - On Linux 'tput colors' is used to query it
+		# - On FreeBSD 'tput Co' is used to query it
+		# - Linux's tput will fail if it's passed 'Co'
+		# - FreeBSD's tput will interpret 'colors' as 'co' and print the number of columns
+		local tputc="-1"
+		if tput Co >/dev/null 2>&1 ; then
+			tputc=$(tput Co) # termcap style
+		else
+			# Try to guess if it's parsing it as columns
+			# The method here is to check against some known terminals
+			# pilot: 39 columns mono, pc3: 80 columns, 8 colors
+			if [[ 8 = "$(tput -T pc3 colors)" ]]; then
+				# colors is interpreted literally
+				tputc=$(tput colors)
+			fi
+		fi
 		# Is it able to set colours?
-		if tput bold && [[ "-1" != "$(tput colors)" ]] && tput setaf 0 && tput sgr0; then
+		# Linux's tput can be passed arguments to retrieve the correct escape sequences
+		# FreeBSD's tput can not
+		if tput bold && [[ "-1" != "$tputc" ]] && tput setaf 0 && tput sgr0; then
+			# Can configure completely through tput
 			PREFIX_ERR=$(tput bold; tput setaf 1)
 			PREFIX_WARN=$(tput bold; tput setaf 3)
 			PREFIX_INF=$(tput bold; tput setaf 2)
 			PREFIX_DBG=$(tput bold; tput setaf 4)
 			SUFFIX_FBACK=$(tput sgr0)
 			HAS_COLORS="yes"
+		elif [[ "-1" != "$tputc" ]]; then
+			# tput reports color support but it doesn't provide
+			# the escape codes directly, will use hardcoded escape codes instead
+			HAS_COLORS=
 		else
 			HAS_COLORS="no"
 			set_feedback_prefixes
