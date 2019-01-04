@@ -2537,7 +2537,7 @@ capture() {
 	local f=$1 out=$2 stamp=$3 prevent_evasion=$4
 	local alternatives= alt= delta=
 	if [[ $prevent_evasion != '1' ]]; then
-		for delta in $EVASION_ALTERNATIVES ; do
+		for delta in ${EVASION_ALTERNATIVES[@]} ; do
 			alt=$(awkexf "$stamp + $delta")
 			if fptest $alt -gt 0  && fptest $alt -lt "${VID[$LEN]}" ; then
 				alternatives+=( $alt )

@@ -1,3 +1,7 @@
+1.13.4 (?):
+    + BUGFIX: Actually use all alternative evasion offsets (Bugfix by Davide
+              Cavestro) [#364]
+
 1.13.3 (2017-05-26):
     * Added codec IDs for h.265 and VP9
     * BUGFIX: Fix handling of failed captures
