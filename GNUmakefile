@@ -75,7 +75,7 @@ dist: check-rel check-no-svn \
 		PKGBUILD-$(VER) \
 		$(addprefix vcs-$(VER), .gz .bz2 .bash) \
 		CHANGELOG.gz CHANGELOG \
-		rpm deb
+		rpm deb srpm
 
 # This shouldn't be re-built
 devel_tools/mansrc/settings.man.inc.xml:
@@ -121,6 +121,14 @@ rpm: vcs-$(VER).tar.gz
 	test -d ~/RPM/RPMS/noarch && ln -s ~/RPM/RPMS/noarch/vcs-$(VER)-*.rpm . || true
 	@# Don't fail even if rpmlint does. It fails with no signature on Debian
 	-rpmlint vcs-$(VER)-*.rpm
+
+srpm: vcs-$(VER).tar.gz
+	rpmbuild --clean -ts vcs-$(VER).tar.gz
+	test -d ~/rpmbuild/SRPMS && ln -s ~/rpmbuild/SRPMS/vcs-$(VER)-*.src.rpm . || true
+	test -d ~/RPM/SRPMS && ln -s ~/RPM/SRPMS/vcs-$(VER)-*.src.rpm . || true
+	@# Don't fail even if rpmlint does. It fails with no signature on Debian
+	-rpmlint vcs-$(VER)-*.src.rpm
+	false
 
 clean:
 	-$(RM) vcs[-_]$(VER)* CHANGELOG*
