@@ -27,7 +27,7 @@ all: docs/vcs.1 docs/vcs.conf.5 vcs.spec
 dist: vcs-$(VERSION).tar.gz
 
 # handles .tar.gz, .tar.bz2 and .tar.xz
-vcs-$(VERSION).tar.%: all
+vcs-$(VERSION).tar: all
 	$(RM) -r vcs-$(VERSION) vcs-$(VERSION).tar.gz
 	mkdir vcs-$(VERSION)
 	tar c --exclude='.svn' \
@@ -36,6 +36,15 @@ vcs-$(VERSION).tar.%: all
 		tar x -C vcs-$(VERSION)
 	tar cf $@ vcs-$(VERSION)/
 	$(RM) -r vcs-$(VERSION)
+
+vcs-$(VERSION).tar.gz: vcs-$(VERSION).tar
+	gzip -9 $<
+
+vcs-$(VERSION).tar.bz2: vcs-$(VERSION).tar
+	bzip2 -9 $<
+
+vcs-$(VERSION).tar.xz: vcs-$(VERSION).tar
+	xz -9 $<
 
 docs/vcs.1 docs/vcs.conf.5:
 	$(GMAKE) -C docs `basename $@`
