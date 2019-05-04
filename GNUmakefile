@@ -73,7 +73,7 @@ check-rel:
 dist: check-rel check-no-svn \
 		vcs-$(VER).tar.gz \
 		PKGBUILD-$(VER) \
-		$(addprefix vcs-$(VER), .gz .bz2 .bash) \
+		$(addprefix vcs-$(VER), .gz .xz .bash) \
 		CHANGELOG.gz CHANGELOG \
 		rpm deb srpm
 
@@ -92,6 +92,9 @@ vcs-$(VER).gz: $(srcdir)/vcs
 
 vcs-$(VER).bz2: $(srcdir)/vcs
 	bzip2 -c9 < vcs > $@
+
+vcs-$(VER).xz: $(srcdir)/vcs
+	xz -c9 < vcs > $@
 
 vcs-$(VER).bash: $(srcdir)/vcs
 	cat $< > $@
