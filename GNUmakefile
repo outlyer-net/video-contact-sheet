@@ -31,10 +31,10 @@ lint:
 
 tgz: vcs-$(VER).tar.gz
 
-vcs-$(VER).tar.gz: $(srcdir)/vcs-$(VER).tar.gz
+vcs-$(VER).tar.%: $(srcdir)/vcs-$(VER).tar.gz
 	mv $< $@
 
-$(srcdir)/vcs-$(VER).tar.gz:
+$(srcdir)/vcs-$(VER).tar.%:
 	make -C $(srcdir) distclean `basename $@`
 
 check-no-svn:

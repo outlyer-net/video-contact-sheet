@@ -26,14 +26,15 @@ all: docs/vcs.1 docs/vcs.conf.5 vcs.spec
 
 dist: vcs-$(VERSION).tar.gz
 
-vcs-$(VERSION).tar.gz: all
+# handles .tar.gz, .tar.bz2 and .tar.xz
+vcs-$(VERSION).tar.%: all
 	$(RM) -r vcs-$(VERSION) vcs-$(VERSION).tar.gz
 	mkdir vcs-$(VERSION)
 	tar c --exclude='.svn' \
 			--exclude='*.swp' --exclude='*.swo' \
 			--exclude='vcs-$(VERSION)' . |\
 		tar x -C vcs-$(VERSION)
-	tar zcf vcs-$(VERSION).tar.gz vcs-$(VERSION)/
+	tar cf $@ vcs-$(VERSION)/
 	$(RM) -r vcs-$(VERSION)
 
 docs/vcs.1 docs/vcs.conf.5:
