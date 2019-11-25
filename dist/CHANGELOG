@@ -2,6 +2,7 @@
     * BUGFIX: Actually use all alternative evasion offsets (Bugfix by Davide
               Cavestro) [#364]
     * BUGFIX: Display file sizes correctly when using mawk [#365]
+    * BUGFIX: Number of columns ignored on Bash 5.0 [#373]
 
 1.13.3 (2017-05-26):
     * Added codec IDs for h.265 and VP9

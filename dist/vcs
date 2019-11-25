@@ -29,8 +29,8 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 declare -r VERSION="1.13.4"
-declare -r RELEASE=1
-declare -ri PRERELEASE=1
+declare -r RELEASE=0
+declare -ri PRERELEASE=2
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
@@ -263,8 +263,9 @@ declare -i NUMCAPS=16				# Number of captures (~length/$INTERVAL)
 # This is the padding added to each capture.
 # Beware when changing this since extended set's alignment might break.
 # When shadows are enabled this is ignored since they already add padding.
+# Starting with Bash 5 uppercase $COLUMNS can't be safely set in the script.
 declare -i PADDING=2
-declare -i COLUMNS=2				# Number of output columns
+declare -i NUM_COLUMNS=2				# Number of output columns
 # This amount of time is *not* captured from the end of the video
 declare END_OFFSET=$DEFAULT_END_OFFSET
 # When set to 1 the signature won't contain the "Preview created by..." line
@@ -531,8 +532,9 @@ declare -ra OVERRIDE_MAP=(
 	"NUMCAPS:=:=:p"
 	"CAPTURES:NUMCAPS:alias:n" # Alias
 	"GETOPT::" # Note it makes no sense as command-line override
-	"COLUMNS:=:=:p"
+	"NUM_COLUMNS:=:=:p"
 	"COLS:COLUMNS:alias:p" # Traditional name
+	"COLUMNS:NUM_COLUMNS:alias:p" # Up to 1.13.3
 
 	"DISABLE_SHADOWS:=:=:b"
 	"DISABLE_TIMESTAMPS:=:=:b"
@@ -3866,10 +3868,10 @@ process() {
 
 		assert "[[ '"$n"' -gt 1 ]]"
 		(( n-- )) # There's an extra inc
-		if [[ $n -lt $COLUMNS ]]; then
+		if [[ $n -lt $NUM_COLUMNS ]]; then
 			numcols=$n
 		else
-			numcols=$COLUMNS
+			numcols=$NUM_COLUMNS
 		fi
 
 		inf "Composing highlights contact sheet..."
@@ -3910,10 +3912,10 @@ process() {
 
 	assert "[[ '"$n"' -gt 1 ]]"
 	(( n-- )) # there's an extra inc
-	if [[ $n -lt $COLUMNS ]]; then
+	if [[ $n -lt $NUM_COLUMNS ]]; then
 		numcols=$n
 	else
-		numcols=$COLUMNS
+		numcols=$NUM_COLUMNS
 	fi
 
 	inf "Composing standard contact sheet..."
@@ -3951,10 +3953,10 @@ process() {
 		done
 
 		(( n-- )) # There's an extra inc
-		if [[ $n -lt 'COLUMNS*2' ]]; then
+		if [[ $n -lt 'NUM_COLUMNS*2' ]]; then
 			numcols=$n
 		else
-			numcols=$(( $COLUMNS * 2 ))
+			numcols=$(( $NUM_COLUMNS * 2 ))
 		fi
 
 		inf "Composing extended contact sheet..."
@@ -4801,8 +4803,8 @@ while true ; do
 		-A|--autoaspect) ASPECT_RATIO=-1 ; USR_ASPECT_RATIO=-1 ;;
 		-c|--columns)
 			check_constraint 'columns' "$2" "$1" || die
-			COLUMNS="$2"
-			USR_COLUMNS="$2"
+			NUM_COLUMNS="$2"
+			USR_NUM_COLUMNS="$2"
 			shift
 			;;
 		-m|--manual) MANUAL_MODE=1 ;;
