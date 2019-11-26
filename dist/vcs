@@ -29,7 +29,7 @@
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
 declare -r VERSION="1.13.4"
-declare -r RELEASE=0
+declare -r RELEASE=1
 declare -ri PRERELEASE=2
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 

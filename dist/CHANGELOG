@@ -1,4 +1,4 @@
-1.13.4 (?):
+1.13.4 (2019-11-26):
     * BUGFIX: Actually use all alternative evasion offsets (Bugfix by Davide
               Cavestro) [#364]
     * BUGFIX: Display file sizes correctly when using mawk [#365]
