@@ -123,7 +123,7 @@ rpm: vcs-$(VER).tar.gz
 	test -d ~/rpmbuild/RPMS/noarch && ln -s ~/rpmbuild/RPMS/noarch/vcs-$(VER)-*.rpm . || true
 	test -d ~/RPM/RPMS/noarch && ln -s ~/RPM/RPMS/noarch/vcs-$(VER)-*.rpm . || true
 	@# Don't fail even if rpmlint does. It fails with no signature on Debian
-	-rpmlint vcs-$(VER)-*.rpm
+	-rpmlint --file=dist/rpm/rpmlint.conf vcs-$(VER)-*.rpm
 
 srpm: vcs-$(VER).tar.gz
 	rpmbuild --clean -ts vcs-$(VER).tar.gz
