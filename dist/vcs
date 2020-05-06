@@ -774,7 +774,7 @@ check_constraint() {
 		h) checkfn=is_pos_or_percent ; domain='positive numbers or percentages' ;;
 		f) checkfn=is_float_or_frac ; domain='positive numbers or fractions' ;;
 		D) checkfn=is_decoder ; domain='$DEC_FFMPEG or $DEC_MPLAYER' ;;
-		T) checkfn=is_tcfrom ; domain='$TC_INTERVAL or $TC_INTERVAL' ;;
+		T) checkfn=is_tcfrom ; domain='$TC_INTERVAL or $TC_NUMCAPS' ;;
 		V) checkfn=is_vlevel ; domain='verbosity levels ($V_.*)' ;;
 		I) checkfn=is_interv_or_percent ; domain='intervals or percentages' ;;
 		P) checkfn=is_profile_list ; domain='comma-separated profile names' ;;
