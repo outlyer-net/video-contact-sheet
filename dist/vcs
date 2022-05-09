@@ -1841,10 +1841,12 @@ init_feedback() {
 			# The method here is to check against some known terminals
 			# - pilot: 39 columns mono. Unknown on (some?) Linuxes
 			# - pc3: 80 columns, 8 colors. Unknown on some Linuxes
-			# - vt100: 80 columns, mono (-1 colors)
+			# - vt100: 80 columns, mono:
+			#     On FreeBSD:
+			#     Co fails silently on FreeBSD, colors (interpreted as columns) prints 80,
+			#     On Linux colors prints -1, columns prints 80
 			# NOTE: If the terminal type is unknown tput will error with a message
-			# TODO: Is vt100 working on FreeBSD
-			if [[ '-1' = "$(tput -T vt100 colors)" ]]; then
+			if [[ '80' != "$(tput -T vt100 colors)" ]] || ; then
 				# colors is interpreted literally
 				tputc=$(tput colors)
 			fi
