@@ -1846,7 +1846,7 @@ init_feedback() {
 			#     Co fails silently on FreeBSD, colors (interpreted as columns) prints 80,
 			#     On Linux colors prints -1, columns prints 80
 			# NOTE: If the terminal type is unknown tput will error with a message
-			if [[ '80' != "$(tput -T vt100 colors)" ]] || ; then
+			if [[ '80' != "$(tput -T vt100 colors)" ]] ; then
 				# colors is interpreted literally
 				tputc=$(tput colors)
 			fi
