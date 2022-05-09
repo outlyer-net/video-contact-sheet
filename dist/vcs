@@ -1831,19 +1831,24 @@ init_feedback() {
 		# - On Linux 'tput colors' is used to query it
 		# - On FreeBSD 'tput Co' is used to query it
 		# - Linux's tput will fail if it's passed 'Co'
-		# - FreeBSD's tput will interpret 'colors' as 'co' and print the number of columns
+		# - FreeBSD's tput will interpret 'colors' as 'co' and print the number
+		#   of columns (cols is terminfo's equivalent)
 		local tputc="-1"
-		if tput Co >/dev/null 2>&1 ; then
+		if tput Co >/dev/null ; then
 			tputc=$(tput Co) # termcap style
 		else
 			# Try to guess if it's parsing it as columns
 			# The method here is to check against some known terminals
-			# pilot: 39 columns mono, pc3: 80 columns, 8 colors
-			if [[ 8 = "$(tput -T pc3 colors)" ]]; then
+			# - pilot: 39 columns mono. Unknown on (some?) Linuxes
+			# - pc3: 80 columns, 8 colors. Unknown on some Linuxes
+			# - vt100: 80 columns, mono (-1 colors)
+			# NOTE: If the terminal type is unknown tput will error with a message
+			# TODO: Is vt100 working on FreeBSD
+			if [[ '-1' = "$(tput -T vt100 colors)" ]]; then
 				# colors is interpreted literally
 				tputc=$(tput colors)
 			fi
-		fi
+		fi 2>/dev/null
 		# Is it able to set colours?
 		# Linux's tput can be passed arguments to retrieve the correct escape sequences
 		# FreeBSD's tput can not

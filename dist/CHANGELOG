@@ -1,6 +1,8 @@
 1.13.5 (?):
     * BUGFIX: Fix error during blank frame evasion on newer ImageMagick [#378]
     * BUGFIX: Fix constraint check error message
+    * BUGFIX: Fix terminal capabilities check to enable color output on more
+              systems
 
 1.13.4 (2019-11-26):
     * BUGFIX: Actually use all alternative evasion offsets (Bugfix by Davide
