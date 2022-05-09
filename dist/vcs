@@ -5,7 +5,7 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007-2019 Toni Corvera
+# Copyright (C) 2007-2022 Toni Corvera
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -28,9 +28,9 @@
 #
 # The full changelog can be found at <http://p.outlyer.net/vcs/files/CHANGELOG>
 
-declare -r VERSION="1.13.4"
+declare -r VERSION="1.13.5"
 declare -r RELEASE=1
-declare -ri PRERELEASE=2
+declare -ri PRERELEASE=1
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
@@ -2580,7 +2580,13 @@ capture_and_evade() {
 			return $EX_SOFTWARE
 		fi
 		# **XXX: EXPERIMENTAL: Blank frame evasion, initial test implementation
-		local blank_val=$(convert "$ofile" -colorspace Gray -format '%[fx:image.mean*100]' info:)
+		# NOTE I was using image.mean up to 1.13.4, but that fails on
+		#  ImageMagick 7.1. mean seems to be supported in old versions as per
+		#  https://web.archive.org/web/20080323173044/https://imagemagick.org/script/escape.php
+		#  https://web.archive.org/web/20140416184234/https://imagemagick.org/script/escape.php
+		#  and in fact image.mean isn't listed there
+		#  The output is exactly the same with image.mean and mean.
+		local blank_val=$(convert "$ofile" -colorspace Gray -format '%[fx:mean*100]' info:)
 		local upper=$(( 100 - $BLANK_THRESHOLD ))
 		if fptest $blank_val -lt $BLANK_THRESHOLD || fptest $blank_val -gt $upper ; then
 			local msg="  Blank (enough) frame detected."
@@ -4366,7 +4372,7 @@ internal_integrity_test() {
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
 	# Don't colourise this
-	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2019 Toni Corvera"
+	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2022 Toni Corvera"
 }
 
 # Prints the list of options to stdout
