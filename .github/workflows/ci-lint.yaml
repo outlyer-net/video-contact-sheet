@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       shellcheck_tarball: shellcheck-stable.linux.x86_64.tar.xz
-      shellcheck_url: https://github.com/koalaman/shellcheck/releases/download/stable/${{ env.shellcheck_tarball }}
+      shellcheck_url: https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz
 
     steps:
       # Use the latest stable version directly instead of downstream
@@ -27,8 +27,12 @@ jobs:
       - run: wget ${{ env.shellcheck_url }}
       - run: tar xvf ${{ env.shellcheck_tarball }}
       # After checkout we won't necessarily be on the same directory
+      # Can't move to /usr/bin on GitHub
       - name: Ensure shellcheck is accessible
-        run: test -x shellcheck-stable/shellcheck && mv shellcheck-stable/shellcheck /usr/bin/
+        run: |
+          test -x shellcheck-stable/shellcheck
+          mkdir -p /usr/local/bin
+          mv shellcheck-stable/shellcheck /usr/local/bin/
     
       - name: Checkout repository
         uses: actions/checkout@v3
