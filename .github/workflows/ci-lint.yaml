@@ -1,0 +1,43 @@
+---
+
+name: Run linter
+
+on:
+  push:
+    paths:
+      - dist/vcs
+      - '*/workflows/*'
+  pull_request:
+  workflow_dispatch: # will allow running manually
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    env:
+      shellcheck_tarball: shellcheck-stable.linux.x86_64.tar.xz
+      shellcheck_url: https://github.com/koalaman/shellcheck/releases/download/stable/${{ env.shellcheck_tarball }}
+
+    steps:
+      # Use the latest stable version directly instead of downstream
+      #- run: apt-get update -y && apt-get install -y --no-install-recommends shellcheck
+      #- run: |
+      #    if ! type -p wget || ! type -p xz ; then
+      #      apt-get update -y && apt-get install -y --no-install-recommends wget xz-utils ;
+      #    fi
+      - run: wget ${{ env.shellcheck_url }}
+      - run: tar xvf ${{ env.shellcheck_tarball }}
+      # After checkout we won't necessarily be on the same directory
+      - name: Ensure shellcheck is accessible
+        run: test -x shellcheck-stable/shellcheck && mv shellcheck-stable/shellcheck /usr/bin/
+    
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # Provide alternative formats, the second one is more readable but doesn't display as
+      # well on the web UI
+      - name: Validate script (short)
+        continue-on-error: true
+        run: shellcheck -f gcc vcs
+
+      - name: Validate script (verbose)
+        run: shellcheck vcs
