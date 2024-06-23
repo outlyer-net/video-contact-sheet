@@ -149,7 +149,8 @@ declare -ri DEFAULT_EXT_FACTOR=4
 # see $VERBOSITY
 declare -ri V_ALL=5 V_NONE=-1 V_ERROR=1 V_WARN=2 V_INFO=3
 # Indexes in $VID
-declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7 ASPECT=8 VCNAME=9 ACNAME=10
+# Rotation refers to "virtual" rotation set in the header and applied by players
+declare -ri W=0 H=1 FPS=2 LEN=3 VCODEC=4 ACODEC=5 VDEC=6 CHANS=7 ASPECT=8 VCNAME=9 ACNAME=10 VROTATION=11
 # Exit codes, same numbers as /usr/include/sysexits.h
 declare -r EX_OK=0   EX_USAGE=64  EX_UNAVAILABLE=69  \
            EX_NOINPUT=66   EX_SOFTWARE=70   EX_CANTCREAT=73 \
@@ -2029,6 +2030,7 @@ mplayer_identify() {
 			mi[$ACNAME]="AMR-NB";
 		fi
 	fi
+	mi[$VROTATION]=$(grep ID_VID_0_ROTATE <<<"$MPLAYER_CACHE" | cut -d'=' -f2 | tail -1)
 
 	# Warn if a known pitfall is found
 	# NOTE: These messages are supressed if called from classic_identify
@@ -2145,7 +2147,7 @@ ffmpeg_identify() {
 	# XXX: FFmpeg detects mpeg1video in DVDs??
 
 	local fi=( ) vs= as= obs= vsid=
-	FFMPEG_CACHE=$("$FFPROBE_BIN" -i "$f" 2>&1 | egrep '(Stream|Duration:|^Seems)')
+	FFMPEG_CACHE=$("$FFPROBE_BIN" -i "$f" 2>&1 | egrep '(Stream|Duration:|^Seems|^[[:space:]]*rotate[[:space:]]*:)')
 	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
 	vs=$(sed -n -e '/Stream/!d' -e '/Video:/!d' -e '/Video:/p;q' <<<"$FFMPEG_CACHE")
 	as=$(sed -n -e '/Stream/!d' -e '/Audio:/!d' -e '/Audio:/p;q' <<<"$FFMPEG_CACHE")
@@ -2195,6 +2197,8 @@ ffmpeg_identify() {
 			# 5.1 was in the previous version (can't remember if it was empirical).
 		esac
 	fi
+	fi[$VROTATION]=$(grep 'rotate[[:space:]]*:' <<<"$FFMPEG_CACHE" | awk '{print $3}')
+
 	# Newer FPS...
 	# tbr/tbn/tbc explanation: tb stands for time base
 	#  n: AVStream, c: AVCodecContext, r: VideoStream (Guessed)
@@ -3538,6 +3542,7 @@ dump_idinfo() {
 	    Dimensions: ${MPLAYER_ID[$W]}x${MPLAYER_ID[$H]}
 	    FPS: ${MPLAYER_ID[$FPS]}
 	    Aspect: ${MPLAYER_ID[$ASPECT]}
+	    Rotation: ${MPLAYER_ID[$VROTATION]}
 	Audio
 	    Codec: ${MPLAYER_ID[$ACODEC]} (${MPLAYER_ID[$ACNAME]})
 	    Channels: ${MPLAYER_ID[$CHANS]}
@@ -3557,6 +3562,7 @@ EODUMP
 	    Dimensions: ${FFMPEG_ID[$W]}x${FFMPEG_ID[$H]}
 	    FPS: ${FFMPEG_ID[$FPS]}
 	    Aspect: ${FFMPEG_ID[$ASPECT]}
+	    Rotation: ${FFMPEG_ID[$VROTATION]}
 	Audio
 	    Codec: ${FFMPEG_ID[$ACODEC]} (${FFMPEG_ID[$ACNAME]})
 	    Channels: ${FFMPEG_ID[$CHANS]}
@@ -3578,6 +3584,7 @@ EODUMP
 	    Dimensions: ${VID[$W]}x${VID[$H]}
 	    FPS: ${VID[$FPS]}
 	    Aspect: ${VID[$ASPECT]}$xar
+	    Rotation: ${VID[$VROTATION]}
 	Audio
 	    Codec: ${VID[$ACODEC]} (${VID[$ACNAME]})
 	    Channels: ${VID[$CHANS]}
