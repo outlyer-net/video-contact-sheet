@@ -4,3 +4,5 @@
 *.mp4
 *.avi
 *.mkv
+
+devel_tmp/
