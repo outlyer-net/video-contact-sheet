@@ -2062,9 +2062,24 @@ mplayer_capture() {
 	ts=$(cut -d'.' -f1 <<<"$ts")
 	# Capture 5 frames and drop the first 4, fixes a weird bug/feature of mplayer ([M1])
 
+	local rotation=
+	if [[ -n "${VID[$VROTATION]}" ]]; then
+		# mplayer's rotate is 0-7: 0=90deg CW + flip, 1=90deg CW, 2=90deg CCW, 3=90deg CCW + flip
+		# 4-7 is only applied if the movie AR is portrait
+		# for VROTATION 90, 1 matches the rendered video, TODO: other variants are yet to be tested
+		case "${VID[$VROTATION]}" in
+			0) ;; # my samples don't print a rotation if there's none, but in case this is set for null rotation
+			90) rotation=1 ;;
+			*) # FIXME
+				rotation=0 ;;
+		esac
+		rotation="-vf-add rotate=$rotation"
+	fi
+
 	assert '[[ $DVD_MODE -ne 1 ]]'
+	# FIXME: Move to temporary dir to dump on faster media
 	"$MPLAYER_BIN" -sws 9 -ao null -benchmark -vo "png:z=0" -quiet \
-		   -frames 5 -ss "$ts" $4 "$f" >"$STDOUT" 2>"$STDERR"
+		   -frames 5 -ss "$ts" $4 $rotation "$f" >"$STDOUT" 2>"$STDERR"
 	rm -f 0000000{1,2,3,4}.png # Remove the first four
 	[[ ( -f $cap ) && ( '0' != "$(du "$cap" | cut -f1)" ) ]] && {
 		[[ $cap == "$o" ]] || mvq "$cap" "$o"
@@ -3836,14 +3851,23 @@ process() {
 
 	# Vidcap/Thumbnail height
 	local vidcap_height=$HEIGHT
+	local reference=${VID[$H]}
+	local flipped_ar=0
+	# if the video is rotated the "apparent" height will actually be the width
+	case "${VID[$VROTATION]}" in
+		90|-90|270|-270) # FIXME: What the actual possible values?
+			flipped_ar=1
+			reference=${VID[$W]}
+			;;
+	esac
 	if is_percentage "$HEIGHT" && [[ $HEIGHT != '100%' ]]; then
-		vidcap_height=$(rpercent ${VID[$H]} ${HEIGHT})
-		inf "Height: $HEIGHT of ${VID[$H]} = $vidcap_height"
+		vidcap_height=$(rpercent $reference ${HEIGHT})
+		inf "Height: $HEIGHT of $reference = $vidcap_height"
 	fi
 	if ! is_number "$vidcap_height" || [[ $vidcap_height -eq 0 ]]; then
-		vidcap_height=${VID[$H]}
+		vidcap_height=$reference
 	fi
-	# -2: DVD Mode autodetection => If ffmpeg/mplayer was unable autodetect, otherwise
+	# -2: DVD Mode autodetection => If ffmpeg/mplayer was unable to autodetect, otherwise
 	#+ honor detected value
 	if [[ $ASPECT_RATIO -eq -2 ]]; then
 		[[ ${VID[$ASPECT]} ]] && ASPECT_RATIO=0 || ASPECT_RATIO=-1
@@ -3853,6 +3877,9 @@ process() {
 			ASPECT_RATIO=$(awkexf "${VID[$ASPECT]}")
 		else
 			ASPECT_RATIO=$(awkexf "${VID[$W]} / ${VID[$H]}")
+			if [[ $flipped_ar -eq 1 ]]; then
+				ASPECT_RATIO=$(awkexf "1 / $ASPECT_RATIO")
+			fi
 		fi
 	elif [[ $ASPECT_RATIO -eq -1 ]]; then
 		ASPECT_RATIO=$(guess_aspect ${VID[$W]} ${VID[$H]})
