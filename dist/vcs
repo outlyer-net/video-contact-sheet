@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #
-# $Rev$ $Date$
-#
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
@@ -5203,7 +5201,7 @@ while true ; do
 		-D) # Repeat to just test consistency
 			if [[ $DEBUGGED -gt 0 ]]; then
 				pick_tools # Simulate a normal run
-				infplain '[ svn $Rev$ ]'
+				# infplain '[ svn $Rev$ ]'
 				# Even when empty, POSIXLY_CORRECT has an effect, check if it's
 				# set ([[BIS]])
 				if [[ -n ${POSIXLY_CORRECT+x} ]]; then
