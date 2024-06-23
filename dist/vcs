@@ -3,7 +3,7 @@
 # vcs
 # Video Contact Sheet *NIX: Generates contact sheets (previews) of videos
 #
-# Copyright (C) 2007-2022 Toni Corvera
+# Copyright (C) 2007-2024 Toni Corvera
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -4377,7 +4377,7 @@ internal_integrity_test() {
 # Prints the program identification to stderr
 show_vcs_info() { # Won't be printed in quiet modes
 	# Don't colourise this
-	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2022 Toni Corvera"
+	infplain "Video Contact Sheet *NIX v${VERSION}${SUBVERSION}, (c) 2007-2024 Toni Corvera"
 }
 
 # Prints the list of options to stdout
