@@ -378,6 +378,9 @@ declare -i DECODER=$DEC_FFMPEG
 declare MPLAYER_BIN=
 declare FFMPEG_BIN=
 
+# ImageMagick's convert command. Historically "convert", since IMv7 "magick"
+declare CONVERT_BIN=
+
 # When set to 1 the reported length by mplayer and ffmpeg won't be trusted
 # and will trigger some custom tests.
 # Enabled automatically on problematic files
@@ -1407,6 +1410,11 @@ imh() {
 	identify -format '%h' "$1"
 }
 
+# Wrapper around convert. TODO: Remove
+convert() {
+	"$CONVERT_BIN" "$@"
+}
+
 # Get the line height used for a certain font and size
 # line_height($1 = font, $2 = size)
 line_height() {
@@ -1587,6 +1595,13 @@ test_programs() {
 			(( retval++ ,1 ))
 		fi >/dev/null
 	done
+	# ImageMagick v7 deprecates convert in favour of just "magick"
+	local magick=$(type -pf magick)
+	if [[ -n "$magick" ]]; then
+		CONVERT_BIN="$magick"
+	else
+		CONVERT_BIN=$(type -pf convert)
+	fi
 	# TODO: [[x2]]
 
 	# Early exit
@@ -5129,6 +5144,12 @@ while true ; do
 					assert '[[ -x $MPLAYER_BIN ]]'
 					warn "[U] MPLAYER_BIN=$MPLAYER_BIN"
 					;;
+				# convert path
+				set_convert=*)
+					CONVERT_BIN=$(realpathr "$(cut -d'=' -f2<<<"$2")")
+					assert '[[ -x $CONVERT_BIN ]]'
+					warn "[U] CONVERT_BIN=$CONVERT_BIN"
+					;;
 				# Ignore one of the players
 				disable_ffmpeg)
 					FFMPEG_BIN=''
@@ -5252,6 +5273,7 @@ while true ; do
 					GETOPT:             $GETOPT
 					MPLAYER:            $MPLAYER_BIN
 					FFMPEG:             $FFMPEG_BIN
+					CONVERT:            $CONVERT_BIN
 					AWK:                $(realpathr $(type -pf awk))
 					sed:                $(realpathr $(type -pf sed))
 					POSIXLY_CORRECT:    $pc
