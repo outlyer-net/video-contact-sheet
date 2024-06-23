@@ -373,10 +373,11 @@ declare -i DECODER=$DEC_FFMPEG
 # Mplayer and FFmpeg binaries. Will be detected.
 # Don't set manually, if you need to override set the path temporarily, e.g.:
 # $ env PATH=/whatever:$PATH vcs ...
-# or use the undocumented (and unchecked!) appropriate option:
+# or use the corresponding undocumented option:
 # $ vcs --undocumented set_ffmpeg=/mypath/ffmpeg
 declare MPLAYER_BIN=
 declare FFMPEG_BIN=
+declare FFPROBE_BIN=
 
 # ImageMagick's convert command. Historically "convert", since IMv7 "magick"
 declare CONVERT_BIN=
@@ -1588,6 +1589,7 @@ test_programs() {
 
 	MPLAYER_BIN=$(type -pf mplayer) || true
 	FFMPEG_BIN=$(type -pf ffmpeg)   || true
+	FFPROBE_BIN=$(type -pf ffprobe) || true
 	check_avail_tools
 
 	# awk is required by SUS/POSIX but just to be sure...
@@ -2125,10 +2127,10 @@ ffmpeg_test_avail() {
 # Try to identify video properties using ffmpeg
 # Fills $FFMPEG_CACHE with the relevant output and $FFMPEG_ID with
 # the actual values. See identify_video()
-# mplayer_identify($1 = file)
+# ffmpeg_identify($1 = file)
 ffmpeg_identify() {
 	trace $@
-	assert '[[ $FFMPEG_BIN ]]'
+	assert '[[ $FFPROBE_BIN ]]'
 	local f="$1"
 	# DVD Devices *MUST* be mounted for the identifying process to even start
 	assert '[[ $DVD_MODE -eq 0 || $DVD_MOUNTP ]]'
@@ -2143,8 +2145,7 @@ ffmpeg_identify() {
 	# XXX: FFmpeg detects mpeg1video in DVDs??
 
 	local fi=( ) vs= as= obs= vsid=
-	# FFmpeg is relatively new, introduced in 1.0.99 so it needs more testing
-	FFMPEG_CACHE=$("$FFMPEG_BIN" -i "$f" -dframes 0 -vframes 0 /dev/null 2>&1 | egrep '(Stream|Duration:|^Seems)')
+	FFMPEG_CACHE=$("$FFPROBE_BIN" -i "$f" 2>&1 | egrep '(Stream|Duration:|^Seems)')
 	# Only the first streams of each type are honored. FIXME: Add multi-audio support.
 	vs=$(sed -n -e '/Stream/!d' -e '/Video:/!d' -e '/Video:/p;q' <<<"$FFMPEG_CACHE")
 	as=$(sed -n -e '/Stream/!d' -e '/Audio:/!d' -e '/Audio:/p;q' <<<"$FFMPEG_CACHE")
@@ -5161,6 +5162,12 @@ while true ; do
 					MPLAYER_BIN=$(realpathr "$(cut -d'=' -f2<<<"$2")")
 					assert '[[ -x $MPLAYER_BIN ]]'
 					warn "[U] MPLAYER_BIN=$MPLAYER_BIN"
+					;;
+				# ffprobe path
+				set_ffprobe=*)
+					FFPROBE_BIN=$(realpathr "$(cut -d'=' -f2<<<"$2")")
+					assert '[[ -x $FFPROBE_BIN ]]'
+					warn "[U] FFPROBE_BIN=$FFPROBE_BIN"
 					;;
 				# convert path
 				set_convert=*)

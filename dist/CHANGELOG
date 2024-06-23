@@ -1,4 +1,5 @@
 1.13.5 (?):
+    * Use ffprobe instead of ffmpeg for file identification purposes
     * BUGFIX: Fix error during blank frame evasion on newer ImageMagick [#378]
     * BUGFIX: Fix constraint check error message
     * BUGFIX: Fix terminal capabilities check to enable color output on more
