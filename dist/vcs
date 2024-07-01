@@ -28,7 +28,7 @@
 
 declare -r VERSION="1.13.5"
 declare -r RELEASE=0
-declare -ri PRERELEASE=1
+declare -ri PRERELEASE=2
 [ "$RELEASE" -eq 1 ] || declare -r SUBVERSION="-pre.${PRERELEASE}"
 
 set -e
@@ -380,8 +380,10 @@ declare MPLAYER_BIN=
 declare FFMPEG_BIN=
 declare FFPROBE_BIN=
 
-# ImageMagick's convert command. Historically "convert", since IMv7 "magick"
+# ImageMagick's tools. Historically discreet tools, since IMv7 "magick"
 declare CONVERT_BIN=
+declare MONTAGE_BIN=
+declare IDENTIFY_BIN=
 # Will be set to 1 if running with ImageMagick v7 (or higher)
 declare -i IM7=0
 
@@ -1414,9 +1416,15 @@ imh() {
 	identify -format '%h' "$1"
 }
 
-# Wrapper around convert. TODO: Remove
+# Wrappers around ImageMagick
 convert() {
 	"$CONVERT_BIN" "$@"
+}
+montage() {
+	"${MONTAGE_BIN[@]}" "$@"
+}
+identify() {
+	"${IDENTIFY_BIN[@]}" "$@"
 }
 
 # Get the line height used for a certain font and size
@@ -1582,6 +1590,42 @@ get_dvd_image_mountpoint() {
 	fi
 }
 
+# Configures ImageMagick-related variables to support both IMv6 and IMv6
+# setup_image_magick()
+setup_image_magick() {
+	# ImageMagick v7 deprecates convert in favour of just "magick"
+	local magick=$(type -pf magick) retval=0
+	for prog in convert montage identify ; do
+		if [[ -z "$magick" ]] && ! test_required_program $prog ; then
+			(( retval++ ,1 ))
+		fi
+	done
+	if [[ -n "$magick" ]]; then
+		CONVERT_BIN="$magick"
+		MONTAGE_BIN=( "$magick" montage )
+		IDENTIFY_BIN=( "$magick" identify )
+	else
+		CONVERT_BIN=$(type -pf convert)
+		MONTAGE_BIN=$(type -pf montage)
+		IDENTIFY_BIN=$(type -pf identify)
+	fi
+	local imver=$($CONVERT_BIN -version | head -1 | awk '{print $3}' | cut -d. -f1)
+	if [[ $imver -ge 7 ]]; then
+		IM7=1
+	fi
+	return $retval
+}
+
+# Tests the presence of a program and prints an error if missing
+# test_required_program(command_name)
+test_required_program() {
+	local command="$1"
+	if ! type -pf "$command" ; then
+		error "Required program $command not found!"
+		return 1
+	fi >/dev/null
+}
+
 # Tests the presence of all required programs
 # test_programs()
 test_programs() {
@@ -1594,35 +1638,26 @@ test_programs() {
 	check_avail_tools
 
 	# awk is required by SUS/POSIX but just to be sure...
-	for prog in convert montage identify mktemp grep egrep cut sed awk ; do
-		if ! type -pf "$prog" ; then
-			error "Required program $prog not found!"
+	for prog in mktemp grep egrep cut sed awk ; do
+		if ! test_required_program $prog ; then
 			(( retval++ ,1 ))
-		fi >/dev/null
+		fi
 	done
-	# ImageMagick v7 deprecates convert in favour of just "magick"
-	local magick=$(type -pf magick)
-	if [[ -n "$magick" ]]; then
-		CONVERT_BIN="$magick"
-	else
-		CONVERT_BIN=$(type -pf convert)
-	fi
-	local imver=$($CONVERT_BIN -version | head -1 | awk '{print $3}' | cut -d. -f1)
-	if [[ $imver -ge 7 ]]; then
-		IM7=1
-	fi
+	setup_image_magick
+	(( retval += $? ,1 ))
 
 	# TODO: [[x2]]
 
 	# Early exit
 	[[ $retval -eq 0 ]] || return $EX_UNAVAILABLE
 
+	# TODO: Fold into setup_image_magick()
 	# ImageMagick version. 6 is a must, I'm probably using some
 	# features that require a higher minor version
 	# Versions tested:
 	# * Fedora 9: IM 6.4.0
 	local ver
-	ver=$(convert -version | sed -n -e '1s/.*ImageMagick \([0-9][^ ]*\) .*$/\1/p;q')
+	ver=$("$CONVERT_BIN" -version | sed -n -e '1s/.*ImageMagick \([0-9][^ ]*\) .*$/\1/p;q')
 	if [[ $ver ]]; then
 		local verx=${ver//-/.}.0 # Extra .0 in case rev doesn't exist
 		local major=$(cut -d'.' -f1 <<<"$verx")
@@ -5333,6 +5368,8 @@ while true ; do
 					MPLAYER:            $MPLAYER_BIN
 					FFMPEG:             $FFMPEG_BIN
 					CONVERT:            $CONVERT_BIN
+					MONTAGE:            ${MONTAGE_BIN[@]}
+					IDENTIFY:           ${IDENTIFY_BIN[@]}
 					AWK:                $(realpathr $(type -pf awk))
 					sed:                $(realpathr $(type -pf sed))
 					POSIXLY_CORRECT:    $pc
